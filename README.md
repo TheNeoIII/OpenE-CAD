@@ -42,13 +42,25 @@ Der aktuelle Stand umfasst:
 
 ## Designvorschauen
 
-Die aktuellen Entwürfe liegen unter [`design/previews/`](design/previews/):
+### Haupteditor / Stromlaufplan
 
-1. Haupteditor / Stromlaufplan
-2. Einfügezentrum mit Eaton als Referenzhersteller
-3. Datenmanager und Projektprüfung
-4. Symbol- und Makroeditor
-5. Projektzentrum
+![OpenE-CAD Haupteditor](design/previews/01_haupteditor.webp)
+
+### Einfügezentrum / Eaton-Referenzkatalog
+
+![OpenE-CAD Einfügezentrum](design/previews/02_einfuegezentrum_eaton.webp)
+
+### Datenmanager / Projektprüfung
+
+![OpenE-CAD Datenmanager](design/previews/03_datenmanager_pruefung.webp)
+
+### Symbol- und Makroeditor
+
+![OpenE-CAD Symbol- und Makroeditor](design/previews/04_symbol_editor.webp)
+
+### Projektzentrum
+
+![OpenE-CAD Projektzentrum](design/previews/05_projektzentrum.webp)
 
 Die derzeitigen Bilder zeigen den ersten Light-Mode-Entwurf. Der Dark Mode wird nicht als nachträgliche Farbvariante behandelt, sondern als gleichwertiges Theme mit eigenen Kontrast-, Raster- und Auswahlzuständen.
 
