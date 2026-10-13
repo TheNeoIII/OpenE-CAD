@@ -14,9 +14,12 @@ OpenE-CAD ist als neue, eigenständige Open-Source-Anwendung für die Erstellung
 - mehrseitige Stromlaufpläne mit automatischen Querverweisen
 - Geräte, Funktionen, Anschlüsse und Artikel als echte Datenobjekte
 - leistungsfähige Navigatoren und tabellarische Datenbearbeitung
+- konfigurierbare Potential-/Leiterfarben, z. B. N standardmäßig blau
 - Herstellerkataloge und neutrale Importformate; Eaton ist als erster Referenzhersteller vorgesehen
+- automatisch generierbare und manuell korrigierbare Verteilerfrontansichten mit Reihen-/TE-Logik
 - automatische Auswertungen wie Stücklisten, Klemmen-, Kabel- und Verdrahtungslisten
-- langfristig Schaltschrankaufbau, SPS/I/O, Fertigungsdaten und weitere Automatisierung
+- vollständige technische Projekt-PDF mit Inhaltsverzeichnis, Stromlaufplänen, Aufbauplan und Auswertungen
+- langfristig erweitertes Schaltschrank-Engineering, SPS/I/O, Fertigungsdaten und weitere Automatisierung
 
 ## Aktueller Stand
 
@@ -31,6 +34,10 @@ Der aktuelle Stand umfasst:
 - Grundidee für Geräte-, Funktions- und Symbolmodell
 - erste Roadmap für MVP und spätere Ausbauphasen
 - Dark Mode als feste Designanforderung
+- Anforderungen an Verteilerfrontansicht / Aufbauplan
+- Anforderungen an farbige Potentialdarstellung
+- Zielbild für vollständige technische PDF-Projektdokumentation
+- v0 Design-Brief für einen unabhängigen UX-Gegenentwurf
 
 ## Dokumentation
 
@@ -38,7 +45,11 @@ Der aktuelle Stand umfasst:
 - [UI/UX- und Designkonzept](docs/DESIGN_CONCEPT.md)
 - [Funktionsumfang und Roadmap](docs/ROADMAP.md)
 - [Recherche und Referenzen](docs/RESEARCH_REFERENCES.md)
+- [Anforderungen aus privaten Referenzdokumenten – abstrahiert](docs/REFERENCE_DERIVED_REQUIREMENTS.md)
+- [v0 Design-Brief](docs/V0_DESIGN_BRIEF.md)
 - [Fortschritt](docs/PROGRESS.md)
+
+> Private Beispielpläne, die zur Analyse von Workflows und Ausgabeformaten verwendet werden, werden nicht im öffentlichen Repository gespeichert. Dokumentiert werden ausschließlich abstrahierte Produktanforderungen.
 
 ## Designvorschauen
 
@@ -76,9 +87,11 @@ Funktion / Anschlusslogik
 Gerät / Betriebsmittel
         ↓
 Artikel / Herstellerdaten
+        ↓
+Platzierungen / Auswertungen
 ```
 
-Ein Schütz ist damit nicht nur eine Zeichnung. Es ist ein Gerät mit BMK, Artikel, Spule, Leistungs- und Hilfskontakten, Anschlüssen, Querverweisen und Beziehungen zu Stückliste, Verdrahtung und Schaltschrankaufbau.
+Ein Schütz ist damit nicht nur eine Zeichnung. Es ist ein Gerät mit BMK, Artikel, Spule, Leistungs- und Hilfskontakten, Anschlüssen, Querverweisen, mechanischen Daten, einer möglichen Verteilerplatzierung und Beziehungen zu Stückliste, Verdrahtung und Aufbauplan.
 
 ## Lizenz
 
