@@ -1,5 +1,32 @@
 # Fortschritt
 
+## 14.10.2026 – Private Referenzpläne / Dokumentations- und Aufbauanforderungen
+
+### Erledigt
+
+- [x] private ELCAD-Beispieldokumentation analysiert
+- [x] private WSCAD-Beispieldokumentation analysiert
+- [x] entschieden, die Original-PDFs **nicht** in das öffentliche Repository hochzuladen
+- [x] nur abstrahierte, nicht personenbezogene Merkmale dokumentiert
+- [x] vollständige Projekt-PDF als Ziel aufgenommen
+- [x] Verteilerfrontansicht / Aufbauplan als eigener Funktionsbereich aufgenommen
+- [x] TE-basierte Geräteplatzierung je Reihe spezifiziert
+- [x] automatische Frontansicht aus Einbauort / Verteiler / Reihe / Gerätebreite vorgesehen
+- [x] manuelle Nachbearbeitung per Drag & Drop und Positionssperren vorgesehen
+- [x] farbige Potential-/Leiterdarstellung als UI-Anforderung aufgenommen
+- [x] Neutralleiter-Blau als sinnvolles Standardprofil aufgenommen
+- [x] PE- und Querverweisfarben als konfigurierbare visuelle Hilfen vorgesehen
+- [x] Material-/Bestelllisten, Klemmenpläne und Kabellisten als PDF-Auswertungen bestätigt
+- [x] Roadmap entsprechend angepasst
+- [x] v0 Design-Brief erstellt: `docs/V0_DESIGN_BRIEF.md`
+- [x] abstrahierte Anforderungen aus den privaten PDFs dokumentiert: `docs/REFERENCE_DERIVED_REQUIREMENTS.md`
+
+### Neue fachliche Entscheidung
+
+Die einfache **Verteilerfrontansicht** wird nicht erst mit dem späteren vollständigen Schaltschrank-Engineering umgesetzt. Sie wird als eigenständiger datenorientierter Funktionsbereich in Phase 2 vorgesehen.
+
+Das spätere vollständige 2D-Schaltschrankmodul erweitert diese Funktion um Montageplatte, Kabelkanäle, frei positionierbare Hutschienen und weitere Fertigungsdetails.
+
 ## 13.10.2026 – Projektstart / Konzeptphase
 
 ### Erledigt
@@ -36,6 +63,10 @@ Der derzeitige Schwerpunkt liegt absichtlich auf Produktdefinition, Datenmodell 
 
 - [ ] Dark-Mode-Mockup des Haupteditors erstellen
 - [ ] Designsystem mit Farben, Abständen, Typografie, Icons und Zuständen definieren
+- [ ] Potential-/Leiter-Farbprofil für Light/Dark definieren
+- [ ] Mockup für Verteilerfrontansicht / Aufbauplan erstellen
+- [ ] PDF-/Dokumentations-Export als UI-Workflow entwerfen
+- [ ] v0-Gegenentwurf auswerten und mit bestehendem Konzept vergleichen
 - [ ] Seitentypen definieren
 - [ ] Symbol-/Funktions-/Anschlussmodell vollständig spezifizieren
 - [ ] Leiter-/Verbindungsmodell spezifizieren
@@ -43,6 +74,8 @@ Der derzeitige Schwerpunkt liegt absichtlich auf Produktdefinition, Datenmodell 
 - [ ] BMK-/IEC-81346-orientierte Struktur festlegen
 - [ ] Querverweislogik spezifizieren
 - [ ] Artikel- und Herstellerdatenmodell spezifizieren
+- [ ] mechanische Artikeldaten / TE-Breite spezifizieren
+- [ ] Verteiler-/Reihen-/Platzierungsmodell spezifizieren
 - [ ] Klemmen-/Kabelmodell grob vorplanen, damit das MVP keine Sackgassen erzeugt
 - [ ] Undo/Redo-Architektur festlegen
 - [ ] Projektformat und Schema-Versionierung konkretisieren
@@ -75,6 +108,11 @@ Der derzeitige Schwerpunkt liegt absichtlich auf Produktdefinition, Datenmodell 
 
 | Datum | Entscheidung | Status |
 |---|---|---|
+| 14.10.2026 | Private Referenz-PDFs werden nicht öffentlich im Repository gespeichert | beschlossen |
+| 14.10.2026 | Verteilerfrontansicht mit TE-/Reihenlogik wird eigener Phase-2-Funktionsbereich | beschlossen |
+| 14.10.2026 | Frontansicht soll aus Gerätedaten automatisch generierbar und manuell korrigierbar sein | beschlossen |
+| 14.10.2026 | Potential-/Leiterfarben werden konfigurierbare visuelle Hilfen; N standardmäßig blau | beschlossen |
+| 14.10.2026 | vollständige technische Projektdokumentation als zusammenhängende PDF ist Ziel | beschlossen |
 | 13.10.2026 | Eigenständige Neuentwicklung statt Port/Fork eines Referenzprogramms | beschlossen |
 | 13.10.2026 | Rust als primäre Sprache | beschlossen |
 | 13.10.2026 | Datenorientiertes Modell statt reiner Grafikobjekte | beschlossen |
