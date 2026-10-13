@@ -1,6 +1,6 @@
 # Funktionsumfang und Roadmap
 
-Stand: 13.10.2026
+Stand: 14.10.2026
 
 Die Roadmap ist bewusst fachlich und nicht nach Kalenderdaten gegliedert. Erst nach Abschluss der Produktspezifikation werden konkrete Releases und Meilensteine terminiert.
 
@@ -11,7 +11,9 @@ Status: **in Arbeit**
 - Produktvision und Abgrenzung
 - UI/UX-Konzept
 - Light-/Dark-Mode-Konzept
+- Farbsystem für Potentiale, Leiter und Querverweise
 - Datenmodell für Projekt, Seite, Gerät, Funktion, Anschluss, Verbindung und Artikel
+- mechanische Gerätedaten für Verteilerfrontansichten berücksichtigen
 - Dateiformat `.oecad`
 - Symbolformat
 - Regel-/Prüfengine konzipieren
@@ -50,6 +52,7 @@ Ziel: Ein echtes mehrseitiges Projekt kann vollständig erstellt, gespeichert, g
 - Anschlüsse
 - BMK
 - Potentiale
+- konfigurierbare Potential-/Leiterfarben
 - automatische Querverweise
 - automatische Nummerierung
 - Platzierungsreferenzen
@@ -67,15 +70,39 @@ Ziel: Ein echtes mehrseitiges Projekt kann vollständig erstellt, gespeichert, g
 - manueller Artikelstamm
 - Eaton-Starterdaten als Referenz / Importtest
 - Geräteartikel mit Funktionsschablonen
+- mechanische Grunddaten wie Breite in TE und mm vorbereiten
 
 ### Ausgabe
-- PDF
+- PDF als hochwertige Vektorausgabe wo möglich
+- farbiger und monochromer PDF-Export
 - SVG
 - PNG optional
 - Stückliste CSV
 - Betriebsmittelliste
+- frei definierbare Titelblöcke / Seitenrahmen
 
 ## Phase 2 – professionelles Engineering
+
+### Verteilerfrontansicht / Aufbauplan
+
+Ziel: Installationsverteiler können datenorientiert als Frontansicht dokumentiert werden, ohne bereits ein vollständiges 3D-Schaltschrankmodul zu benötigen.
+
+- Verteiler / Gehäuse mit Abmessungen
+- Reihen / Hutschienen
+- TE-Kapazität je Reihe
+- Gerätebreite in TE und mm
+- Zuordnung über Einbauort / Verteiler / Reihe
+- automatische Generierung aus Projektdaten
+- Anzeige belegter / freier TE
+- automatische Prüfung auf Überbelegung
+- Liste noch nicht platzierter Geräte
+- Drag & Drop innerhalb und zwischen Reihen
+- Reserve-/Blindfelder
+- Positionen sperren
+- automatische Neuplatzierung nur ungesperrter Geräte
+- BMK-/Artikelbeschriftung
+- Navigation Frontansicht ↔ Stromlaufplan
+- Ausgabe der Frontansicht als Projektseite / PDF
 
 ### Klemmen
 - Klemmenleisten
@@ -118,12 +145,18 @@ Ziel: Ein echtes mehrseitiges Projekt kann vollständig erstellt, gespeichert, g
 
 ### Dokumentation
 - Inhaltsverzeichnis
+- technische Projektdaten / Spezifikationsseiten
+- Verteiler-/Schrankspezifikationen
+- Verteilerfrontansicht / Aufbauplan
 - Betriebsmittelliste
+- Material-/Gerätestückliste
+- Bestellliste mit Artikelaggregation
 - Klemmenplan
 - Kabelliste
 - Verdrahtungsliste
-- Artikelliste / BOM
 - automatisch erzeugte Folgeseiten
+- konfigurierbare Zusammenstellung der vollständigen Projekt-PDF
+- perspektivisch klickbare Inhaltsverzeichnis- und Querverweise
 
 ### Mehrsprachigkeit
 - Projektsprachen
@@ -131,15 +164,18 @@ Ziel: Ein echtes mehrseitiges Projekt kann vollständig erstellt, gespeichert, g
 - mehrsprachige Texte
 - Austauschformate
 
-## Phase 3 – Schaltschrank und Fertigung
+## Phase 3 – erweiterter Schaltschrank und Fertigung
+
+Die Phase-2-Verteilerfrontansicht wird hier zum vollständigen 2D-Schaltschrank-Engineering erweitert.
 
 ### 2D-Schaltschrankaufbau
 - Montageplatte
-- Hutschienen
+- frei positionierbare Hutschienen
 - Kabelkanäle
-- Geräteabmessungen
+- detaillierte Geräteabmessungen
 - Kollisions-/Platzprüfung
 - Montageflächen
+- Türen / Seitenwände / Montageebenen
 
 ### Routing / Fertigung
 - Drahtlängen
