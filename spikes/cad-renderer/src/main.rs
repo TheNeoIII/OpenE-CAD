@@ -15,7 +15,10 @@ use winit::{
 
 const PAGE_W_MM: f32 = 420.0;
 const PAGE_H_MM: f32 = 297.0;
-const HIT_RADIUS_PX: f32 = 9.0;
+const HIT_RADIUS_PX: f32 = 11.0;
+const JUNCTION_RADIUS_PX: f32 = 3.5;
+const JUNCTION_HOVER_RADIUS_PX: f32 = 6.0;
+const JUNCTION_SELECTED_RADIUS_PX: f32 = 7.0;
 const JUNCTIONS: [[f32; 2]; 6] = [
     [85.0, 35.0],
     [155.0, 35.0],
@@ -400,7 +403,7 @@ impl State {
         let density = Density::Reference;
         let grid_visible = true;
         let page_vertices = build_page_vertices(theme);
-        let line_vertices = build_line_vertices(theme, density, grid_visible, None, None);
+        let line_vertices = build_line_vertices(theme, density, grid_visible);
         let cached_page_buffer = create_vertex_buffer(
             &device,
             "OpenE-CAD spike cached page vertices",
@@ -453,13 +456,7 @@ impl State {
 
     fn rebuild_cached_scene(&mut self) {
         let page_vertices = build_page_vertices(self.theme);
-        let line_vertices = build_line_vertices(
-            self.theme,
-            self.density,
-            self.grid_visible,
-            self.hovered_junction,
-            self.selected_junction,
-        );
+        let line_vertices = build_line_vertices(self.theme, self.density, self.grid_visible);
         self.cached_page_buffer = create_vertex_buffer(
             &self.device,
             "OpenE-CAD spike cached page vertices",
@@ -536,13 +533,7 @@ impl State {
 
         let temporary_buffers = if matches!(self.cache_mode, CacheMode::RebuildEveryFrame) {
             let page_vertices = build_page_vertices(self.theme);
-            let line_vertices = build_line_vertices(
-                self.theme,
-                self.density,
-                self.grid_visible,
-                self.hovered_junction,
-                self.selected_junction,
-            );
+            let line_vertices = build_line_vertices(self.theme, self.density, self.grid_visible);
             Some((
                 create_vertex_buffer(
                     &self.device,
@@ -572,6 +563,24 @@ impl State {
                 self.cached_line_vertex_count,
             ),
         };
+
+        // Interaction markers deliberately live in a separate overlay layer. Their radius is
+        // defined in physical screen pixels, then converted to world millimetres for this frame.
+        // This keeps hover/selection handles usable at every zoom without invalidating the
+        // cached static CAD geometry.
+        let overlay_vertices = build_junction_overlay_vertices(
+            self.theme,
+            self.camera,
+            self.size(),
+            self.hovered_junction,
+            self.selected_junction,
+        );
+        let overlay_count = overlay_vertices.len() as u32;
+        let overlay_buffer = create_vertex_buffer(
+            &self.device,
+            "OpenE-CAD spike junction overlay vertices",
+            &overlay_vertices,
+        );
 
         let mut encoder = self
             .device
@@ -606,6 +615,9 @@ impl State {
             pass.set_pipeline(&self.line_pipeline);
             pass.set_vertex_buffer(0, line_buffer.slice(..));
             pass.draw(0..line_count, 0..1);
+
+            pass.set_vertex_buffer(0, overlay_buffer.slice(..));
+            pass.draw(0..overlay_count, 0..1);
         }
 
         self.queue.submit([encoder.finish()]);
@@ -613,7 +625,7 @@ impl State {
         self.queue.present(frame);
 
         if let Some(stats) = self.frame_meter.tick() {
-            let segments = line_count / 2;
+            let segments = (line_count + overlay_count) / 2;
             let hovered = self
                 .hovered_junction
                 .map(|i| format!("J{}", i + 1))
@@ -641,7 +653,7 @@ impl State {
         let radius_mm = HIT_RADIUS_PX / self.camera.pixels_per_mm(size).max(0.000_1);
         let radius_sq = radius_mm * radius_mm;
 
-        let new_hovered = JUNCTIONS
+        self.hovered_junction = JUNCTIONS
             .iter()
             .enumerate()
             .filter_map(|(index, point)| {
@@ -652,11 +664,6 @@ impl State {
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(index, _)| index);
-
-        if new_hovered != self.hovered_junction {
-            self.hovered_junction = new_hovered;
-            self.rebuild_cached_scene();
-        }
     }
 
     fn handle_cursor(&mut self, position: PhysicalPosition<f64>) {
@@ -688,10 +695,7 @@ impl State {
     }
 
     fn select_hovered(&mut self) {
-        if self.selected_junction != self.hovered_junction {
-            self.selected_junction = self.hovered_junction;
-            self.rebuild_cached_scene();
-        }
+        self.selected_junction = self.hovered_junction;
     }
 
     fn set_theme(&mut self, theme: Theme) {
@@ -790,7 +794,11 @@ impl ApplicationHandler for App {
     }
 }
 
-fn create_vertex_buffer(device: &wgpu::Device, label: &'static str, vertices: &[Vertex]) -> wgpu::Buffer {
+fn create_vertex_buffer(
+    device: &wgpu::Device,
+    label: &'static str,
+    vertices: &[Vertex],
+) -> wgpu::Buffer {
     device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some(label),
         contents: bytemuck::cast_slice(vertices),
@@ -813,20 +821,40 @@ fn build_page_vertices(theme: Theme) -> Vec<Vertex> {
     .collect()
 }
 
-fn build_line_vertices(
+fn build_line_vertices(theme: Theme, density: Density, grid_visible: bool) -> Vec<Vertex> {
+    let lines = build_scene(theme, density, grid_visible);
+    line_segments_to_vertices(lines)
+}
+
+fn build_junction_overlay_vertices(
     theme: Theme,
-    density: Density,
-    grid_visible: bool,
+    camera: Camera,
+    size: PhysicalSize<u32>,
     hovered_junction: Option<usize>,
     selected_junction: Option<usize>,
 ) -> Vec<Vertex> {
-    let lines = build_scene(
-        theme,
-        density,
-        grid_visible,
-        hovered_junction,
-        selected_junction,
-    );
+    let neutral = theme.neutral();
+    let hover_color = [0.98, 0.68, 0.08];
+    let selected_color = [1.00, 0.36, 0.08];
+    let pixels_per_mm = camera.pixels_per_mm(size).max(0.000_1);
+    let mut lines = Vec::with_capacity(JUNCTIONS.len() * 16);
+
+    for (index, point) in JUNCTIONS.iter().copied().enumerate() {
+        let (radius_px, color) = if selected_junction == Some(index) {
+            (JUNCTION_SELECTED_RADIUS_PX, selected_color)
+        } else if hovered_junction == Some(index) {
+            (JUNCTION_HOVER_RADIUS_PX, hover_color)
+        } else {
+            (JUNCTION_RADIUS_PX, neutral)
+        };
+        let radius_mm = radius_px / pixels_per_mm;
+        lines.extend(circle_lines(point, radius_mm, color));
+    }
+
+    line_segments_to_vertices(lines)
+}
+
+fn line_segments_to_vertices(lines: Vec<LineSegment>) -> Vec<Vertex> {
     let mut vertices = Vec::with_capacity(lines.len() * 2);
     for line in lines {
         vertices.push(Vertex {
@@ -860,21 +888,13 @@ fn circle_lines(center: [f32; 2], radius: f32, color: [f32; 3]) -> Vec<LineSegme
     lines
 }
 
-fn build_scene(
-    theme: Theme,
-    density: Density,
-    grid_visible: bool,
-    hovered_junction: Option<usize>,
-    selected_junction: Option<usize>,
-) -> Vec<LineSegment> {
+fn build_scene(theme: Theme, density: Density, grid_visible: bool) -> Vec<LineSegment> {
     let neutral = theme.neutral();
     let muted = theme.muted();
     let n_blue = [0.09, 0.46, 0.82];
     let pe_green = [0.12, 0.55, 0.29];
     let control_red = [0.83, 0.25, 0.28];
     let cross_ref = [0.92, 0.43, 0.08];
-    let hover_color = [0.98, 0.68, 0.08];
-    let selected_color = [1.00, 0.36, 0.08];
 
     let mut lines = Vec::new();
 
@@ -885,7 +905,11 @@ fn build_scene(
             lines.push(line(
                 [x, 5.0],
                 [x, PAGE_H_MM - 5.0],
-                if major { theme.grid_major() } else { theme.grid_minor() },
+                if major {
+                    theme.grid_major()
+                } else {
+                    theme.grid_minor()
+                },
             ));
             x += 10.0;
         }
@@ -896,7 +920,11 @@ fn build_scene(
             lines.push(line(
                 [5.0, y],
                 [PAGE_W_MM - 5.0, y],
-                if major { theme.grid_major() } else { theme.grid_minor() },
+                if major {
+                    theme.grid_major()
+                } else {
+                    theme.grid_minor()
+                },
             ));
             y += 10.0;
         }
@@ -940,17 +968,6 @@ fn build_scene(
         let x = 255.0 + i as f32 * 8.0;
         lines.push(line([x, 200.0], [x, 213.0], neutral));
         lines.push(line([x - 2.0, 203.0], [x + 2.0, 210.0], neutral));
-    }
-
-    for (index, point) in JUNCTIONS.iter().copied().enumerate() {
-        let (radius, color) = if selected_junction == Some(index) {
-            (3.0, selected_color)
-        } else if hovered_junction == Some(index) {
-            (2.5, hover_color)
-        } else {
-            (1.35, neutral)
-        };
-        lines.extend(circle_lines(point, radius, color));
     }
 
     if matches!(density, Density::Stress) {
