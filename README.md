@@ -24,7 +24,9 @@ OpenE-CAD ist als neue, eigenständige Open-Source-Anwendung für die Erstellung
 
 ## Aktueller Stand
 
-**Phase: Produktspezifikation abgeschlossen genug für technische Spikes – noch kein Produktivcode.**
+**Phase: P1 technische Evaluierung – noch kein Produktivcode.**
+
+P0 ist fachlich abgeschlossen. Die Projektlizenz ist verbindlich auf **MPL-2.0** festgelegt. Die ersten isolierten Rust-Spikes wurden gestartet.
 
 Der aktuelle Stand umfasst inzwischen:
 
@@ -44,11 +46,13 @@ Der aktuelle Stand umfasst inzwischen:
 - offene `.oecad`-Containerstruktur mit Schema-Versionierung, Migrationen und atomarem Speichern
 - Seitentypen, Titelblock-/Dokumentstruktur und generierte Auswertungsseiten
 - sichere deklarative Titelblock-/Template-Ausdrücke statt eingebetteter Scripts
-- UUIDv7 als persistente Objekt-ID und `i64`-µm als persistente CAD-Koordinatenbasis festgelegt
-- technische Rust-Zielarchitektur und reproduzierbarer Spike-Plan für UI, wgpu-Renderer, Tabellen, Persistenz und DPI vorbereitet
-- vorläufige Lizenzstrategie; MPL-2.0 ist derzeit bevorzugt, endgültige Entscheidung steht noch aus
+- UUIDv7 als persistente Objekt-ID und `i64`-µm als persistente CAD-Koordinatenbasis
+- technische Rust-Zielarchitektur und reproduzierbarer Spike-Plan
+- **MPL-2.0 als Projektlizenz**
+- S1 Core-Geometry-Spike mit Fixed-Point-Geometrie, UUIDv7, Snap, Bounds und JSON-Roundtrip
+- S2 wgpu-CAD-Renderer-Spike mit LineList-Testszene, Pan/Zoom, Themes und Stressmodus
 
-Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive Designreferenz. Die eigentliche Anwendung bleibt als eigenständige Rust-Neuentwicklung geplant.
+Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive Designreferenz. Die eigentliche Anwendung bleibt eine eigenständige Rust-Neuentwicklung.
 
 ## Dokumentation
 
@@ -81,7 +85,8 @@ Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive
 - [Core-Entscheidungen: UUIDv7, Fixed-Point-Koordinaten und TE](docs/CORE_TECH_DECISIONS.md)
 - [Technische Rust-Zielarchitektur](docs/TECHNICAL_ARCHITECTURE.md)
 - [Technischer Spike-Plan](docs/TECHNICAL_SPIKE_PLAN.md)
-- [Lizenzstrategie](docs/LICENSE_STRATEGY.md)
+- [Lizenzstrategie und Entscheidung](docs/LICENSE_STRATEGY.md)
+- [Technische Spikes](spikes/README.md)
 
 ### Referenzen / Designiteration
 
@@ -158,6 +163,21 @@ Für persistente Projektobjekte ist **UUIDv7** vorgesehen. CAD- und Modellgeomet
 
 Der CAD-Renderer soll unabhängig vom UI-Framework bleiben; **wgpu** ist der aktuelle Renderer-Favorit für den technischen Spike. Für die Desktop-UI werden **Slint, egui und iced** anhand derselben v0-Referenzansicht und identischer Abnahmekriterien verglichen.
 
+## Technische Spikes
+
+Der Code unter `spikes/` ist bewusst experimentell und noch kein Produktivcode.
+
+Aktuell:
+
+```text
+S1 core-geometry   UUIDv7 / µm-Fixed-Point / Snap / Bounds / Roundtrip
+S2 cad-renderer    wgpu / LineList / Pan+Zoom / Themes / Stressszene
+```
+
+Verwendete Renderer-Version im ersten S2-Spike: `wgpu 30.0.1`; Fensterintegration: `winit 0.30.13`.
+
 ## Lizenz
 
-Noch nicht endgültig festgelegt. [Die aktuelle Entscheidungsvorlage](docs/LICENSE_STRATEGY.md) empfiehlt vorläufig **MPL-2.0** als guten Kompromiss aus offenem Core und Integrations-/Plugin-Flexibilität; **GPL-3.0-or-later** bleibt die Alternative für stärkeren Copyleft-Schutz. Die endgültige Entscheidung erfolgt vor dem ersten Produktivcode.
+OpenE-CAD steht unter der **Mozilla Public License 2.0 (MPL-2.0)**. Siehe [`LICENSE`](LICENSE) und [Lizenzentscheidung](docs/LICENSE_STRATEGY.md).
+
+Hersteller-/Katalogdaten und ggf. separat bereitgestellte Bibliotheken können eigenen Nutzungs- und Weiterverteilungsbedingungen unterliegen und werden daher lizenzrechtlich getrennt vom Programmcode behandelt.
