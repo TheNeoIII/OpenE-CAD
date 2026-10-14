@@ -1,0 +1,35 @@
+name: Renderer preview
+
+on:
+  push:
+    paths:
+      - "spikes/Cargo.toml"
+      - "spikes/cad-renderer/**"
+      - ".github/workflows/renderer-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-preview:
+    name: Build Windows S2 preview
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release renderer spike
+        run: cargo build --manifest-path spikes/Cargo.toml -p opene-cad-cad-renderer-spike --release
+
+      - name: Upload renderer preview
+        uses: actions/upload-artifact@v7
+        with:
+          name: OpenE-CAD-S2-renderer-windows
+          path: spikes/target/release/opene-cad-cad-renderer-spike.exe
+          if-no-files-found: error
+          retention-days: 14
