@@ -23,7 +23,7 @@ OpenE-CAD ist als neue, eigenständige Open-Source-Anwendung für die Erstellung
 
 ## Aktueller Stand
 
-**Phase: Produktspezifikation / Architekturvorbereitung – noch kein Produktivcode.**
+**Phase: Produktspezifikation abgeschlossen genug für technische Spikes – noch kein Produktivcode.**
 
 Der aktuelle Stand umfasst inzwischen:
 
@@ -41,6 +41,8 @@ Der aktuelle Stand umfasst inzwischen:
 - Command-/Transaktions-/Undo-/Recovery-Grundarchitektur
 - offene `.oecad`-Containerstruktur mit Schema-Versionierung, Migrationen und atomarem Speichern
 - Seitentypen, Titelblock-/Dokumentstruktur und generierte Auswertungsseiten
+- UUIDv7 als persistente Objekt-ID und `i64`-µm als persistente CAD-Koordinatenbasis festgelegt
+- technische Rust-Zielarchitektur und reproduzierbarer Spike-Plan für UI, wgpu-Renderer, Tabellen, Persistenz und DPI vorbereitet
 - vorläufige Lizenzstrategie; MPL-2.0 ist derzeit bevorzugt, endgültige Entscheidung steht noch aus
 
 Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive Designreferenz. Die eigentliche Anwendung bleibt als eigenständige Rust-Neuentwicklung geplant.
@@ -68,6 +70,12 @@ Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive
 - [Projektprüfung und Regel-Engine](docs/VALIDATION_MODEL.md)
 - [Undo/Redo-, Command- und Transaktionsmodell](docs/UNDO_TRANSACTION_MODEL.md)
 - [`.oecad` Projektformat und Schema-Versionierung](docs/PROJECT_FORMAT.md)
+
+### Technische Architektur / Vorbereitung
+
+- [Core-Entscheidungen: UUIDv7, Fixed-Point-Koordinaten und TE](docs/CORE_TECH_DECISIONS.md)
+- [Technische Rust-Zielarchitektur](docs/TECHNICAL_ARCHITECTURE.md)
+- [Technischer Spike-Plan](docs/TECHNICAL_SPIKE_PLAN.md)
 - [Lizenzstrategie](docs/LICENSE_STRATEGY.md)
 
 ### Referenzen / Designiteration
@@ -138,6 +146,12 @@ Darstellungen / Platzierungen
 ```
 
 Ein Schütz ist damit nicht nur eine Zeichnung. Es ist ein Gerät mit stabiler interner ID, BMK, Artikel, Spule, Leistungs- und Hilfskontakten, Anschlüssen, Querverweisen, mechanischen Daten, einer möglichen Verteilerplatzierung und Beziehungen zu Stückliste, Verdrahtung und Aufbauplan.
+
+## Technische Richtung
+
+Für persistente Projektobjekte ist **UUIDv7** vorgesehen. CAD- und Modellgeometrie wird deterministisch in ganzzahligen **µm (`i64`)** gespeichert; Teilungseinheiten werden separat als ganzzahlige milli-TE geführt. Bildschirmkoordinaten und GPU-Geometrie bleiben davon getrennt.
+
+Der CAD-Renderer soll unabhängig vom UI-Framework bleiben; **wgpu** ist der aktuelle Renderer-Favorit für den technischen Spike. Für die Desktop-UI werden **Slint, egui und iced** anhand derselben v0-Referenzansicht und identischer Abnahmekriterien verglichen.
 
 ## Lizenz
 
