@@ -1,6 +1,6 @@
 # Fortschritt
 
-Stand: 14.10.2026
+Stand: 15.10.2026
 
 ## Aktueller Status
 
@@ -77,26 +77,30 @@ Details: `spikes/cad-renderer/results.md`
 
 ### Junction / Interaction Overlay
 
-Im realen Windows-Test wurde ein Zoomfehler gefunden:
+Gefundener Fehler:
 
 - sichtbarer Junction-Kreis war in Welt-mm definiert
 - Hit-Radius war in Bildschirm-Pixeln definiert
 - bei starkem Zoom wurde der sichtbare Kreis größer als die anklickbare Zone
 
-Korrektur:
+Korrektur und reale Gegenprüfung:
 
 - [x] Junction-Marker aus statischer CAD-Geometrie entfernt
 - [x] eigener Interaction-Overlay-Layer
 - [x] sichtbare Markergröße pixelkonstant
 - [x] Hit-Radius pixelkonstant und etwas größer als der Marker
 - [x] statische Weltgeometrie bleibt unabhängig davon gecacht
-- [x] korrigierte Version unter Ubuntu und Windows erfolgreich geprüft
+- [x] korrigierte Version unter Ubuntu und Windows geprüft
+- [x] reale Sichtprüfung bei ca. 10 % Zoom
+- [x] reale Sichtprüfung bei ca. 1.837 % Zoom
+- [x] Marker bleiben in beiden Extremen gleich groß
+- [x] Hover/Auswahl bleiben unabhängig vom Zoom nutzbar
 
-Die daraus abgeleitete allgemeine Layer-Architektur steht in `docs/RENDER_LAYERS.md`.
+Die allgemeine Layer-Architektur steht in `docs/RENDER_LAYERS.md`.
 
 ## S2 – Technischer Text
 
-Separater Textspike:
+Verwendete Linie:
 
 ```text
 glyphon 0.12.0
@@ -114,8 +118,32 @@ wgpu 30.x
 - [x] `cargo check` unter Ubuntu erfolgreich
 - [x] `cargo check` unter Windows erfolgreich
 - [x] Windows-Release-Build automatisiert
+- [x] reale Windows-Sichtprüfung in Light und Dark
+- [x] 9 px als gut lesbare technische Mindestgröße bestätigt
+- [x] 8 px noch erkennbar, aber nicht als reguläre Zielgröße geeignet
+
+Vorläufige Darstellungsregel:
+
+- **regulär sichtbare technische Texte sollen möglichst nicht unter 9 px Screen-Höhe fallen**
+- kleinere Welttexte werden künftig über LOD ausgeblendet/vereinfacht
+- UI-Text bleibt davon getrennt in screen-space
 
 Details: `spikes/text-renderer/README.md`
+
+### CAD + Text integriert
+
+Neu:
+
+- [x] `glyphon` als Abhängigkeit des CAD-Renderer-Spikes
+- [x] kombinierter Target `spikes/cad-renderer/src/bin/integrated_text.rs`
+- [x] BMK und Anschlussbezeichnungen besitzen Papier-/Weltpositionen
+- [x] Potentialtexte besitzen semantische Farben
+- [x] Querverweistexte eingebunden
+- [x] Textanker werden über dieselbe Kamera World → Screen transformiert
+- [x] Textgröße wird aus mm × Pixel/mm abgeleitet
+- [x] erste LOD-Schwellen über minimale Screen-Pixelgröße
+- [x] Junction-/Selection-Handles bleiben separat pixelkonstant
+- [x] Zoom-Presets 25 %, 100 %, 400 % zum Gegenprüfen eingebaut
 
 ## CI / Preview
 
@@ -124,21 +152,21 @@ Details: `spikes/text-renderer/README.md`
 - [x] CAD-Renderer `cargo check`
 - [x] Text-Renderer `cargo check`
 - [x] Windows Release-Preview
-- [x] Preview-Artefakt enthält nun CAD- und Text-Renderer
+- [x] Preview enthält CAD-Renderer und Standalone-Textspike
+- [x] Workflow um integrierten CAD+Text-Build erweitert
 
 ---
 
 # Nächste P1-Schritte
 
-1. pixelkonstante Junction-Marker auf realer Windows-Hardware gegenprüfen
-2. technischen Text-Preview visuell bewerten, insbesondere 8–10 px und Light/Dark
-3. `glyphon` anschließend in den CAD-Renderer integrieren und Text in Papier-/Weltkoordinaten abbilden
-4. Rotationen 0/90/180/270° für technischen Text prüfen
-5. Kreise/Bögen und echte Symbol-Primitives ergänzen
-6. Selection Rectangle, Snap Marker und Leitungs-/Platzierungsvorschau als getrennte Overlay-Layer ergänzen
-7. partielle `RenderScene`-Invalidation statt vollständigem Cache-Rebuild
-8. danach S3: identische UI-Shell in Slint / egui / iced vergleichen
-9. S4: denselben unabhängigen wgpu-CAD-Renderer in die zwei besten UI-Kandidaten integrieren
+1. integrierten CAD+Text-Build auf realer Windows-Hardware prüfen: 25/100/400 %, freies Pan/Zoom, Light/Dark
+2. Textrotation 0/90/180/270° und Anchor-/Alignment-Modell prüfen
+3. Kreise/Bögen und echte Symbol-Primitives ergänzen
+4. Selection Rectangle, Snap Marker und Leitungs-/Platzierungsvorschau als getrennte Overlay-Layer ergänzen
+5. Text-Culling/LOD und größere Textmengen testen
+6. partielle `RenderScene`-Invalidation statt vollständigem Cache-Rebuild
+7. danach S3: identische UI-Shell in Slint / egui / iced vergleichen
+8. S4: denselben unabhängigen wgpu-CAD-Renderer in die zwei besten UI-Kandidaten integrieren
 
 ---
 
