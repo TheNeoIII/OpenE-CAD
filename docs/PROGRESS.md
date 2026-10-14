@@ -20,29 +20,42 @@
 - [x] deterministisches Raster/Snap inklusive negativer Koordinaten umgesetzt
 - [x] exakte orthogonale Rotation und Integer-Bounds/Hit-Test-Basis umgesetzt
 - [x] JSON/Serde-Roundtrip-Test umgesetzt
-- [x] **6/6 Tests unter Ubuntu bestanden**
-- [x] **6/6 Tests unter Windows bestanden**
+- [x] rationale Maßstäbe als ganzzahlige Brüche ergänzt
+- [x] Paper↔Screen-Roundtrip und Zoom-Anker getestet
+- [x] **9/9 Tests unter Ubuntu bestanden**
+- [x] **9/9 Tests unter Windows bestanden**
 - [x] Ergebnisse unter `spikes/core-geometry/results.md` dokumentiert
 
-Zwischenfazit: **UUIDv7 + `i64`-µm + milli-TE bleiben bestätigt.**
+Zwischenfazit: **UUIDv7 + `i64`-µm + milli-TE bleiben bestätigt.** Persistente Geometrie bleibt ganzzahlig; GPU-/Viewport-Floats sind ausschließlich View-/Cache-Daten.
 
 ### S2 – wgpu CAD Renderer
 
 - [x] isolierten Renderer-Spike mit `wgpu 30.0.1` und `winit 0.30.13` angelegt
-- [x] WGSL-LineList-Pipeline umgesetzt
+- [x] WGSL-LineList- und Fill-Pipeline umgesetzt
 - [x] synthetische technische A3-Testszene ohne private Projektdaten erstellt
 - [x] N blau, PE grün, Steuerzweig rot und Querverweise orange dargestellt
-- [x] Light- und Full-Dark-Canvas eingebaut
+- [x] Light-Dokument und Full-Dark-Canvas eingebaut
+- [x] dunklen Workspace vom eigentlichen Dokumentbogen getrennt
 - [x] Pan per mittlerer Maustaste und Zoom per Mausrad eingebaut
+- [x] Zoom exakt auf Mauszeiger verankert
+- [x] ein-/ausblendbares 10-mm-Raster mit 50-mm-Hauptlinien eingebaut
+- [x] explizite Junction-Punkte, Hover, Auswahl und pixelbasiertes Hit Testing eingebaut
 - [x] Referenz- und Stressszene mit zusätzlich 10.000 Segmenten eingebaut
-- [x] FPS-/Segmentanzeige vorbereitet
+- [x] erster realer Windows-GPU-Test erfolgreich durchgeführt
+- [x] Referenzszene und 10.049-Segment-Stressszene in Light/Dark mit angezeigten 144 FPS getestet
+- [x] festgestellt, dass die erste Messung sehr wahrscheinlich durch VSync/144-Hz-Ausgabe begrenzt war
+- [x] GPU-Kameratransformation per Uniform eingeführt; Pan/Zoom benötigen dadurch keinen Neuaufbau der Weltgeometrie
+- [x] gecachte GPU-Vertexbuffer als Vergleich zu „Rebuild every frame“ eingebaut
+- [x] Umschaltung `C` für Cached/Rebuild-Benchmark eingebaut
+- [x] Umschaltung `V` für VSync/uncapped Benchmark eingebaut
+- [x] FPS plus p95-Framezeit im Fenstertitel ergänzt
 - [x] ersten CI-API-Bruch von wgpu 30 gefunden und behoben
-- [x] `cargo check` **unter Ubuntu bestanden**
-- [x] `cargo check` **unter Windows bestanden**
+- [x] aktuelle Renderer-Version `cargo check` **unter Ubuntu bestanden**
+- [x] aktuelle Renderer-Version `cargo check` **unter Windows bestanden**
 - [x] Ergebnisse unter `spikes/cad-renderer/results.md` dokumentiert
-- [x] Windows-Release-Preview als GitHub-Actions-Artefakt vorbereitet
+- [x] Windows-Release-Preview als GitHub-Actions-Artefakt automatisiert
 
-Wichtig: CI bestätigt derzeit Kompilierbarkeit. Interaktives GPU-/DPI-Verhalten muss zusätzlich auf realer Desktop-Hardware geprüft werden.
+Zwischenfazit: **wgpu zeigt bisher keinen Blocker für den unabhängigen CAD-Renderpfad.** Die 10k-Segment-Szene bleibt auf realer Windows-Hardware innerhalb des 144-Hz-Framebudgets; für eine belastbare Leistungsbewertung werden nun uncapped Cached-vs-Rebuild-Messungen verwendet.
 
 ### CI
 
@@ -54,12 +67,12 @@ Wichtig: CI bestätigt derzeit Kompilierbarkeit. Interaktives GPU-/DPI-Verhalten
 
 ### Nächste P1-Schritte
 
-1. S1: Paper↔Screen-Transformation, DPI, Zoom-Anker und rationale Maßstäbe
-2. S2: Zoom exakt auf Cursor, Raster, Document/Workspace-Trennung
-3. S2: Junction-/Auswahlzustände und Hit Testing
-4. S2: technische Textdarstellung evaluieren (`glyphon`/`cosmic-text` als Kandidat)
-5. S2: Baseline A gegen gecachte `RenderScene` und partielle Invalidation messen
-6. anschließend S3: identische UI-Shell in Slint / egui / iced vergleichen
+1. S2: uncapped Cached-vs-Rebuild-Messung auf realer Windows-Hardware durchführen
+2. S2: technische Textdarstellung mit `glyphon 0.12` / `cosmic-text 0.19` praktisch integrieren und bei 25–400 % Zoom prüfen
+3. S2: Kreise/Bögen, Auswahlrahmen und Leitungsvorschau ergänzen
+4. S2: RenderScene-Invalidation von vollständigem Cache-Rebuild trennen
+5. anschließend S3: identische UI-Shell in Slint / egui / iced vergleichen
+6. S4: denselben unabhängigen wgpu-CAD-Renderer in die zwei besten UI-Kandidaten integrieren
 
 ---
 
@@ -222,4 +235,4 @@ Wichtig: CI bestätigt derzeit Kompilierbarkeit. Interaktives GPU-/DPI-Verhalten
 
 ## Aktueller Status
 
-**P0 ist abgeschlossen. P1 läuft.** Der bisherige Rust-Code unter `spikes/` ist absichtlich Evaluierungs-/Wegwerfcode und noch kein Produktivcode.
+**P0 ist abgeschlossen. P1 läuft.** S1 ist als Grundtypen-/Geometriespike weitgehend validiert; S2 befindet sich in der interaktiven Renderer-/Benchmarkphase. Der bisherige Rust-Code unter `spikes/` ist absichtlich Evaluierungs-/Wegwerfcode und noch kein Produktivcode.
