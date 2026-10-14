@@ -1,6 +1,38 @@
 # Fortschritt
 
-## 14.10.2026 – Designsystem und Datenmodell v0.1 begonnen
+## 14.10.2026 – Erste Detailmodelle spezifiziert
+
+### Erledigt
+
+- [x] Seitentypen und Dokumentstruktur detailliert spezifiziert: `docs/SHEET_TYPES.md`
+- [x] manuelle, datengetriebene und generierte Seiten getrennt
+- [x] technische Projektseite, Dokumentseite und physische PDF-Seite getrennt
+- [x] Titelblock-/Rahmen-Templates und Datenbindings definiert
+- [x] Dokumentationssets unabhängig von der internen Projektseitenfolge vorgesehen
+- [x] generierte Stücklisten, Klemmenpläne, Kabellisten und weitere Reports als Ableitungen des Projektmodells definiert
+- [x] Querverweise als stabile Placement-Referenzen statt gespeicherter Textverweise festgelegt
+- [x] elektrisches Netz-/Potentialmodell detailliert spezifiziert: `docs/ELECTRICAL_MODEL.md`
+- [x] `ConnectionPoint`, `Net`, `ElectricalConnection` und grafischen `ConnectionPath` getrennt
+- [x] explizite JunctionNodes für T-Verbindungen definiert
+- [x] Linienkreuzung verbindet standardmäßig nicht
+- [x] Seitenfortsetzungen über stabile ContinuationNodes vorgesehen
+- [x] schaltende Funktionen trennen statische Netze
+- [x] Potentialtyp von Farbe und physischer Leiterfarbe getrennt
+- [x] Klemmen, Kabeladern und SPS-Anschlüsse auf dasselbe ConnectionPoint-Prinzip ausgerichtet
+- [x] inkrementeller Net-Rebuild als Core-Anforderung aufgenommen
+
+### Nächste Detailmodelle
+
+1. Symbol-/Function-/ConnectionPoint-Bibliotheksmodell vertiefen
+2. BMK / Strukturkennzeichen / IEC-81346-orientiertes Regelprofil
+3. Verteiler-/Reihen-/Auto-Layout-Regeln finalisieren
+4. Klemmen- und Kabelmodell vertiefen
+5. Undo/Redo-Kommandos und Transaktionen
+6. `.oecad`-Container und Schema-Versionierung
+
+---
+
+## 14.10.2026 – Designsystem und Datenmodell v0.1
 
 ### Erledigt
 
@@ -18,7 +50,6 @@
 - [x] `Article → Device → Function → ConnectionPoint → Net/Connection → Placement` als zentrale Fachstruktur definiert
 - [x] Artikel, Geräte, Funktionen, Anschlüsse, Symbole und grafische Platzierungen sauber getrennt
 - [x] Potentiale fachlich von Darstellungsfarben getrennt
-- [x] fachliche Verbindungen von gezeichneten Verbindungspfaden getrennt
 - [x] Klemmen-, Kabel- und SPS-Grundmodell vorgesehen
 - [x] Verteiler-, Montageflächen-, Reihen- und CabinetPlacement-Modell spezifiziert
 - [x] TE und reale mm-Abmessungen als getrennte Größen festgelegt
@@ -32,22 +63,8 @@
 - Grafikobjekte sind Darstellungen fachlicher Objekte und nicht deren Identität.
 - Ein Gerät kann mehrere Funktionen und mehrere Stromlaufplan-Platzierungen besitzen, bleibt aber ein Gerät in Stückliste und Aufbau.
 - Ein Verteileraufbau referenziert dieselben Device-IDs wie der Stromlaufplan.
-- Querverweise werden aus stabilen Beziehungen und aktuellen Seitenkoordinaten berechnet.
 - TE-Breite und reale Gerätebreite in mm werden separat gespeichert.
 - Auswertungen werden aus dem gemeinsamen Datenmodell generiert und nicht als unabhängige zweite Datenhaltung gepflegt.
-
-### Als Nächstes
-
-Die großen Konzepte sind nun breit angelegt. Vor dem Rust-Core sollen die fachlich kritischen Teilmodelle vertieft werden:
-
-1. Seitentypen und Dokumentstruktur
-2. Symbol-/Function-/ConnectionPoint-Modell
-3. Leitungs-/Netz-/Potentiallogik
-4. BMK / Strukturkennzeichen / IEC-81346-Profil
-5. Verteiler-/Reihen-/Auto-Layout-Regeln
-6. Klemmen und Kabel
-7. Undo/Redo-Kommandos und Transaktionen
-8. `.oecad`-Container und Schema-Versionierung
 
 ---
 
@@ -139,11 +156,11 @@ Der Schwerpunkt liegt weiterhin bewusst auf Produktspezifikation, Datenmodell un
 - [x] PDF-/Dokumentations-Workflow
 - [x] v0-Gegenentwurf vollständig ausgewertet
 - [x] Domänenmodell v0.1 breit spezifiziert
-- [ ] Seitentypen im Detail
+- [x] Seitentypen im Detail
 - [ ] Symbol-/Funktions-/Anschlussmodell im Detail
-- [ ] Leiter-/Netz-/Potentiallogik im Detail
+- [x] Leiter-/Netz-/Potentiallogik im Detail
 - [ ] BMK-/IEC-81346-Regelprofil
-- [ ] Querverweislogik im Detail
+- [x] Querverweis-Grundlogik im Detail
 - [ ] Artikel-/Herstellerdatenmodell finalisieren
 - [ ] Verteiler-/Reihen-/Platzierungsregeln finalisieren
 - [ ] Klemmen-/Kabelmodell vertiefen
@@ -178,6 +195,10 @@ Der Schwerpunkt liegt weiterhin bewusst auf Produktspezifikation, Datenmodell un
 
 | Datum | Entscheidung | Status |
 |---|---|---|
+| 14.10.2026 | technische Projektseite und physische PDF-Seite werden getrennt modelliert | beschlossen |
+| 14.10.2026 | Querverweise referenzieren stabile Placements statt gespeicherter Verweisstrings | beschlossen |
+| 14.10.2026 | Leitungsgeometrie und elektrische Topologie werden getrennt | beschlossen |
+| 14.10.2026 | Linienkreuzung verbindet standardmäßig nicht; T-Verbindungen verwenden explizite JunctionNodes | beschlossen |
 | 14.10.2026 | Domänenobjekte verwenden stabile interne IDs; sichtbare Kennzeichen sind keine Primärschlüssel | beschlossen |
 | 14.10.2026 | Grafik und Fachobjekte werden strikt getrennt | beschlossen |
 | 14.10.2026 | TE und reale mm-Abmessungen werden separat modelliert | beschlossen |
