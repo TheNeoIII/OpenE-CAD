@@ -28,7 +28,7 @@ const JUNCTIONS: [[f32; 2]; 6] = [
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct Vertex {
-    position: [f32; 2],
+    position_mm: [f32; 2],
     color: [f32; 3],
 }
 
@@ -43,6 +43,13 @@ impl Vertex {
             attributes: &Self::ATTRIBUTES,
         }
     }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct CameraUniform {
+    center_mm: [f32; 2],
+    ndc_per_mm: [f32; 2],
 }
 
 #[derive(Clone, Copy)]
@@ -119,6 +126,21 @@ enum Density {
 }
 
 #[derive(Debug, Clone, Copy)]
+enum CacheMode {
+    RebuildEveryFrame,
+    CachedGpuBuffers,
+}
+
+impl CacheMode {
+    fn label(self) -> &'static str {
+        match self {
+            Self::RebuildEveryFrame => "Rebuild",
+            Self::CachedGpuBuffers => "Cached",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 struct Camera {
     center_x_mm: f32,
     center_y_mm: f32,
@@ -175,44 +197,68 @@ impl Camera {
         ]
     }
 
-    fn to_ndc(self, p: [f32; 2], size: PhysicalSize<u32>) -> [f32; 2] {
+    fn uniform(self, size: PhysicalSize<u32>) -> CameraUniform {
         let width = size.width.max(1) as f32;
         let height = size.height.max(1) as f32;
-        let scale = self.pixels_per_mm(size);
+        let pixels_per_mm = self.pixels_per_mm(size);
 
-        let x_px = (p[0] - self.center_x_mm) * scale + width * 0.5;
-        let y_px = (p[1] - self.center_y_mm) * scale + height * 0.5;
-
-        [x_px / width * 2.0 - 1.0, 1.0 - y_px / height * 2.0]
+        CameraUniform {
+            center_mm: [self.center_x_mm, self.center_y_mm],
+            ndc_per_mm: [
+                2.0 * pixels_per_mm / width,
+                -2.0 * pixels_per_mm / height,
+            ],
+        }
     }
 }
 
-struct FpsMeter {
-    started: Instant,
-    frames: u32,
+#[derive(Debug, Clone, Copy)]
+struct FrameStats {
     fps: f32,
+    p95_ms: f32,
 }
 
-impl FpsMeter {
+struct FrameMeter {
+    window_started: Instant,
+    last_frame: Instant,
+    frame_times_ms: Vec<f32>,
+}
+
+impl FrameMeter {
     fn new() -> Self {
+        let now = Instant::now();
         Self {
-            started: Instant::now(),
-            frames: 0,
-            fps: 0.0,
+            window_started: now,
+            last_frame: now,
+            frame_times_ms: Vec::with_capacity(4096),
         }
     }
 
-    fn tick(&mut self) -> Option<f32> {
-        self.frames += 1;
-        let elapsed = self.started.elapsed().as_secs_f32();
-        if elapsed >= 1.0 {
-            self.fps = self.frames as f32 / elapsed;
-            self.frames = 0;
-            self.started = Instant::now();
-            Some(self.fps)
-        } else {
-            None
+    fn tick(&mut self) -> Option<FrameStats> {
+        let now = Instant::now();
+        let dt_ms = (now - self.last_frame).as_secs_f32() * 1000.0;
+        self.last_frame = now;
+        if dt_ms.is_finite() && dt_ms > 0.0 {
+            self.frame_times_ms.push(dt_ms);
         }
+
+        let elapsed = (now - self.window_started).as_secs_f32();
+        if elapsed < 1.0 || self.frame_times_ms.is_empty() {
+            return None;
+        }
+
+        let fps = self.frame_times_ms.len() as f32 / elapsed;
+        let mut sorted = self.frame_times_ms.clone();
+        sorted.sort_by(|a, b| a.total_cmp(b));
+        let p95_index = ((sorted.len() as f32 * 0.95).ceil() as usize)
+            .saturating_sub(1)
+            .min(sorted.len() - 1);
+        let p95_ms = sorted[p95_index];
+
+        self.window_started = now;
+        self.frame_times_ms.clear();
+
+        Some(FrameStats { fps, p95_ms })
     }
 }
 
@@ -225,15 +271,23 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     line_pipeline: wgpu::RenderPipeline,
     fill_pipeline: wgpu::RenderPipeline,
+    camera_buffer: wgpu::Buffer,
+    camera_bind_group: wgpu::BindGroup,
+    cached_page_buffer: wgpu::Buffer,
+    cached_page_vertex_count: u32,
+    cached_line_buffer: wgpu::Buffer,
+    cached_line_vertex_count: u32,
     camera: Camera,
     theme: Theme,
     density: Density,
+    cache_mode: CacheMode,
     grid_visible: bool,
+    vsync: bool,
     middle_dragging: bool,
     last_cursor: Option<PhysicalPosition<f64>>,
     hovered_junction: Option<usize>,
     selected_junction: Option<usize>,
-    fps: FpsMeter,
+    frame_meter: FrameMeter,
 }
 
 impl State {
@@ -257,10 +311,43 @@ impl State {
             .expect("failed to create wgpu device");
 
         let size = window.inner_size();
-        let config = surface
+        let mut config = surface
             .get_default_config(&adapter, size.width.max(1), size.height.max(1))
             .expect("surface has no default configuration");
+        config.present_mode = wgpu::PresentMode::AutoVsync;
         surface.configure(&device, &config);
+
+        let camera = Camera::default();
+        let camera_uniform = camera.uniform(PhysicalSize::new(config.width, config.height));
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("OpenE-CAD spike camera uniform"),
+            contents: bytemuck::bytes_of(&camera_uniform),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("OpenE-CAD spike camera bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("OpenE-CAD spike camera bind group"),
+            layout: &camera_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
+        });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("OpenE-CAD spike geometry shader"),
@@ -269,7 +356,7 @@ impl State {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("OpenE-CAD spike geometry pipeline layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[Some(&camera_bind_group_layout)],
             immediate_size: 0,
         });
 
@@ -309,6 +396,22 @@ impl State {
             wgpu::PrimitiveTopology::TriangleList,
         );
 
+        let theme = Theme::Light;
+        let density = Density::Reference;
+        let grid_visible = true;
+        let page_vertices = build_page_vertices(theme);
+        let line_vertices = build_line_vertices(theme, density, grid_visible, None, None);
+        let cached_page_buffer = create_vertex_buffer(
+            &device,
+            "OpenE-CAD spike cached page vertices",
+            &page_vertices,
+        );
+        let cached_line_buffer = create_vertex_buffer(
+            &device,
+            "OpenE-CAD spike cached line vertices",
+            &line_vertices,
+        );
+
         Self {
             instance,
             window,
@@ -318,20 +421,57 @@ impl State {
             config,
             line_pipeline,
             fill_pipeline,
-            camera: Camera::default(),
-            theme: Theme::Light,
-            density: Density::Reference,
-            grid_visible: true,
+            camera_buffer,
+            camera_bind_group,
+            cached_page_buffer,
+            cached_page_vertex_count: page_vertices.len() as u32,
+            cached_line_buffer,
+            cached_line_vertex_count: line_vertices.len() as u32,
+            camera,
+            theme,
+            density,
+            cache_mode: CacheMode::CachedGpuBuffers,
+            grid_visible,
+            vsync: true,
             middle_dragging: false,
             last_cursor: None,
             hovered_junction: None,
             selected_junction: None,
-            fps: FpsMeter::new(),
+            frame_meter: FrameMeter::new(),
         }
     }
 
     fn size(&self) -> PhysicalSize<u32> {
         PhysicalSize::new(self.config.width, self.config.height)
+    }
+
+    fn update_camera_uniform(&self) {
+        let uniform = self.camera.uniform(self.size());
+        self.queue
+            .write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&uniform));
+    }
+
+    fn rebuild_cached_scene(&mut self) {
+        let page_vertices = build_page_vertices(self.theme);
+        let line_vertices = build_line_vertices(
+            self.theme,
+            self.density,
+            self.grid_visible,
+            self.hovered_junction,
+            self.selected_junction,
+        );
+        self.cached_page_buffer = create_vertex_buffer(
+            &self.device,
+            "OpenE-CAD spike cached page vertices",
+            &page_vertices,
+        );
+        self.cached_page_vertex_count = page_vertices.len() as u32;
+        self.cached_line_buffer = create_vertex_buffer(
+            &self.device,
+            "OpenE-CAD spike cached line vertices",
+            &line_vertices,
+        );
+        self.cached_line_vertex_count = line_vertices.len() as u32;
     }
 
     fn resize(&mut self, size: PhysicalSize<u32>) {
@@ -346,51 +486,28 @@ impl State {
         }
     }
 
-    fn build_page_vertices(&self) -> Vec<Vertex> {
-        let size = self.size();
-        let color = self.theme.page_color();
-        let points = [
-            [0.0, 0.0],
-            [PAGE_W_MM, 0.0],
-            [PAGE_W_MM, PAGE_H_MM],
-            [0.0, 0.0],
-            [PAGE_W_MM, PAGE_H_MM],
-            [0.0, PAGE_H_MM],
-        ];
-
-        points
-            .into_iter()
-            .map(|position| Vertex {
-                position: self.camera.to_ndc(position, size),
-                color,
-            })
-            .collect()
+    fn toggle_vsync(&mut self) {
+        self.vsync = !self.vsync;
+        self.config.present_mode = if self.vsync {
+            wgpu::PresentMode::AutoVsync
+        } else {
+            wgpu::PresentMode::AutoNoVsync
+        };
+        self.surface.configure(&self.device, &self.config);
+        self.frame_meter = FrameMeter::new();
     }
 
-    fn build_line_vertices(&self) -> Vec<Vertex> {
-        let lines = build_scene(
-            self.theme,
-            self.density,
-            self.grid_visible,
-            self.hovered_junction,
-            self.selected_junction,
-        );
-        let size = self.size();
-        let mut vertices = Vec::with_capacity(lines.len() * 2);
-        for line in lines {
-            vertices.push(Vertex {
-                position: self.camera.to_ndc(line.a, size),
-                color: line.color,
-            });
-            vertices.push(Vertex {
-                position: self.camera.to_ndc(line.b, size),
-                color: line.color,
-            });
-        }
-        vertices
+    fn toggle_cache_mode(&mut self) {
+        self.cache_mode = match self.cache_mode {
+            CacheMode::RebuildEveryFrame => CacheMode::CachedGpuBuffers,
+            CacheMode::CachedGpuBuffers => CacheMode::RebuildEveryFrame,
+        };
+        self.frame_meter = FrameMeter::new();
     }
 
     fn render(&mut self) {
+        self.update_camera_uniform();
+
         let frame = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame) => frame,
             wgpu::CurrentSurfaceTexture::Occluded | wgpu::CurrentSurfaceTexture::Timeout => return,
@@ -416,19 +533,45 @@ impl State {
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let page_vertices = self.build_page_vertices();
-        let line_vertices = self.build_line_vertices();
 
-        let page_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("OpenE-CAD spike page vertices"),
-            contents: bytemuck::cast_slice(&page_vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-        let line_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("OpenE-CAD spike line vertices"),
-            contents: bytemuck::cast_slice(&line_vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        let temporary_buffers = if matches!(self.cache_mode, CacheMode::RebuildEveryFrame) {
+            let page_vertices = build_page_vertices(self.theme);
+            let line_vertices = build_line_vertices(
+                self.theme,
+                self.density,
+                self.grid_visible,
+                self.hovered_junction,
+                self.selected_junction,
+            );
+            Some((
+                create_vertex_buffer(
+                    &self.device,
+                    "OpenE-CAD spike rebuilt page vertices",
+                    &page_vertices,
+                ),
+                page_vertices.len() as u32,
+                create_vertex_buffer(
+                    &self.device,
+                    "OpenE-CAD spike rebuilt line vertices",
+                    &line_vertices,
+                ),
+                line_vertices.len() as u32,
+            ))
+        } else {
+            None
+        };
+
+        let (page_buffer, page_count, line_buffer, line_count) = match &temporary_buffers {
+            Some((page_buffer, page_count, line_buffer, line_count)) => {
+                (page_buffer, *page_count, line_buffer, *line_count)
+            }
+            None => (
+                &self.cached_page_buffer,
+                self.cached_page_vertex_count,
+                &self.cached_line_buffer,
+                self.cached_line_vertex_count,
+            ),
+        };
 
         let mut encoder = self
             .device
@@ -454,21 +597,23 @@ impl State {
                 multiview_mask: None,
             });
 
+            pass.set_bind_group(0, &self.camera_bind_group, &[]);
+
             pass.set_pipeline(&self.fill_pipeline);
             pass.set_vertex_buffer(0, page_buffer.slice(..));
-            pass.draw(0..page_vertices.len() as u32, 0..1);
+            pass.draw(0..page_count, 0..1);
 
             pass.set_pipeline(&self.line_pipeline);
             pass.set_vertex_buffer(0, line_buffer.slice(..));
-            pass.draw(0..line_vertices.len() as u32, 0..1);
+            pass.draw(0..line_count, 0..1);
         }
 
         self.queue.submit([encoder.finish()]);
         self.window.pre_present_notify();
         self.queue.present(frame);
 
-        if let Some(fps) = self.fps.tick() {
-            let segments = line_vertices.len() / 2;
+        if let Some(stats) = self.frame_meter.tick() {
+            let segments = line_count / 2;
             let hovered = self
                 .hovered_junction
                 .map(|i| format!("J{}", i + 1))
@@ -478,10 +623,14 @@ impl State {
                 .map(|i| format!("J{}", i + 1))
                 .unwrap_or_else(|| "-".to_owned());
             self.window.set_title(&format!(
-                "OpenE-CAD S2 Renderer Spike — {segments} Segmente — {fps:.0} FPS — {:?} — Zoom {:.0}% — Grid {} — Hover {hovered} — Auswahl {selected}",
+                "OpenE-CAD S2 — {segments} Segmente — {:.0} FPS — p95 {:.2} ms — {:?} — Zoom {:.0}% — Grid {} — {} — VSync {} — Hover {hovered} — Auswahl {selected}",
+                stats.fps,
+                stats.p95_ms,
                 self.theme,
                 self.camera.zoom * 100.0,
                 if self.grid_visible { "an" } else { "aus" },
+                self.cache_mode.label(),
+                if self.vsync { "an" } else { "aus" },
             ));
         }
     }
@@ -492,7 +641,7 @@ impl State {
         let radius_mm = HIT_RADIUS_PX / self.camera.pixels_per_mm(size).max(0.000_1);
         let radius_sq = radius_mm * radius_mm;
 
-        self.hovered_junction = JUNCTIONS
+        let new_hovered = JUNCTIONS
             .iter()
             .enumerate()
             .filter_map(|(index, point)| {
@@ -503,6 +652,11 @@ impl State {
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(index, _)| index);
+
+        if new_hovered != self.hovered_junction {
+            self.hovered_junction = new_hovered;
+            self.rebuild_cached_scene();
+        }
     }
 
     fn handle_cursor(&mut self, position: PhysicalPosition<f64>) {
@@ -534,7 +688,26 @@ impl State {
     }
 
     fn select_hovered(&mut self) {
-        self.selected_junction = self.hovered_junction;
+        if self.selected_junction != self.hovered_junction {
+            self.selected_junction = self.hovered_junction;
+            self.rebuild_cached_scene();
+        }
+    }
+
+    fn set_theme(&mut self, theme: Theme) {
+        self.theme = theme;
+        self.rebuild_cached_scene();
+    }
+
+    fn set_density(&mut self, density: Density) {
+        self.density = density;
+        self.rebuild_cached_scene();
+        self.frame_meter = FrameMeter::new();
+    }
+
+    fn toggle_grid(&mut self) {
+        self.grid_visible = !self.grid_visible;
+        self.rebuild_cached_scene();
     }
 }
 
@@ -595,11 +768,13 @@ impl ApplicationHandler for App {
             WindowEvent::MouseWheel { delta, .. } => state.handle_wheel(delta),
             WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
                 match event.physical_key {
-                    PhysicalKey::Code(KeyCode::Digit1) => state.theme = Theme::Light,
-                    PhysicalKey::Code(KeyCode::Digit2) => state.theme = Theme::DarkCanvas,
-                    PhysicalKey::Code(KeyCode::Digit3) => state.density = Density::Reference,
-                    PhysicalKey::Code(KeyCode::Digit4) => state.density = Density::Stress,
-                    PhysicalKey::Code(KeyCode::KeyG) => state.grid_visible = !state.grid_visible,
+                    PhysicalKey::Code(KeyCode::Digit1) => state.set_theme(Theme::Light),
+                    PhysicalKey::Code(KeyCode::Digit2) => state.set_theme(Theme::DarkCanvas),
+                    PhysicalKey::Code(KeyCode::Digit3) => state.set_density(Density::Reference),
+                    PhysicalKey::Code(KeyCode::Digit4) => state.set_density(Density::Stress),
+                    PhysicalKey::Code(KeyCode::KeyG) => state.toggle_grid(),
+                    PhysicalKey::Code(KeyCode::KeyC) => state.toggle_cache_mode(),
+                    PhysicalKey::Code(KeyCode::KeyV) => state.toggle_vsync(),
                     PhysicalKey::Code(KeyCode::KeyR) => {
                         state.camera = Camera::default();
                         if let Some(cursor) = state.last_cursor {
@@ -613,6 +788,57 @@ impl ApplicationHandler for App {
             _ => {}
         }
     }
+}
+
+fn create_vertex_buffer(device: &wgpu::Device, label: &'static str, vertices: &[Vertex]) -> wgpu::Buffer {
+    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some(label),
+        contents: bytemuck::cast_slice(vertices),
+        usage: wgpu::BufferUsages::VERTEX,
+    })
+}
+
+fn build_page_vertices(theme: Theme) -> Vec<Vertex> {
+    let color = theme.page_color();
+    [
+        [0.0, 0.0],
+        [PAGE_W_MM, 0.0],
+        [PAGE_W_MM, PAGE_H_MM],
+        [0.0, 0.0],
+        [PAGE_W_MM, PAGE_H_MM],
+        [0.0, PAGE_H_MM],
+    ]
+    .into_iter()
+    .map(|position_mm| Vertex { position_mm, color })
+    .collect()
+}
+
+fn build_line_vertices(
+    theme: Theme,
+    density: Density,
+    grid_visible: bool,
+    hovered_junction: Option<usize>,
+    selected_junction: Option<usize>,
+) -> Vec<Vertex> {
+    let lines = build_scene(
+        theme,
+        density,
+        grid_visible,
+        hovered_junction,
+        selected_junction,
+    );
+    let mut vertices = Vec::with_capacity(lines.len() * 2);
+    for line in lines {
+        vertices.push(Vertex {
+            position_mm: line.a,
+            color: line.color,
+        });
+        vertices.push(Vertex {
+            position_mm: line.b,
+            color: line.color,
+        });
+    }
+    vertices
 }
 
 fn line(a: [f32; 2], b: [f32; 2], color: [f32; 3]) -> LineSegment {
@@ -676,7 +902,6 @@ fn build_scene(
         }
     }
 
-    // A3 page border.
     lines.extend([
         line([5.0, 5.0], [415.0, 5.0], muted),
         line([415.0, 5.0], [415.0, 292.0], muted),
@@ -684,7 +909,6 @@ fn build_scene(
         line([5.0, 292.0], [5.0, 5.0], muted),
     ]);
 
-    // Main potentials inspired by the design reference, without private project data.
     for (y, color) in [
         (35.0, neutral),
         (42.0, neutral),
@@ -695,34 +919,29 @@ fn build_scene(
     }
     lines.push(line([18.0, 258.0], [402.0, 258.0], pe_green));
 
-    // Three representative outgoing circuits.
     for x in [85.0, 155.0, 225.0] {
         lines.push(line([x, 35.0], [x, 92.0], neutral));
         lines.push(line([x - 5.0, 92.0], [x + 5.0, 104.0], neutral));
         lines.push(line([x, 104.0], [x, 178.0], neutral));
     }
 
-    // Control circuit with a red switched branch and blue neutral return.
     lines.push(line([285.0, 58.0], [285.0, 110.0], n_blue));
     lines.push(line([285.0, 110.0], [305.0, 110.0], control_red));
     lines.push(line([305.0, 110.0], [305.0, 155.0], control_red));
     lines.push(line([305.0, 155.0], [330.0, 155.0], control_red));
     lines.push(line([330.0, 155.0], [330.0, 58.0], n_blue));
 
-    // Cross-reference markers as short orange technical strokes.
     for y in [35.0, 42.0, 49.0, 58.0, 258.0] {
         lines.push(line([12.0, y - 2.0], [18.0, y], cross_ref));
         lines.push(line([402.0, y], [408.0, y - 2.0], cross_ref));
     }
 
-    // A small terminal strip.
     for i in 0..8 {
         let x = 255.0 + i as f32 * 8.0;
         lines.push(line([x, 200.0], [x, 213.0], neutral));
         lines.push(line([x - 2.0, 203.0], [x + 2.0, 210.0], neutral));
     }
 
-    // Explicit junction nodes and interaction state.
     for (index, point) in JUNCTIONS.iter().copied().enumerate() {
         let (radius, color) = if selected_junction == Some(index) {
             (3.0, selected_color)
@@ -735,8 +954,6 @@ fn build_scene(
     }
 
     if matches!(density, Density::Stress) {
-        // Deterministic synthetic load: 10,000 additional line segments.
-        // They intentionally stay inside the page to exercise buffer rebuild + draw cost.
         for i in 0..10_000u32 {
             let col = i % 200;
             let row = (i / 200) % 50;
