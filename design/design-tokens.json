@@ -1,0 +1,150 @@
+{
+  "$schema": "https://opene-cad.local/schemas/design-tokens-v0.json",
+  "version": "0.1.0",
+  "status": "draft",
+  "spacing": {
+    "1": 4,
+    "2": 8,
+    "3": 12,
+    "4": 16,
+    "5": 24,
+    "6": 32,
+    "7": 48
+  },
+  "radius": {
+    "xs": 2,
+    "sm": 4,
+    "md": 6,
+    "lg": 8
+  },
+  "control": {
+    "height": {
+      "compact": 26,
+      "normal": 30,
+      "comfortable": 34
+    },
+    "icon": {
+      "small": 14,
+      "normal": 16,
+      "toolbar": 18,
+      "large": 20
+    }
+  },
+  "layout": {
+    "app_bar_height": 36,
+    "context_toolbar_height": 38,
+    "status_bar_height": 24,
+    "navigator_width": {
+      "min": 200,
+      "default": 240,
+      "max": 420
+    },
+    "inspector_width": {
+      "min": 280,
+      "default": 300,
+      "max": 440
+    },
+    "table_row_height": {
+      "compact": 28,
+      "normal": 32,
+      "comfortable": 36
+    }
+  },
+  "color": {
+    "interaction": {
+      "accent": "#0B9CC1",
+      "accent_hover": "#0786A7",
+      "accent_active": "#066F8C",
+      "selection_outline": "#11A7CC",
+      "focus_ring": "#1FAFD2"
+    },
+    "status": {
+      "ok": "#2E9B55",
+      "info": "#2C82C9",
+      "warning": "#D99A1B",
+      "error": "#D84A4A",
+      "muted": "#7B858E"
+    },
+    "technical": {
+      "neutral": "#1677D2",
+      "pe": "#27884A",
+      "control": "#D45454",
+      "special": "#8C63C7",
+      "cross_reference": "#E97922",
+      "active_object": "#0AA6C7"
+    }
+  },
+  "themes": {
+    "light": {
+      "window_bg": "#F0F2F3",
+      "appbar_bg": "#F7F8F9",
+      "toolbar_bg": "#FAFBFC",
+      "panel_bg": "#FFFFFF",
+      "panel_bg_secondary": "#F5F6F7",
+      "canvas_workspace": "#E4E7E9",
+      "document_bg": "#FFFFFF",
+      "text_primary": "#1D2328",
+      "text_secondary": "#5E6871",
+      "text_disabled": "#9AA2A8",
+      "border_default": "#D4D9DD",
+      "border_strong": "#B8C0C6",
+      "grid_minor": "#E7EBED",
+      "grid_major": "#D7DDE1",
+      "neutral_line": "#202427"
+    },
+    "dark_light_document": {
+      "window_bg": "#151719",
+      "appbar_bg": "#1A1D1F",
+      "toolbar_bg": "#1D2022",
+      "panel_bg": "#202326",
+      "panel_bg_secondary": "#25292C",
+      "canvas_workspace": "#101214",
+      "document_bg": "#FFFFFF",
+      "text_primary": "#E8ECEF",
+      "text_secondary": "#AAB2B8",
+      "text_disabled": "#6F777D",
+      "border_default": "#34393D",
+      "border_strong": "#484F54",
+      "grid_minor": "#E7EBED",
+      "grid_major": "#D7DDE1",
+      "neutral_line": "#202427"
+    },
+    "dark_canvas": {
+      "window_bg": "#151719",
+      "appbar_bg": "#1A1D1F",
+      "toolbar_bg": "#1D2022",
+      "panel_bg": "#202326",
+      "panel_bg_secondary": "#25292C",
+      "canvas_workspace": "#101214",
+      "document_bg": "#1B1E20",
+      "document_border": "#4A5055",
+      "text_primary": "#E8ECEF",
+      "text_secondary": "#AAB2B8",
+      "text_disabled": "#6F777D",
+      "border_default": "#34393D",
+      "border_strong": "#484F54",
+      "grid_minor": "#252A2D",
+      "grid_major": "#30363A",
+      "neutral_line": "#D5DADD",
+      "text_on_document": "#DDE2E5"
+    }
+  },
+  "typography": {
+    "family": "system-ui",
+    "monospace_usage": [
+      "reference_designation",
+      "terminal_designation",
+      "plc_address",
+      "coordinate",
+      "article_code_optional"
+    ],
+    "size_px": {
+      "caption": 10,
+      "small": 11,
+      "body": 12,
+      "section": 13,
+      "panel_title": 14,
+      "view_title": 16
+    }
+  }
+}
