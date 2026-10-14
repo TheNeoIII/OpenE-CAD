@@ -1,47 +1,85 @@
 # Fortschritt
 
+## 14.10.2026 – Designsystem und Datenmodell v0.1 begonnen
+
+### Erledigt
+
+- [x] frameworkneutrales Designsystem erstellt: `docs/DESIGN_SYSTEM.md`
+- [x] Layoutmaße für App-Bar, Toolbar, Navigator, Inspector, Statusleiste und Tabellen definiert
+- [x] Light Mode, Dark UI + heller Plan und Full-Dark-Canvas als Theme-Tokens spezifiziert
+- [x] Interaktions-, Status- und technische Farbsemantik definiert
+- [x] N, PE, Steuer-/Sonderpotentiale, Querverweise und Auswahl als konfigurierbare semantische Farben definiert
+- [x] Typografie, Abstände, Radien, Dichteprofile und Icongrößen spezifiziert
+- [x] Canvas-, Raster-, Auswahl-, Hover- und Leitungswerkzeug-Zustände spezifiziert
+- [x] Navigator-, Inspector-, Datenmanager-, Aufbau-, Einfügezentrum-, Command-Palette- und Dokumentationsmuster spezifiziert
+- [x] erste maschinenlesbare Design-Tokens unter `design/design-tokens.json` abgelegt
+- [x] fachliches Domänenmodell v0.1 erstellt: `docs/DATA_MODEL.md`
+- [x] stabile interne IDs von BMK/Artikelnummer/Seitenname getrennt
+- [x] `Article → Device → Function → ConnectionPoint → Net/Connection → Placement` als zentrale Fachstruktur definiert
+- [x] Artikel, Geräte, Funktionen, Anschlüsse, Symbole und grafische Platzierungen sauber getrennt
+- [x] Potentiale fachlich von Darstellungsfarben getrennt
+- [x] fachliche Verbindungen von gezeichneten Verbindungspfaden getrennt
+- [x] Klemmen-, Kabel- und SPS-Grundmodell vorgesehen
+- [x] Verteiler-, Montageflächen-, Reihen- und CabinetPlacement-Modell spezifiziert
+- [x] TE und reale mm-Abmessungen als getrennte Größen festgelegt
+- [x] Auto-Layout mit gesperrten/manual/auto Platzierungen fachlich vorbereitet
+- [x] Titelblock-, Dokumentations-, Prüfungs-, Revisions- und Custom-Property-Grundmodell aufgenommen
+- [x] Undo/Redo als Commands auf dem Domänenmodell vorbereitet
+
+### Fachliche Entscheidungen
+
+- Stabile interne IDs sind die Primärreferenz; BMK und andere sichtbare Kennzeichen sind änderbare Eigenschaften.
+- Grafikobjekte sind Darstellungen fachlicher Objekte und nicht deren Identität.
+- Ein Gerät kann mehrere Funktionen und mehrere Stromlaufplan-Platzierungen besitzen, bleibt aber ein Gerät in Stückliste und Aufbau.
+- Ein Verteileraufbau referenziert dieselben Device-IDs wie der Stromlaufplan.
+- Querverweise werden aus stabilen Beziehungen und aktuellen Seitenkoordinaten berechnet.
+- TE-Breite und reale Gerätebreite in mm werden separat gespeichert.
+- Auswertungen werden aus dem gemeinsamen Datenmodell generiert und nicht als unabhängige zweite Datenhaltung gepflegt.
+
+### Als Nächstes
+
+Die großen Konzepte sind nun breit angelegt. Vor dem Rust-Core sollen die fachlich kritischen Teilmodelle vertieft werden:
+
+1. Seitentypen und Dokumentstruktur
+2. Symbol-/Function-/ConnectionPoint-Modell
+3. Leitungs-/Netz-/Potentiallogik
+4. BMK / Strukturkennzeichen / IEC-81346-Profil
+5. Verteiler-/Reihen-/Auto-Layout-Regeln
+6. Klemmen und Kabel
+7. Undo/Redo-Kommandos und Transaktionen
+8. `.oecad`-Container und Schema-Versionierung
+
+---
+
 ## 14.10.2026 – v0 Designiteration 2 vollständig dokumentiert
 
 ### Erledigt
 
-- [x] v0-Gegenentwurf anhand der Screenshots geprüft
-- [x] vollständigen v0-ZIP-Export mit Haupteditor, Aufbau, Datenmanager, Dokumentation, Einfügezentrum und Projektstart geprüft
+- [x] v0-Gegenentwurf und vollständigen ZIP-Export geprüft
 - [x] vollständiges Screenshot-Set mit 32 Ansichten ausgewertet
 - [x] Screenshot-Inventar unter `docs/V0_SCREENSHOT_INVENTORY.md` dokumentiert
 - [x] v0-Entwurf als bevorzugte aktuelle UI/UX-Richtung übernommen
 - [x] Light Mode geprüft
-- [x] Dark UI + heller Zeichenbogen geprüft und als bevorzugter Dark-Standard bestätigt
+- [x] Dark UI + heller Zeichenbogen als bevorzugter Dark-Standard bestätigt
 - [x] Full-Dark-Canvas als optionalen Arbeitsmodus bestätigt
 - [x] kompakte Top-Navigation `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation` bestätigt
 - [x] `Ctrl+K` Command Palette als zentrales Bedienkonzept bestätigt
 - [x] permanenter, dynamischer Eigenschaften-/Prüf-Inspector bestätigt
 - [x] Navigatoren für Seiten, Betriebsmittel, Klemmen, Kabel und SPS geprüft
 - [x] Leitungswerkzeug und Einfügezentrum geprüft
-- [x] v0-Aufbauworkflow mit Auto-Layout, TE-Bilanz, Drag & Drop, Reservefeldern und Positionssperren geprüft
-- [x] Geräte-Inspector, Fehlerzustände und Türansicht im Aufbau geprüft
-- [x] alle acht Datenmanager-Register geprüft
-- [x] Datenmanager-Power-User-Funktionen Spalten, Suchen/Ersetzen, Nur-Befunde und Mehrfachänderung geprüft
-- [x] v0-Dokumentations-/Exportansicht mit Stückliste und Klemmenplan geprüft
+- [x] Aufbauworkflow mit Auto-Layout, TE-Bilanz, Drag & Drop, Reservefeldern und Positionssperren geprüft
+- [x] alle acht Datenmanager-Register und Power-User-Funktionen geprüft
+- [x] Dokumentations-/Exportansicht mit Stückliste und Klemmenplan geprüft
 - [x] UX-Konzept / Begründung der Layoutentscheidungen geprüft
-- [x] notwendige Verfeinerungen vor Rust-Implementierung dokumentiert
-- [x] Review unter `docs/V0_REVIEW.md` erweitert
+- [x] Review unter `docs/V0_REVIEW.md` dokumentiert
 
 ### Designentscheidung
 
-Die v0-Richtung ist die aktuelle bevorzugte Designbasis. Die 32 Ansichten decken die wesentlichen Arbeitsbereiche und Interaktionsmuster ausreichend ab; vor Definition des Designsystems sind keine weiteren grundsätzlichen Mockups erforderlich.
+Die v0-Richtung ist die aktuelle bevorzugte Designbasis. Die 32 Ansichten decken die wesentlichen Arbeitsbereiche ausreichend ab; vor der Spezifikationsphase sind keine weiteren grundsätzlichen Mockups erforderlich.
 
-Der Next.js/React-Code bleibt **Designprototyp**. Die Produktivanwendung wird weiterhin eigenständig in Rust entwickelt.
+Der Next.js/React-Code bleibt **Designprototyp**. Die Produktivanwendung wird eigenständig in Rust entwickelt.
 
-### Noch zu verfeinern
-
-- [ ] Design Tokens aus v0 ableiten
-- [ ] Verteilergeometrie datengetrieben statt beispielhaft `4 × 36 TE`
-- [ ] Navigatorbreite / lange Seitennamen finalisieren
-- [ ] monochrome Linienstile für Potentiale konkretisieren
-- [ ] Potentialfarben als Projekt-/Firmenprofil definieren
-- [ ] Titelblock-Template-System spezifizieren
-- [ ] Workspace-/Panel-Docking-Konzept für Multi-Monitor-Betrieb definieren
-- [ ] Tabelleninteraktion exakt spezifizieren
+---
 
 ## 14.10.2026 – Private Referenzpläne / Dokumentations- und Aufbauanforderungen
 
@@ -64,11 +102,11 @@ Der Next.js/React-Code bleibt **Designprototyp**. Die Produktivanwendung wird we
 - [x] v0 Design-Brief erstellt: `docs/V0_DESIGN_BRIEF.md`
 - [x] abstrahierte Anforderungen aus den privaten PDFs dokumentiert: `docs/REFERENCE_DERIVED_REQUIREMENTS.md`
 
-### Neue fachliche Entscheidung
+### Entscheidung
 
-Die einfache **Verteilerfrontansicht** wird nicht erst mit dem späteren vollständigen Schaltschrank-Engineering umgesetzt. Sie wird als eigenständiger datenorientierter Funktionsbereich in Phase 2 vorgesehen.
+Die einfache Verteilerfrontansicht wird bereits in Phase 2 vorgesehen. Das spätere vollständige 2D-Schaltschrankmodul erweitert sie um Montageplatte, Kabelkanäle, frei positionierbare Hutschienen, Routing und weitere Fertigungsdetails.
 
-Das spätere vollständige 2D-Schaltschrankmodul erweitert diese Funktion um Montageplatte, Kabelkanäle, frei positionierbare Hutschienen und weitere Fertigungsdetails.
+---
 
 ## 13.10.2026 – Projektstart / Konzeptphase
 
@@ -77,54 +115,43 @@ Das spätere vollständige 2D-Schaltschrankmodul erweitert diese Funktion um Mon
 - [x] GitHub-Projekt `TheNeoIII/OpenE-CAD` angelegt
 - [x] Produktvision definiert
 - [x] Positionierung als eigenständiges Open-Source-ECAD festgelegt
-- [x] EPLAN Electric P8 als Funktions-/Workflowreferenz untersucht
-- [x] WSCAD ELECTRIX als Funktions-/Workflowreferenz untersucht
-- [x] ELCAD als Funktions-/Workflowreferenz untersucht
-- [x] QElectroTech als Open-Source-Referenz untersucht
+- [x] EPLAN Electric P8, WSCAD ELECTRIX, ELCAD und QElectroTech als Referenzen untersucht
 - [x] Eaton als erster Referenzhersteller vorgesehen
 - [x] Grundlayout der Anwendung entworfen
-- [x] Haupteditor als Mockup erstellt
-- [x] Einfügezentrum als Mockup erstellt
-- [x] Datenmanager / Projektprüfung als Mockup erstellt
-- [x] Symbol-/Makroeditor als Mockup erstellt
-- [x] Projektzentrum als Mockup erstellt
-- [x] Light Mode als erster visueller Entwurf festgelegt
-- [x] Dark Mode als gleichwertige Designanforderung aufgenommen
+- [x] fünf erste UI-Mockups erstellt
+- [x] Light und Dark Mode als gleichwertige Designanforderung aufgenommen
 - [x] Kernprinzip `Darstellung → Funktion → Gerät → Artikel` festgelegt
 - [x] erste fachliche Roadmap dokumentiert
 - [x] Grundidee für offenes `.oecad`-Format dokumentiert
 
-### Aktueller Status
+## Aktueller Status
 
-**Noch kein Backend- oder Produktivcode.**
+**Noch kein Produktivcode.**
 
-Der derzeitige Schwerpunkt liegt absichtlich auf Produktdefinition, Datenmodell und Bedienkonzept. Das soll verhindern, dass früh UI- oder Persistenzcode entsteht, der später durch fachliche Anforderungen wieder grundlegend umgebaut werden muss.
+Der Schwerpunkt liegt weiterhin bewusst auf Produktspezifikation, Datenmodell und Bedienkonzept. Erst danach folgen technische Rust-Spikes und die Frameworkentscheidung.
 
-## Als Nächstes
+## P0 – vor dem Coding
 
-### P0 – vor dem Coding klären
-
-- [x] Dark-Mode-Mockup des Haupteditors erstellen
-- [ ] Designsystem mit Farben, Abständen, Typografie, Icons und Zuständen definieren
-- [ ] Potential-/Leiter-Farbprofil für Light/Dark definieren
-- [x] Mockup / Prototyp für Verteilerfrontansicht / Aufbauplan erstellen
-- [x] PDF-/Dokumentations-Export als UI-Workflow entwerfen
-- [x] v0-Gegenentwurf auswerten und mit bestehendem Konzept vergleichen
-- [ ] Seitentypen definieren
-- [ ] Symbol-/Funktions-/Anschlussmodell vollständig spezifizieren
-- [ ] Leiter-/Verbindungsmodell spezifizieren
-- [ ] Potentialmodell definieren
-- [ ] BMK-/IEC-81346-orientierte Struktur festlegen
-- [ ] Querverweislogik spezifizieren
-- [ ] Artikel- und Herstellerdatenmodell spezifizieren
-- [ ] mechanische Artikeldaten / TE-Breite spezifizieren
-- [ ] Verteiler-/Reihen-/Platzierungsmodell spezifizieren
-- [ ] Klemmen-/Kabelmodell grob vorplanen, damit das MVP keine Sackgassen erzeugt
-- [ ] Undo/Redo-Architektur festlegen
+- [x] Dark-Mode-Mockup des Haupteditors
+- [x] Designsystem v0.1
+- [x] erste Design-Tokens
+- [x] Aufbau-/Verteilerfront-Prototyp
+- [x] PDF-/Dokumentations-Workflow
+- [x] v0-Gegenentwurf vollständig ausgewertet
+- [x] Domänenmodell v0.1 breit spezifiziert
+- [ ] Seitentypen im Detail
+- [ ] Symbol-/Funktions-/Anschlussmodell im Detail
+- [ ] Leiter-/Netz-/Potentiallogik im Detail
+- [ ] BMK-/IEC-81346-Regelprofil
+- [ ] Querverweislogik im Detail
+- [ ] Artikel-/Herstellerdatenmodell finalisieren
+- [ ] Verteiler-/Reihen-/Platzierungsregeln finalisieren
+- [ ] Klemmen-/Kabelmodell vertiefen
+- [ ] Undo/Redo-Architektur finalisieren
 - [ ] Projektformat und Schema-Versionierung konkretisieren
 - [ ] Lizenzstrategie festlegen
 
-### P1 – technische Evaluierung
+## P1 – technische Evaluierung
 
 - [ ] Rust Workspace-Grundstruktur entwerfen
 - [ ] UI-Framework-Spike
@@ -135,7 +162,7 @@ Der derzeitige Schwerpunkt liegt absichtlich auf Produktdefinition, Datenmodell 
 - [ ] Hit-Testing / Selection / Snap testen
 - [ ] Serialisierung und migrationsfähige Projektdatei testen
 
-### P2 – erster funktionaler Prototyp
+## P2 – erster funktionaler Prototyp
 
 - [ ] Projekt anlegen / speichern / laden
 - [ ] Seite darstellen
@@ -151,24 +178,26 @@ Der derzeitige Schwerpunkt liegt absichtlich auf Produktdefinition, Datenmodell 
 
 | Datum | Entscheidung | Status |
 |---|---|---|
-| 14.10.2026 | vollständiges v0-Screenshot-Set mit 32 Ansichten ist ausreichende visuelle Referenz für die nächste Spezifikationsphase | beschlossen |
+| 14.10.2026 | Domänenobjekte verwenden stabile interne IDs; sichtbare Kennzeichen sind keine Primärschlüssel | beschlossen |
+| 14.10.2026 | Grafik und Fachobjekte werden strikt getrennt | beschlossen |
+| 14.10.2026 | TE und reale mm-Abmessungen werden separat modelliert | beschlossen |
+| 14.10.2026 | Auswertungen werden aus dem gemeinsamen Projektmodell generiert | beschlossen |
+| 14.10.2026 | vollständiges v0-Screenshot-Set mit 32 Ansichten ist ausreichende visuelle Referenz | beschlossen |
 | 14.10.2026 | v0-Entwurf wird als aktuelle bevorzugte UI/UX-Designbasis übernommen | beschlossen |
 | 14.10.2026 | Dark UI + heller Zeichenbogen ist bevorzugter Dark-Standard; Full Dark Canvas bleibt optional | beschlossen |
 | 14.10.2026 | Next.js/React-v0-Code dient nur als Designreferenz, Produktivcode bleibt Rust-Neuentwicklung | beschlossen |
-| 14.10.2026 | Private Referenz-PDFs werden nicht öffentlich im Repository gespeichert | beschlossen |
+| 14.10.2026 | Private Referenz-PDFs werden nicht öffentlich gespeichert | beschlossen |
 | 14.10.2026 | Verteilerfrontansicht mit TE-/Reihenlogik wird eigener Phase-2-Funktionsbereich | beschlossen |
-| 14.10.2026 | Frontansicht soll aus Gerätedaten automatisch generierbar und manuell korrigierbar sein | beschlossen |
-| 14.10.2026 | Potential-/Leiterfarben werden konfigurierbare visuelle Hilfen; N standardmäßig blau | beschlossen |
+| 14.10.2026 | Potential-/Leiterfarben sind konfigurierbare visuelle Hilfen; N standardmäßig blau | beschlossen |
 | 14.10.2026 | vollständige technische Projektdokumentation als zusammenhängende PDF ist Ziel | beschlossen |
-| 13.10.2026 | Eigenständige Neuentwicklung statt Port/Fork eines Referenzprogramms | beschlossen |
+| 13.10.2026 | Eigenständige Neuentwicklung statt Port/Fork | beschlossen |
 | 13.10.2026 | Rust als primäre Sprache | beschlossen |
 | 13.10.2026 | Datenorientiertes Modell statt reiner Grafikobjekte | beschlossen |
 | 13.10.2026 | leichte Bedienbarkeit ist Kernziel | beschlossen |
-| 13.10.2026 | Light und Dark Mode werden gleichwertig entwickelt | beschlossen |
 | 13.10.2026 | Eaton dient als erster Hersteller-/Katalogreferenzfall | beschlossen |
-| 13.10.2026 | Frameworkauswahl wird erst nach technischem Spike entschieden | offen / geplant |
+| 13.10.2026 | Frameworkauswahl erfolgt erst nach technischem Spike | geplant |
 | 13.10.2026 | konkrete Open-Source-Lizenz | offen |
 
 ## Fortschrittslog-Konvention
 
-Neue relevante Entscheidungen werden in dieser Datei ergänzt. Größere fachliche Änderungen sollen zusätzlich in den jeweiligen Dokumenten aktualisiert werden, damit `PROGRESS.md` als chronologische Übersicht lesbar bleibt.
+Neue relevante Entscheidungen werden hier ergänzt. Größere fachliche Änderungen werden zusätzlich in den jeweiligen Spezifikationsdokumenten gepflegt.
