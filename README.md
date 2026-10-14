@@ -25,41 +25,56 @@ OpenE-CAD ist als neue, eigenständige Open-Source-Anwendung für die Erstellung
 
 **Phase: Produktspezifikation / UX- und Domänenmodell – noch kein Produktivcode.**
 
-Der aktuelle Stand umfasst:
+Der aktuelle Stand umfasst inzwischen:
 
-- Produktvision und Positionierung
-- Vergleich und Recherche der Referenzanwendungen
-- erstes Oberflächenkonzept und fünf eigene UI-Mockups
-- v0-Gegenentwurf als zweite Designiteration geprüft und als aktuelle bevorzugte UI/UX-Richtung übernommen
-- vollständiges v0-Screenshot-Set mit 32 Ansichten als visuelle Referenz ausgewertet
-- frameworkneutrales Designsystem mit Layout-, Theme-, Farb-, Typografie- und Interaktionstokens
-- erste maschinenlesbare Design-Tokens unter `design/design-tokens.json`
-- fachliches ECAD-Datenmodell v0.1 für Projekt, Seiten, Geräte, Funktionen, Anschlüsse, Netze, Klemmen, Kabel, SPS, Aufbau und Dokumentation
-- Seitentypen und Dokumentstruktur einschließlich generierter Auswertungsseiten und PDF-Seitenlogik spezifiziert
-- elektrisches Graphmodell für ConnectionPoints, Netze, Junctions, Potentiale und grafische Leitungswege spezifiziert
-- kompakte Arbeitsbereichsnavigation `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation`
-- Light Mode, Dark UI + heller Zeichenbogen und optionaler Full-Dark-Canvas
-- Anforderungen an Verteilerfrontansicht / Aufbauplan
-- Anforderungen an farbige Potentialdarstellung
-- Zielbild für vollständige technische PDF-Projektdokumentation
+- v0-Gegenentwurf und vollständiges Screenshot-Set mit 32 Ansichten als aktuelle visuelle Referenz
+- frameworkneutrales Designsystem und maschinenlesbare Design-Tokens
+- fachliches Kernmodell für Projekt, Seiten, Geräte, Funktionen, Anschlüsse, Netze und Platzierungen
+- detailliertes Symbol-/Funktions-/Anschlussmodell
+- IEC-81346-orientiertes, aber konfigurierbares BMK-/Strukturkennzeichenmodell
+- elektrisches Graphmodell mit Junctions, Netzen, Potentialen und Seitenfortsetzungen
+- detailliertes Verteiler-/Reihen-/TE-Modell mit deterministischem Auto-Layout
+- Klemmen-/Mehrstockklemmen-/Brückenmodell
+- Kabel-/Ader-/Schirmmodell
+- Hersteller-/Artikel-/Katalogmodell mit Datenherkunft und Projekt-Snapshots
+- Projektprüfungs-/Finding-/RuleProfile-Modell
+- Command-/Transaktions-/Undo-/Recovery-Grundarchitektur
+- offene `.oecad`-Containerstruktur mit Schema-Versionierung und Migrationen
+- Seitentypen, Titelblock-/Dokumentstruktur und generierte Auswertungsseiten
 
 Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive Designreferenz. Die eigentliche Anwendung bleibt als eigenständige Rust-Neuentwicklung geplant.
 
 ## Dokumentation
 
+### Produkt und UX
+
 - [Projektplan](docs/PROJECT_PLAN.md)
 - [UI/UX- und Designkonzept](docs/DESIGN_CONCEPT.md)
 - [Designsystem](docs/DESIGN_SYSTEM.md)
+- [Funktionsumfang und Roadmap](docs/ROADMAP.md)
+- [Fortschritt](docs/PROGRESS.md)
+
+### Fachliches Kernmodell
+
 - [ECAD-Datenmodell](docs/DATA_MODEL.md)
 - [Seitentypen und Dokumentstruktur](docs/SHEET_TYPES.md)
+- [Symbol-, Funktions- und Anschlussmodell](docs/SYMBOL_FUNCTION_MODEL.md)
+- [Referenzkennzeichen-, BMK- und Strukturmodell](docs/REFERENCE_DESIGNATION_MODEL.md)
 - [Elektrisches Modell: Anschlüsse, Netze und Potentiale](docs/ELECTRICAL_MODEL.md)
-- [Funktionsumfang und Roadmap](docs/ROADMAP.md)
+- [Verteiler-, Reihen- und Auto-Layout-Modell](docs/CABINET_LAYOUT_MODEL.md)
+- [Klemmen- und Kabelmodell](docs/TERMINAL_CABLE_MODEL.md)
+- [Artikel-, Hersteller- und Katalogmodell](docs/ARTICLE_CATALOG_MODEL.md)
+- [Projektprüfung und Regel-Engine](docs/VALIDATION_MODEL.md)
+- [Undo/Redo-, Command- und Transaktionsmodell](docs/UNDO_TRANSACTION_MODEL.md)
+- [`.oecad` Projektformat und Schema-Versionierung](docs/PROJECT_FORMAT.md)
+
+### Referenzen / Designiteration
+
 - [Recherche und Referenzen](docs/RESEARCH_REFERENCES.md)
 - [Anforderungen aus privaten Referenzdokumenten – abstrahiert](docs/REFERENCE_DERIVED_REQUIREMENTS.md)
 - [v0 Design-Brief](docs/V0_DESIGN_BRIEF.md)
 - [Review der v0-Designiteration](docs/V0_REVIEW.md)
 - [v0 Screenshot-Inventar](docs/V0_SCREENSHOT_INVENTORY.md)
-- [Fortschritt](docs/PROGRESS.md)
 
 Zusätzlich: [frameworkneutrale Design-Tokens](design/design-tokens.json).
 
@@ -69,7 +84,7 @@ Zusätzlich: [frameworkneutrale Design-Tokens](design/design-tokens.json).
 
 Die derzeit bevorzugte Bedienstruktur besteht aus:
 
-- kompakter Top-Navigation für die großen Arbeitsbereiche
+- kompakter Top-Navigation für `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation`
 - `Ctrl+K` als globale Command Palette / Suche
 - schmaler kontextabhängiger Werkzeugleiste statt großer Ribbon-Oberfläche
 - Projekt-/Seitennavigation links
@@ -106,7 +121,7 @@ Diese ersten Mockups bleiben als Vergleichsbasis erhalten; die v0-Iteration konk
 
 ## Leitprinzip
 
-OpenE-CAD soll grafische Darstellung und Engineering-Daten konsequent trennen:
+OpenE-CAD trennt fachliche Wahrheit und Darstellung konsequent:
 
 ```text
 Artikel / Herstellerdaten
@@ -120,8 +135,8 @@ Netze / Verbindungen
 Darstellungen / Platzierungen
 ```
 
-Ein Schütz ist damit nicht nur eine Zeichnung. Es ist ein Gerät mit BMK, Artikel, Spule, Leistungs- und Hilfskontakten, Anschlüssen, Querverweisen, mechanischen Daten, einer möglichen Verteilerplatzierung und Beziehungen zu Stückliste, Verdrahtung und Aufbauplan.
+Ein Schütz ist damit nicht nur eine Zeichnung. Es ist ein Gerät mit stabiler interner ID, BMK, Artikel, Spule, Leistungs- und Hilfskontakten, Anschlüssen, Querverweisen, mechanischen Daten, einer möglichen Verteilerplatzierung und Beziehungen zu Stückliste, Verdrahtung und Aufbauplan.
 
 ## Lizenz
 
-Noch nicht festgelegt. Die Lizenzentscheidung soll bewusst getroffen werden, bevor Quellcode oder Bibliotheksdaten veröffentlicht werden. Referenzprojekte werden nicht kopiert oder portiert; die Implementierung soll eigenständig entstehen.
+Noch nicht festgelegt. Die Lizenzentscheidung wird bewusst vor dem ersten Produktivcode getroffen, da sie auch die Auswahl von Rust-UI-Frameworks und weiteren Abhängigkeiten beeinflussen kann. Referenzprojekte werden nicht kopiert oder portiert; die Implementierung soll eigenständig entstehen.
