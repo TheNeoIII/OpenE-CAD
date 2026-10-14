@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 bytemuck.workspace = true
 env_logger.workspace = true
+glyphon.workspace = true
 pollster.workspace = true
 wgpu.workspace = true
 winit.workspace = true
