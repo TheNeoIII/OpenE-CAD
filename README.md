@@ -23,7 +23,7 @@ OpenE-CAD ist als neue, eigenständige Open-Source-Anwendung für die Erstellung
 
 ## Aktueller Stand
 
-**Phase: Produktdefinition / UX-Konzept – noch kein Backend-Code.**
+**Phase: Produktspezifikation / UX- und Domänenmodell – noch kein Produktivcode.**
 
 Der aktuelle Stand umfasst:
 
@@ -32,10 +32,11 @@ Der aktuelle Stand umfasst:
 - erstes Oberflächenkonzept und fünf eigene UI-Mockups
 - v0-Gegenentwurf als zweite Designiteration geprüft und als aktuelle bevorzugte UI/UX-Richtung übernommen
 - vollständiges v0-Screenshot-Set mit 32 Ansichten als visuelle Referenz ausgewertet
+- frameworkneutrales Designsystem mit Layout-, Theme-, Farb-, Typografie- und Interaktionstokens
+- erste maschinenlesbare Design-Tokens unter `design/design-tokens.json`
+- fachliches ECAD-Datenmodell v0.1 für Projekt, Seiten, Geräte, Funktionen, Anschlüsse, Netze, Klemmen, Kabel, SPS, Aufbau und Dokumentation
 - kompakte Arbeitsbereichsnavigation `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation`
 - Light Mode, Dark UI + heller Zeichenbogen und optionaler Full-Dark-Canvas
-- Grundidee für Geräte-, Funktions- und Symbolmodell
-- erste Roadmap für MVP und spätere Ausbauphasen
 - Anforderungen an Verteilerfrontansicht / Aufbauplan
 - Anforderungen an farbige Potentialdarstellung
 - Zielbild für vollständige technische PDF-Projektdokumentation
@@ -46,6 +47,8 @@ Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive
 
 - [Projektplan](docs/PROJECT_PLAN.md)
 - [UI/UX- und Designkonzept](docs/DESIGN_CONCEPT.md)
+- [Designsystem](docs/DESIGN_SYSTEM.md)
+- [ECAD-Datenmodell](docs/DATA_MODEL.md)
 - [Funktionsumfang und Roadmap](docs/ROADMAP.md)
 - [Recherche und Referenzen](docs/RESEARCH_REFERENCES.md)
 - [Anforderungen aus privaten Referenzdokumenten – abstrahiert](docs/REFERENCE_DERIVED_REQUIREMENTS.md)
@@ -53,6 +56,8 @@ Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive
 - [Review der v0-Designiteration](docs/V0_REVIEW.md)
 - [v0 Screenshot-Inventar](docs/V0_SCREENSHOT_INVENTORY.md)
 - [Fortschritt](docs/PROGRESS.md)
+
+Zusätzlich: [frameworkneutrale Design-Tokens](design/design-tokens.json).
 
 > Private Beispielpläne, die zur Analyse von Workflows und Ausgabeformaten verwendet werden, werden nicht im öffentlichen Repository gespeichert. Dokumentiert werden ausschließlich abstrahierte Produktanforderungen.
 
@@ -100,15 +105,15 @@ Diese ersten Mockups bleiben als Vergleichsbasis erhalten; die v0-Iteration konk
 OpenE-CAD soll grafische Darstellung und Engineering-Daten konsequent trennen:
 
 ```text
-Symbol / Darstellung
-        ↓
-Funktion / Anschlusslogik
+Artikel / Herstellerdaten
         ↓
 Gerät / Betriebsmittel
         ↓
-Artikel / Herstellerdaten
+Funktion / Anschlusslogik
         ↓
-Platzierungen / Auswertungen
+Netze / Verbindungen
+        ↓
+Darstellungen / Platzierungen
 ```
 
 Ein Schütz ist damit nicht nur eine Zeichnung. Es ist ein Gerät mit BMK, Artikel, Spule, Leistungs- und Hilfskontakten, Anschlüssen, Querverweisen, mechanischen Daten, einer möglichen Verteilerplatzierung und Beziehungen zu Stückliste, Verdrahtung und Aufbauplan.
