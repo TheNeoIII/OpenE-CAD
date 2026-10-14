@@ -1,224 +1,179 @@
 # Fortschritt
 
-## 14.10.2026 – Erste Detailmodelle spezifiziert
+## 14.10.2026 – Fachliche Kernmodelle weitgehend spezifiziert
 
-### Erledigt
+### Neu abgeschlossen
 
-- [x] Seitentypen und Dokumentstruktur detailliert spezifiziert: `docs/SHEET_TYPES.md`
+- [x] Symbol-/Funktions-/Anschlussmodell: `docs/SYMBOL_FUNCTION_MODEL.md`
+- [x] FunctionTemplates, ConnectionTemplates und stabile PortBindings definiert
+- [x] Artikelwechsel als kontrollierte Funktionsmigration statt simples `article_id`-Setzen definiert
+- [x] SymbolDefinition strikt von Device/Function getrennt
+- [x] Makros als Platzierungs-/Schaltungsrezepte statt dauerhafte Sonderobjekte definiert
+- [x] mechanische Frontdarstellung vom Stromlaufplansymbol getrennt
+- [x] Bibliotheksversionierung und Projekt-Snapshots vorgesehen
+
+- [x] Referenzkennzeichen-/BMK-/Strukturmodell: `docs/REFERENCE_DESIGNATION_MODEL.md`
+- [x] stabile IDs von sichtbaren BMK getrennt
+- [x] IEC-81346-orientiertes, aber profilbasiertes Aspektmodell vorgesehen
+- [x] Seitenkontext, Strukturvererbung und explizite Overrides definiert
+- [x] automatische und manuelle BMK unterschieden
+- [x] Nummerierungssequenzen, Reservierungen und Renummerierungs-Preview definiert
+- [x] Klemmen-, Kabel- und SPS-Kennzeichnungen von ihren Unterobjekten/Adressen getrennt
+
+- [x] Verteiler-/Reihen-/Auto-Layout-Modell: `docs/CABINET_LAYOUT_MODEL.md`
+- [x] Enclosure, MountingSurface, RailRow und CabinetPlacement spezifiziert
+- [x] TE und mm konsequent getrennt
+- [x] `unplaced / auto / manual / locked` als Platzierungszustände definiert
+- [x] deterministische Auto-Layout-Pipeline mit First-Fit-Basisstrategie beschrieben
+- [x] bestehende gültige Positionen sollen möglichst stabil bleiben
+- [x] Reservefelder, Türflächen, Mehrfachauswahl und Layoutgruppen vorgesehen
+- [x] Auto-Layout als Preview + atomare Undo-Transaktion definiert
+
+- [x] Klemmen-/Kabelmodell: `docs/TERMINAL_CABLE_MODEL.md`
+- [x] TerminalStrip, Terminal, TerminalLevel und TerminalBridge definiert
+- [x] Mehrstock-, PE-, Trenn- und Durchgangsklemmen vorbereitet
+- [x] Cable, CableCore und CableShield definiert
+- [x] Reserveadern und Aderzuweisungen spezifiziert
+- [x] Klemmenplan, Kabelliste und Verdrahtungsliste als Projektionen des gemeinsamen Graphen festgelegt
+
+- [x] Undo/Redo-/Command-/Transaktionsmodell: `docs/UNDO_TRANSACTION_MODEL.md`
+- [x] GUI darf Domain State nicht direkt mutieren
+- [x] Commands, atomare Transactions, Preview-Commands und Composite Commands definiert
+- [x] Drag/Text-Edits sollen zu sinnvollen Undo-Schritten zusammengefasst werden
+- [x] Delete ImpactReport, Auto-Layout-Undo und Renummerierungs-Undo spezifiziert
+- [x] Project State von Workspace State getrennt
+- [x] Autosave/Recovery und atomisches Speichern vorbereitet
+
+- [x] `.oecad`-Container: `docs/PROJECT_FORMAT.md`
+- [x] ZIP-kompatibler Container + JSON als Arbeitshypothese festgelegt
+- [x] `manifest.json`, Domänenmodelle, Sheet-Dateien, Profile, Assets und Bibliothekssnapshots strukturiert
+- [x] `format_version` und `schema_version` getrennt
+- [x] stabile ID-Referenzen statt BMK-Strings festgelegt
+- [x] Migrationen, Feature Flags, Validierungsstufen und Read-only-Verhalten für zu neue Dateien vorgesehen
+- [x] Atomic Save, Recovery Sidecar, Projektlock und optionaler entpackter Git-/CLI-Modus beschrieben
+
+- [x] Hersteller-/Artikel-/Katalogmodell: `docs/ARTICLE_CATALOG_MODEL.md`
+- [x] Manufacturer, Article, typisierte Properties, Datenherkunft und Datenqualität definiert
+- [x] Katalogschichten und lokale Katalogdatenbank vom Projektformat getrennt
+- [x] Projektlokale Overrides und CatalogSnapshots vorgesehen
+- [x] Zubehör-/Alternativartikelbeziehungen und BOM-Aggregation vorbereitet
+- [x] Herstellerdaten-Lizenz/Redistribution als eigene Metadaten vorgesehen
+
+- [x] Projektprüfung-/Rule-Engine-Modell: `docs/VALIDATION_MODEL.md`
+- [x] ValidationRule, RuleProfile, Finding, Suppression und FixAction definiert
+- [x] harte Domäneninvarianten von normalen Projektbefunden getrennt
+- [x] Findings referenzieren stabile Objekt-IDs und LocationHints
+- [x] `Nur mit Befunden` und Inspector-Prüfung auf dieselbe Finding-Quelle ausgerichtet
+- [x] Exportpolitik, Ignorierungen und spätere inkrementelle Validierung vorbereitet
+
+- [x] Lizenzentscheidung vorbereitet: `docs/LICENSE_STRATEGY.md`
+- [x] MPL-2.0, GPL-3.0-or-later und permissive Varianten verglichen
+- [x] MPL-2.0 als vorläufigen Favoriten dokumentiert
+- [x] aktuelle Lizenzsituation von Slint, egui, iced und wgpu für die Frameworkwahl berücksichtigt
+- [x] Katalog-/Herstellerdaten ausdrücklich von der Code-Lizenz getrennt
+
+### Zentrale Entscheidungen
+
+- Fachobjekte werden ausschließlich über stabile interne IDs verknüpft.
+- Sichtbare BMK, Klemmenbezeichnungen, Kabelkennzeichen, SPS-Adressen und Seitenangaben sind änderbare Eigenschaften bzw. Formatierungen.
+- Symbole sind Darstellungen von Functions; sie sind weder Artikel noch Device.
+- Ein Artikelwechsel ist eine kontrollierte Migration der Gerätefunktionen.
+- Stromlaufplan, Aufbau, Datenmanager und Dokumentation arbeiten auf derselben Device-Identität.
+- Auto-Layout muss deterministisch und positionsstabil sein.
+- Klemmen-/Kabelauswertungen sind Projektionen des elektrischen Graphen.
+- Jede fachliche Mutation läuft über Commands/Transactions und ist grundsätzlich Undo-fähig.
+- `.oecad` besitzt eine explizite Persistenz-/DTO-Schicht und ist kein Binärdump interner Rust-Structs.
+- Prüfungen bewerten Projektdaten; `0 Befunde` darf nicht pauschal als elektrische/normative Sicherheit bezeichnet werden.
+
+### P0 verbleibend
+
+- [ ] endgültige Projektlizenz festlegen
+- [ ] konkrete stabile ID-Strategie festlegen (UUIDv7/ULID o. ä.)
+- [ ] interne CAD-Koordinateneinheit festlegen
+- [ ] Titelblock-Expression-Sprache vertiefen
+- [ ] SPS/I/O-Modell später detaillieren; für ersten Core nicht blockierend
+
+### Nächster Schritt
+
+**P1 – technische Evaluierung vorbereiten, noch ohne Produktivcode:**
+
+1. Zielarchitektur für Rust Workspace
+2. UI-Framework-Spike definieren
+3. Canvas-/Renderer-Spike definieren
+4. Persistenz-/Roundtrip-Spike definieren
+5. Benchmarks und Abnahmekriterien festlegen
+
+---
+
+## 14.10.2026 – Seitentypen und elektrisches Modell
+
+- [x] `docs/SHEET_TYPES.md`
 - [x] manuelle, datengetriebene und generierte Seiten getrennt
 - [x] technische Projektseite, Dokumentseite und physische PDF-Seite getrennt
-- [x] Titelblock-/Rahmen-Templates und Datenbindings definiert
-- [x] Dokumentationssets unabhängig von der internen Projektseitenfolge vorgesehen
-- [x] generierte Stücklisten, Klemmenpläne, Kabellisten und weitere Reports als Ableitungen des Projektmodells definiert
-- [x] Querverweise als stabile Placement-Referenzen statt gespeicherter Textverweise festgelegt
-- [x] elektrisches Netz-/Potentialmodell detailliert spezifiziert: `docs/ELECTRICAL_MODEL.md`
-- [x] `ConnectionPoint`, `Net`, `ElectricalConnection` und grafischen `ConnectionPath` getrennt
-- [x] explizite JunctionNodes für T-Verbindungen definiert
+- [x] Titelblock-/Rahmen-Templates und Datenbindings vorgesehen
+- [x] Dokumentationssets unabhängig von Projektseitenfolge definiert
+- [x] `docs/ELECTRICAL_MODEL.md`
+- [x] ConnectionPoint, Net, ElectricalConnection und ConnectionPath getrennt
+- [x] JunctionNodes für T-Verbindungen
 - [x] Linienkreuzung verbindet standardmäßig nicht
-- [x] Seitenfortsetzungen über stabile ContinuationNodes vorgesehen
+- [x] ContinuationNodes für Seitenfortsetzungen
 - [x] schaltende Funktionen trennen statische Netze
-- [x] Potentialtyp von Farbe und physischer Leiterfarbe getrennt
-- [x] Klemmen, Kabeladern und SPS-Anschlüsse auf dasselbe ConnectionPoint-Prinzip ausgerichtet
-- [x] inkrementeller Net-Rebuild als Core-Anforderung aufgenommen
-
-### Nächste Detailmodelle
-
-1. Symbol-/Function-/ConnectionPoint-Bibliotheksmodell vertiefen
-2. BMK / Strukturkennzeichen / IEC-81346-orientiertes Regelprofil
-3. Verteiler-/Reihen-/Auto-Layout-Regeln finalisieren
-4. Klemmen- und Kabelmodell vertiefen
-5. Undo/Redo-Kommandos und Transaktionen
-6. `.oecad`-Container und Schema-Versionierung
+- [x] Potentialtyp, Renderfarbe und physische Leiterfarbe getrennt
 
 ---
 
 ## 14.10.2026 – Designsystem und Datenmodell v0.1
 
-### Erledigt
-
-- [x] frameworkneutrales Designsystem erstellt: `docs/DESIGN_SYSTEM.md`
-- [x] Layoutmaße für App-Bar, Toolbar, Navigator, Inspector, Statusleiste und Tabellen definiert
-- [x] Light Mode, Dark UI + heller Plan und Full-Dark-Canvas als Theme-Tokens spezifiziert
-- [x] Interaktions-, Status- und technische Farbsemantik definiert
-- [x] N, PE, Steuer-/Sonderpotentiale, Querverweise und Auswahl als konfigurierbare semantische Farben definiert
-- [x] Typografie, Abstände, Radien, Dichteprofile und Icongrößen spezifiziert
-- [x] Canvas-, Raster-, Auswahl-, Hover- und Leitungswerkzeug-Zustände spezifiziert
-- [x] Navigator-, Inspector-, Datenmanager-, Aufbau-, Einfügezentrum-, Command-Palette- und Dokumentationsmuster spezifiziert
-- [x] erste maschinenlesbare Design-Tokens unter `design/design-tokens.json` abgelegt
-- [x] fachliches Domänenmodell v0.1 erstellt: `docs/DATA_MODEL.md`
-- [x] stabile interne IDs von BMK/Artikelnummer/Seitenname getrennt
-- [x] `Article → Device → Function → ConnectionPoint → Net/Connection → Placement` als zentrale Fachstruktur definiert
-- [x] Artikel, Geräte, Funktionen, Anschlüsse, Symbole und grafische Platzierungen sauber getrennt
-- [x] Potentiale fachlich von Darstellungsfarben getrennt
-- [x] Klemmen-, Kabel- und SPS-Grundmodell vorgesehen
-- [x] Verteiler-, Montageflächen-, Reihen- und CabinetPlacement-Modell spezifiziert
-- [x] TE und reale mm-Abmessungen als getrennte Größen festgelegt
-- [x] Auto-Layout mit gesperrten/manual/auto Platzierungen fachlich vorbereitet
-- [x] Titelblock-, Dokumentations-, Prüfungs-, Revisions- und Custom-Property-Grundmodell aufgenommen
-- [x] Undo/Redo als Commands auf dem Domänenmodell vorbereitet
-
-### Fachliche Entscheidungen
-
-- Stabile interne IDs sind die Primärreferenz; BMK und andere sichtbare Kennzeichen sind änderbare Eigenschaften.
-- Grafikobjekte sind Darstellungen fachlicher Objekte und nicht deren Identität.
-- Ein Gerät kann mehrere Funktionen und mehrere Stromlaufplan-Platzierungen besitzen, bleibt aber ein Gerät in Stückliste und Aufbau.
-- Ein Verteileraufbau referenziert dieselben Device-IDs wie der Stromlaufplan.
-- TE-Breite und reale Gerätebreite in mm werden separat gespeichert.
-- Auswertungen werden aus dem gemeinsamen Datenmodell generiert und nicht als unabhängige zweite Datenhaltung gepflegt.
+- [x] `docs/DESIGN_SYSTEM.md`
+- [x] `design/design-tokens.json`
+- [x] Light, Dark UI + heller Plan und Full-Dark-Canvas spezifiziert
+- [x] Layout-, Typografie-, Farb- und Interaktionstokens festgelegt
+- [x] `docs/DATA_MODEL.md`
+- [x] `Article → Device → Function → ConnectionPoint → Net/Connection → Placement` als zentrale Fachstruktur
+- [x] TE und reale mm-Abmessungen getrennt
+- [x] Aufbau, Dokumentation, Revisions- und Prüfgrundmodell aufgenommen
 
 ---
 
-## 14.10.2026 – v0 Designiteration 2 vollständig dokumentiert
+## 14.10.2026 – v0 Designiteration 2
 
-### Erledigt
-
-- [x] v0-Gegenentwurf und vollständigen ZIP-Export geprüft
-- [x] vollständiges Screenshot-Set mit 32 Ansichten ausgewertet
-- [x] Screenshot-Inventar unter `docs/V0_SCREENSHOT_INVENTORY.md` dokumentiert
-- [x] v0-Entwurf als bevorzugte aktuelle UI/UX-Richtung übernommen
-- [x] Light Mode geprüft
+- [x] vollständigen v0-Prototyp/ZIP geprüft
+- [x] 32 Ansichten ausgewertet und inventarisiert
+- [x] v0 als aktuelle bevorzugte UI/UX-Designbasis übernommen
+- [x] `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation` bestätigt
+- [x] Ctrl+K Command Palette bestätigt
+- [x] permanenter dynamischer Inspector bestätigt
 - [x] Dark UI + heller Zeichenbogen als bevorzugter Dark-Standard bestätigt
-- [x] Full-Dark-Canvas als optionalen Arbeitsmodus bestätigt
-- [x] kompakte Top-Navigation `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation` bestätigt
-- [x] `Ctrl+K` Command Palette als zentrales Bedienkonzept bestätigt
-- [x] permanenter, dynamischer Eigenschaften-/Prüf-Inspector bestätigt
-- [x] Navigatoren für Seiten, Betriebsmittel, Klemmen, Kabel und SPS geprüft
-- [x] Leitungswerkzeug und Einfügezentrum geprüft
-- [x] Aufbauworkflow mit Auto-Layout, TE-Bilanz, Drag & Drop, Reservefeldern und Positionssperren geprüft
-- [x] alle acht Datenmanager-Register und Power-User-Funktionen geprüft
-- [x] Dokumentations-/Exportansicht mit Stückliste und Klemmenplan geprüft
-- [x] UX-Konzept / Begründung der Layoutentscheidungen geprüft
-- [x] Review unter `docs/V0_REVIEW.md` dokumentiert
+- [x] Full-Dark-Canvas bleibt optional
+- [x] Aufbau, Datenmanager, Dokumentation und UX-Begründungen geprüft
 
-### Designentscheidung
-
-Die v0-Richtung ist die aktuelle bevorzugte Designbasis. Die 32 Ansichten decken die wesentlichen Arbeitsbereiche ausreichend ab; vor der Spezifikationsphase sind keine weiteren grundsätzlichen Mockups erforderlich.
-
-Der Next.js/React-Code bleibt **Designprototyp**. Die Produktivanwendung wird eigenständig in Rust entwickelt.
+Der Next.js/React-Code ist weiterhin nur Designreferenz; die Produktivanwendung wird eigenständig in Rust entwickelt.
 
 ---
 
-## 14.10.2026 – Private Referenzpläne / Dokumentations- und Aufbauanforderungen
+## 14.10.2026 – Private Referenzpläne
 
-### Erledigt
-
-- [x] private ELCAD-Beispieldokumentation analysiert
-- [x] private WSCAD-Beispieldokumentation analysiert
-- [x] entschieden, die Original-PDFs **nicht** in das öffentliche Repository hochzuladen
-- [x] nur abstrahierte, nicht personenbezogene Merkmale dokumentiert
+- [x] private ELCAD- und WSCAD-Beispiele analysiert
+- [x] Original-PDFs werden nicht öffentlich gespeichert
+- [x] abstrahierte Anforderungen in `docs/REFERENCE_DERIVED_REQUIREMENTS.md`
 - [x] vollständige Projekt-PDF als Ziel aufgenommen
-- [x] Verteilerfrontansicht / Aufbauplan als eigener Funktionsbereich aufgenommen
-- [x] TE-basierte Geräteplatzierung je Reihe spezifiziert
-- [x] automatische Frontansicht aus Einbauort / Verteiler / Reihe / Gerätebreite vorgesehen
-- [x] manuelle Nachbearbeitung per Drag & Drop und Positionssperren vorgesehen
-- [x] farbige Potential-/Leiterdarstellung als UI-Anforderung aufgenommen
-- [x] Neutralleiter-Blau als sinnvolles Standardprofil aufgenommen
-- [x] PE- und Querverweisfarben als konfigurierbare visuelle Hilfen vorgesehen
-- [x] Material-/Bestelllisten, Klemmenpläne und Kabellisten als PDF-Auswertungen bestätigt
-- [x] Roadmap entsprechend angepasst
-- [x] v0 Design-Brief erstellt: `docs/V0_DESIGN_BRIEF.md`
-- [x] abstrahierte Anforderungen aus den privaten PDFs dokumentiert: `docs/REFERENCE_DERIVED_REQUIREMENTS.md`
-
-### Entscheidung
-
-Die einfache Verteilerfrontansicht wird bereits in Phase 2 vorgesehen. Das spätere vollständige 2D-Schaltschrankmodul erweitert sie um Montageplatte, Kabelkanäle, frei positionierbare Hutschienen, Routing und weitere Fertigungsdetails.
+- [x] Verteilerfrontansicht mit TE-/Reihenlogik aufgenommen
+- [x] N standardmäßig blau, PE grün und weitere Potential-/Verweisfarben konfigurierbar vorgesehen
 
 ---
 
-## 13.10.2026 – Projektstart / Konzeptphase
-
-### Erledigt
+## 13.10.2026 – Projektstart
 
 - [x] GitHub-Projekt `TheNeoIII/OpenE-CAD` angelegt
 - [x] Produktvision definiert
-- [x] Positionierung als eigenständiges Open-Source-ECAD festgelegt
-- [x] EPLAN Electric P8, WSCAD ELECTRIX, ELCAD und QElectroTech als Referenzen untersucht
-- [x] Eaton als erster Referenzhersteller vorgesehen
-- [x] Grundlayout der Anwendung entworfen
+- [x] eigenständige Neuentwicklung statt Fork/Port beschlossen
+- [x] Rust als primäre Sprache beschlossen
+- [x] EPLAN, WSCAD, ELCAD und QElectroTech als Referenzen untersucht
+- [x] Eaton als erster Hersteller-Referenzfall vorgesehen
 - [x] fünf erste UI-Mockups erstellt
-- [x] Light und Dark Mode als gleichwertige Designanforderung aufgenommen
-- [x] Kernprinzip `Darstellung → Funktion → Gerät → Artikel` festgelegt
-- [x] erste fachliche Roadmap dokumentiert
-- [x] Grundidee für offenes `.oecad`-Format dokumentiert
+- [x] Light/Dark als gleichwertige Anforderungen aufgenommen
+- [x] offene Projekt-/Bibliotheksformate als Ziel festgelegt
 
 ## Aktueller Status
 
-**Noch kein Produktivcode.**
-
-Der Schwerpunkt liegt weiterhin bewusst auf Produktspezifikation, Datenmodell und Bedienkonzept. Erst danach folgen technische Rust-Spikes und die Frameworkentscheidung.
-
-## P0 – vor dem Coding
-
-- [x] Dark-Mode-Mockup des Haupteditors
-- [x] Designsystem v0.1
-- [x] erste Design-Tokens
-- [x] Aufbau-/Verteilerfront-Prototyp
-- [x] PDF-/Dokumentations-Workflow
-- [x] v0-Gegenentwurf vollständig ausgewertet
-- [x] Domänenmodell v0.1 breit spezifiziert
-- [x] Seitentypen im Detail
-- [ ] Symbol-/Funktions-/Anschlussmodell im Detail
-- [x] Leiter-/Netz-/Potentiallogik im Detail
-- [ ] BMK-/IEC-81346-Regelprofil
-- [x] Querverweis-Grundlogik im Detail
-- [ ] Artikel-/Herstellerdatenmodell finalisieren
-- [ ] Verteiler-/Reihen-/Platzierungsregeln finalisieren
-- [ ] Klemmen-/Kabelmodell vertiefen
-- [ ] Undo/Redo-Architektur finalisieren
-- [ ] Projektformat und Schema-Versionierung konkretisieren
-- [ ] Lizenzstrategie festlegen
-
-## P1 – technische Evaluierung
-
-- [ ] Rust Workspace-Grundstruktur entwerfen
-- [ ] UI-Framework-Spike
-- [ ] Canvas-/Renderer-Spike
-- [ ] Text-Rendering und Schaltplan-Schriften testen
-- [ ] High-DPI / Windows / Linux testen
-- [ ] 5.000–20.000 grafische Objekte als Performance-Test
-- [ ] Hit-Testing / Selection / Snap testen
-- [ ] Serialisierung und migrationsfähige Projektdatei testen
-
-## P2 – erster funktionaler Prototyp
-
-- [ ] Projekt anlegen / speichern / laden
-- [ ] Seite darstellen
-- [ ] Raster / Zoom / Pan
-- [ ] Symbol platzieren
-- [ ] Anschlüsse verbinden
-- [ ] Gerät mit BMK anlegen
-- [ ] Querverweis zwischen zwei Funktionen desselben Geräts
-- [ ] Undo / Redo
-- [ ] PDF/SVG-Ausgabe
-
-## Entscheidungen
-
-| Datum | Entscheidung | Status |
-|---|---|---|
-| 14.10.2026 | technische Projektseite und physische PDF-Seite werden getrennt modelliert | beschlossen |
-| 14.10.2026 | Querverweise referenzieren stabile Placements statt gespeicherter Verweisstrings | beschlossen |
-| 14.10.2026 | Leitungsgeometrie und elektrische Topologie werden getrennt | beschlossen |
-| 14.10.2026 | Linienkreuzung verbindet standardmäßig nicht; T-Verbindungen verwenden explizite JunctionNodes | beschlossen |
-| 14.10.2026 | Domänenobjekte verwenden stabile interne IDs; sichtbare Kennzeichen sind keine Primärschlüssel | beschlossen |
-| 14.10.2026 | Grafik und Fachobjekte werden strikt getrennt | beschlossen |
-| 14.10.2026 | TE und reale mm-Abmessungen werden separat modelliert | beschlossen |
-| 14.10.2026 | Auswertungen werden aus dem gemeinsamen Projektmodell generiert | beschlossen |
-| 14.10.2026 | vollständiges v0-Screenshot-Set mit 32 Ansichten ist ausreichende visuelle Referenz | beschlossen |
-| 14.10.2026 | v0-Entwurf wird als aktuelle bevorzugte UI/UX-Designbasis übernommen | beschlossen |
-| 14.10.2026 | Dark UI + heller Zeichenbogen ist bevorzugter Dark-Standard; Full Dark Canvas bleibt optional | beschlossen |
-| 14.10.2026 | Next.js/React-v0-Code dient nur als Designreferenz, Produktivcode bleibt Rust-Neuentwicklung | beschlossen |
-| 14.10.2026 | Private Referenz-PDFs werden nicht öffentlich gespeichert | beschlossen |
-| 14.10.2026 | Verteilerfrontansicht mit TE-/Reihenlogik wird eigener Phase-2-Funktionsbereich | beschlossen |
-| 14.10.2026 | Potential-/Leiterfarben sind konfigurierbare visuelle Hilfen; N standardmäßig blau | beschlossen |
-| 14.10.2026 | vollständige technische Projektdokumentation als zusammenhängende PDF ist Ziel | beschlossen |
-| 13.10.2026 | Eigenständige Neuentwicklung statt Port/Fork | beschlossen |
-| 13.10.2026 | Rust als primäre Sprache | beschlossen |
-| 13.10.2026 | Datenorientiertes Modell statt reiner Grafikobjekte | beschlossen |
-| 13.10.2026 | leichte Bedienbarkeit ist Kernziel | beschlossen |
-| 13.10.2026 | Eaton dient als erster Hersteller-/Katalogreferenzfall | beschlossen |
-| 13.10.2026 | Frameworkauswahl erfolgt erst nach technischem Spike | geplant |
-| 13.10.2026 | konkrete Open-Source-Lizenz | offen |
-
-## Fortschrittslog-Konvention
-
-Neue relevante Entscheidungen werden hier ergänzt. Größere fachliche Änderungen werden zusätzlich in den jeweiligen Spezifikationsdokumenten gepflegt.
+**Noch kein Produktivcode.** Die fachliche Spezifikation ist inzwischen breit genug, um gezielte technische Rust-Spikes vorzubereiten, ohne die Domänenarchitektur erst während des Codings erfinden zu müssen.
