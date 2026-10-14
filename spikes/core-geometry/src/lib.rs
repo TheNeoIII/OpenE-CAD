@@ -111,8 +111,8 @@ impl ModelPoint {
 /// Ephemeral screen-space value. Never persisted as project geometry.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct ScreenPoint {
-    pub x_px: f32,
-    pub y_px: f32,
+    pub x_px: f64,
+    pub y_px: f64,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -215,6 +215,105 @@ impl MicroDegree {
     }
 }
 
+/// Exact rational engineering scale, e.g. 1:10 = numerator 1, denominator 10.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScaleRatio {
+    pub numerator: u32,
+    pub denominator: u32,
+}
+
+impl ScaleRatio {
+    pub fn new(numerator: u32, denominator: u32) -> Self {
+        assert!(numerator > 0, "scale numerator must be positive");
+        assert!(denominator > 0, "scale denominator must be positive");
+        Self {
+            numerator,
+            denominator,
+        }
+    }
+
+    pub const fn one_to_one() -> Self {
+        Self {
+            numerator: 1,
+            denominator: 1,
+        }
+    }
+
+    pub fn apply(self, value: Micrometre) -> Micrometre {
+        let scaled = value.0 as i128 * self.numerator as i128;
+        let denominator = self.denominator as i128;
+        let rounded = if scaled >= 0 {
+            (scaled + denominator / 2) / denominator
+        } else {
+            (scaled - denominator / 2) / denominator
+        };
+        Micrometre(i64::try_from(rounded).expect("scaled coordinate does not fit i64"))
+    }
+}
+
+/// Ephemeral view transform between persistent paper coordinates and screen pixels.
+///
+/// View state intentionally uses floating point because it is not project geometry.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ViewTransform {
+    pub center_um: [f64; 2],
+    pub viewport_px: [f64; 2],
+    pub pixels_per_um: f64,
+}
+
+impl ViewTransform {
+    pub fn new(center: PaperPoint, viewport_px: [f64; 2], pixels_per_um: f64) -> Self {
+        assert!(viewport_px[0] > 0.0 && viewport_px[1] > 0.0);
+        assert!(pixels_per_um.is_finite() && pixels_per_um > 0.0);
+        Self {
+            center_um: [center.x.0 as f64, center.y.0 as f64],
+            viewport_px,
+            pixels_per_um,
+        }
+    }
+
+    pub fn paper_to_screen(self, point: PaperPoint) -> ScreenPoint {
+        ScreenPoint {
+            x_px: (point.x.0 as f64 - self.center_um[0]) * self.pixels_per_um
+                + self.viewport_px[0] * 0.5,
+            y_px: (point.y.0 as f64 - self.center_um[1]) * self.pixels_per_um
+                + self.viewport_px[1] * 0.5,
+        }
+    }
+
+    pub fn screen_to_paper(self, point: ScreenPoint) -> PaperPoint {
+        let x = self.center_um[0]
+            + (point.x_px - self.viewport_px[0] * 0.5) / self.pixels_per_um;
+        let y = self.center_um[1]
+            + (point.y_px - self.viewport_px[1] * 0.5) / self.pixels_per_um;
+        PaperPoint::new(Micrometre(x.round() as i64), Micrometre(y.round() as i64))
+    }
+
+    pub fn pan_screen_pixels(&mut self, dx_px: f64, dy_px: f64) {
+        self.center_um[0] -= dx_px / self.pixels_per_um;
+        self.center_um[1] -= dy_px / self.pixels_per_um;
+    }
+
+    /// Changes zoom while keeping the paper coordinate under `anchor` visually fixed.
+    pub fn zoom_at(&mut self, anchor: ScreenPoint, factor: f64) {
+        assert!(factor.is_finite() && factor > 0.0);
+        let before = self.screen_to_paper_f64(anchor);
+        self.pixels_per_um = (self.pixels_per_um * factor).clamp(1.0e-8, 1.0e3);
+        let after = self.screen_to_paper_f64(anchor);
+        self.center_um[0] += before[0] - after[0];
+        self.center_um[1] += before[1] - after[1];
+    }
+
+    fn screen_to_paper_f64(self, point: ScreenPoint) -> [f64; 2] {
+        [
+            self.center_um[0]
+                + (point.x_px - self.viewport_px[0] * 0.5) / self.pixels_per_um,
+            self.center_um[1]
+                + (point.y_px - self.viewport_px[1] * 0.5) / self.pixels_per_um,
+        ]
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GeometryFixture {
     pub id: ObjectId,
@@ -223,6 +322,7 @@ pub struct GeometryFixture {
     pub grid: Grid,
     pub width: MilliTe,
     pub angle: MicroDegree,
+    pub scale: ScaleRatio,
 }
 
 #[cfg(test)]
@@ -280,6 +380,44 @@ mod tests {
     }
 
     #[test]
+    fn rational_scale_is_exact_for_divisible_values() {
+        let one_to_ten = ScaleRatio::new(1, 10);
+        assert_eq!(one_to_ten.apply(Micrometre::from_mm(100)), Micrometre::from_mm(10));
+        assert_eq!(one_to_ten.apply(Micrometre::from_mm(-100)), Micrometre::from_mm(-10));
+    }
+
+    #[test]
+    fn paper_screen_paper_roundtrip_is_within_one_micrometre() {
+        let transform = ViewTransform::new(
+            PaperPoint::new(Micrometre::from_mm(210), Micrometre::from_um(148_500)),
+            [1920.0, 1080.0],
+            0.00425,
+        );
+        let input = PaperPoint::new(Micrometre::from_um(123_456), Micrometre::from_um(234_567));
+        let output = transform.screen_to_paper(transform.paper_to_screen(input));
+        assert!((output.x.0 - input.x.0).abs() <= 1);
+        assert!((output.y.0 - input.y.0).abs() <= 1);
+    }
+
+    #[test]
+    fn zoom_at_cursor_preserves_anchor_coordinate() {
+        let mut transform = ViewTransform::new(
+            PaperPoint::new(Micrometre::from_mm(210), Micrometre::from_um(148_500)),
+            [1600.0, 1000.0],
+            0.003,
+        );
+        let cursor = ScreenPoint {
+            x_px: 1213.25,
+            y_px: 317.75,
+        };
+        let before = transform.screen_to_paper_f64(cursor);
+        transform.zoom_at(cursor, 1.75);
+        let after = transform.screen_to_paper_f64(cursor);
+        assert!((before[0] - after[0]).abs() < 1.0e-6);
+        assert!((before[1] - after[1]).abs() < 1.0e-6);
+    }
+
+    #[test]
     fn serde_json_roundtrip_is_semantically_identical() {
         let fixture = GeometryFixture {
             id: ObjectId::new_v7(),
@@ -291,6 +429,7 @@ mod tests {
             grid: Grid::new(Micrometre::from_um(2_500)),
             width: MilliTe::from_milli_te(2_500),
             angle: MicroDegree(12_345_678).normalized(),
+            scale: ScaleRatio::new(1, 10),
         };
 
         let json = serde_json::to_string_pretty(&fixture).unwrap();
