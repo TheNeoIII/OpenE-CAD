@@ -1,5 +1,40 @@
 # Fortschritt
 
+## 14.10.2026 – v0 Designiteration 2 ausgewertet
+
+### Erledigt
+
+- [x] v0-Gegenentwurf anhand der Screenshots geprüft
+- [x] vollständigen v0-ZIP-Export mit Haupteditor, Aufbau, Datenmanager, Dokumentation, Einfügezentrum und Projektstart geprüft
+- [x] v0-Entwurf als bevorzugte aktuelle UI/UX-Richtung übernommen
+- [x] Light Mode geprüft
+- [x] Dark UI + heller Zeichenbogen geprüft und als bevorzugter Dark-Standard bestätigt
+- [x] Full-Dark-Canvas als optionalen Arbeitsmodus bestätigt
+- [x] kompakte Top-Navigation `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation` bestätigt
+- [x] `Ctrl+K` Command Palette als zentrales Bedienkonzept bestätigt
+- [x] permanenter, dynamischer Eigenschaften-/Prüf-Inspector bestätigt
+- [x] v0-Aufbauworkflow mit Auto-Layout, TE-Bilanz, Drag & Drop, Reservefeldern und Positionssperren geprüft
+- [x] v0-Datenmanager mit Tabellen-/Power-User-Bedienung geprüft
+- [x] v0-Dokumentations-/Exportansicht geprüft
+- [x] notwendige Verfeinerungen vor Rust-Implementierung dokumentiert
+- [x] Review unter `docs/V0_REVIEW.md` abgelegt
+
+### Designentscheidung
+
+Die v0-Haupteditor-Richtung ist die aktuelle bevorzugte Designbasis. Sie ersetzt die ersten Mockups nicht vollständig, konkretisiert deren Layout und Interaktionen aber deutlich.
+
+Der Next.js/React-Code bleibt **Designprototyp**. Die Produktivanwendung wird weiterhin eigenständig in Rust entwickelt.
+
+### Noch zu verfeinern
+
+- [ ] Design Tokens aus v0 ableiten
+- [ ] Verteilergeometrie datengetrieben statt beispielhaft `4 × 36 TE`
+- [ ] Navigatorbreite / lange Seitennamen finalisieren
+- [ ] monochrome Linienstile für Potentiale konkretisieren
+- [ ] Potentialfarben als Projekt-/Firmenprofil definieren
+- [ ] Titelblock-Template-System spezifizieren
+- [ ] Workspace-/Panel-Docking-Konzept für Multi-Monitor-Betrieb definieren
+
 ## 14.10.2026 – Private Referenzpläne / Dokumentations- und Aufbauanforderungen
 
 ### Erledigt
@@ -61,12 +96,12 @@ Der derzeitige Schwerpunkt liegt absichtlich auf Produktdefinition, Datenmodell 
 
 ### P0 – vor dem Coding klären
 
-- [ ] Dark-Mode-Mockup des Haupteditors erstellen
+- [x] Dark-Mode-Mockup des Haupteditors erstellen
 - [ ] Designsystem mit Farben, Abständen, Typografie, Icons und Zuständen definieren
 - [ ] Potential-/Leiter-Farbprofil für Light/Dark definieren
-- [ ] Mockup für Verteilerfrontansicht / Aufbauplan erstellen
-- [ ] PDF-/Dokumentations-Export als UI-Workflow entwerfen
-- [ ] v0-Gegenentwurf auswerten und mit bestehendem Konzept vergleichen
+- [x] Mockup / Prototyp für Verteilerfrontansicht / Aufbauplan erstellen
+- [x] PDF-/Dokumentations-Export als UI-Workflow entwerfen
+- [x] v0-Gegenentwurf auswerten und mit bestehendem Konzept vergleichen
 - [ ] Seitentypen definieren
 - [ ] Symbol-/Funktions-/Anschlussmodell vollständig spezifizieren
 - [ ] Leiter-/Verbindungsmodell spezifizieren
@@ -108,6 +143,9 @@ Der derzeitige Schwerpunkt liegt absichtlich auf Produktdefinition, Datenmodell 
 
 | Datum | Entscheidung | Status |
 |---|---|---|
+| 14.10.2026 | v0-Entwurf wird als aktuelle bevorzugte UI/UX-Designbasis übernommen | beschlossen |
+| 14.10.2026 | Dark UI + heller Zeichenbogen ist bevorzugter Dark-Standard; Full Dark Canvas bleibt optional | beschlossen |
+| 14.10.2026 | Next.js/React-v0-Code dient nur als Designreferenz, Produktivcode bleibt Rust-Neuentwicklung | beschlossen |
 | 14.10.2026 | Private Referenz-PDFs werden nicht öffentlich im Repository gespeichert | beschlossen |
 | 14.10.2026 | Verteilerfrontansicht mit TE-/Reihenlogik wird eigener Phase-2-Funktionsbereich | beschlossen |
 | 14.10.2026 | Frontansicht soll aus Gerätedaten automatisch generierbar und manuell korrigierbar sein | beschlossen |
