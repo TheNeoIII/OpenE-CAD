@@ -36,6 +36,22 @@ auf
 
 kompiliert die Baseline auf beiden Zielplattformen.
 
+## Windows-Preview
+
+Ein echter Windows-Release-Build wurde ebenfalls erfolgreich durch GitHub Actions erzeugt.
+
+```text
+Workflow: Renderer preview
+Run:      38557324566
+Artifact: OpenE-CAD-S2-renderer-windows
+ID:       11890870510
+Größe:    3.253.465 Byte (ZIP-Artefakt)
+SHA-256:  e64e2a2c52b2a6f10e3db6ecd96bc7aa31987f0e79beab78efba1d4566442a7f
+Ablauf:   28.10.2026
+```
+
+Das Artefakt enthält `opene-cad-cad-renderer-spike.exe` und ist ausdrücklich nur ein technischer Preview-/Messbuild.
+
 ## Bereits implementiert
 
 - LineList-Pipeline mit WGSL
@@ -50,7 +66,7 @@ kompiliert die Baseline auf beiden Zielplattformen.
 
 ## Noch nicht als Ergebnis gewertet
 
-CI prüft derzeit nur die Kompilierbarkeit. Ein GitHub-Runner ist kein geeigneter Ersatz für einen interaktiven GPU-/DPI-Test.
+CI bestätigt Kompilierbarkeit und Release-Build. Ein GitHub-Runner ist aber kein geeigneter Ersatz für einen interaktiven GPU-/DPI-Test.
 
 Noch auf realer Desktop-Hardware zu messen:
 
