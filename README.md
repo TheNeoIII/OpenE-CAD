@@ -31,6 +31,7 @@ Der aktuelle Stand umfasst:
 - Vergleich und Recherche der Referenzanwendungen
 - erstes Oberflächenkonzept und fünf eigene UI-Mockups
 - v0-Gegenentwurf als zweite Designiteration geprüft und als aktuelle bevorzugte UI/UX-Richtung übernommen
+- vollständiges v0-Screenshot-Set mit 32 Ansichten als visuelle Referenz ausgewertet
 - kompakte Arbeitsbereichsnavigation `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation`
 - Light Mode, Dark UI + heller Zeichenbogen und optionaler Full-Dark-Canvas
 - Grundidee für Geräte-, Funktions- und Symbolmodell
@@ -50,6 +51,7 @@ Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive
 - [Anforderungen aus privaten Referenzdokumenten – abstrahiert](docs/REFERENCE_DERIVED_REQUIREMENTS.md)
 - [v0 Design-Brief](docs/V0_DESIGN_BRIEF.md)
 - [Review der v0-Designiteration](docs/V0_REVIEW.md)
+- [v0 Screenshot-Inventar](docs/V0_SCREENSHOT_INVENTORY.md)
 - [Fortschritt](docs/PROGRESS.md)
 
 > Private Beispielpläne, die zur Analyse von Workflows und Ausgabeformaten verwendet werden, werden nicht im öffentlichen Repository gespeichert. Dokumentiert werden ausschließlich abstrahierte Produktanforderungen.
