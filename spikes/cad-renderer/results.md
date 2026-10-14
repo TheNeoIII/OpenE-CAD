@@ -52,6 +52,30 @@ Ablauf:   28.10.2026
 
 Das Artefakt enthält `opene-cad-cad-renderer-spike.exe` und ist ausdrücklich nur ein technischer Preview-/Messbuild.
 
+## Erster interaktiver Windows-Test
+
+Der Preview-Build wurde auf einem realen Windows-Desktop gestartet und visuell geprüft.
+
+Beobachtete Werte aus den Test-Screenshots:
+
+| Szene | Theme | Zoom | Segmente | angezeigte FPS |
+|---|---|---:|---:|---:|
+| Referenz | Light | 51 % | 49 | 144 |
+| Stress | DarkCanvas | 100 % | 10.049 | 144 |
+| Stress | Light | 100 % | 10.049 | 144 |
+
+Ergebnis:
+
+- tatsächliches wgpu-Rendering unter Windows funktioniert
+- Light- und DarkCanvas-Modus funktionieren
+- die Stressszene mit 10.049 Segmenten wird ohne sichtbare Geometriefehler dargestellt
+- in allen gezeigten Zuständen wurden 144 FPS erreicht
+- Pan/Zoom und Szenen-/Theme-Umschaltung waren funktionsfähig genug, um die Testzustände interaktiv zu erreichen
+
+Die identischen 144 FPS in Referenz- und Stressszene sprechen stark dafür, dass die Messung aktuell durch VSync bzw. die Bildwiederholrate des Systems begrenzt ist. Daraus darf noch **nicht** geschlossen werden, dass die tatsächliche maximale Renderleistung ebenfalls 144 FPS beträgt. Positiv bestätigt ist aber, dass die derzeitige 10k-Segment-Szene innerhalb des verfügbaren Frame-Budgets bleibt.
+
+Hardwaredetails, Frame-Time-p95 sowie CPU-/GPU-Auslastung wurden in diesem Test noch nicht erfasst.
+
 ## Bereits implementiert
 
 - LineList-Pipeline mit WGSL
@@ -64,18 +88,14 @@ Das Artefakt enthält `opene-cad-cad-renderer-spike.exe` und ist ausdrücklich n
 - Stressszene mit zusätzlichen 10.000 Segmenten
 - FPS-/Segmentanzeige
 
-## Noch nicht als Ergebnis gewertet
+## Noch zu messen
 
-CI bestätigt Kompilierbarkeit und Release-Build. Ein GitHub-Runner ist aber kein geeigneter Ersatz für einen interaktiven GPU-/DPI-Test.
-
-Noch auf realer Desktop-Hardware zu messen:
-
-- tatsächliches Rendering
 - Frame Time / p95
-- Pan/Zoom-Latenz
+- Pan/Zoom-Latenz quantitativ
 - GPU/CPU-Auslastung
 - verschiedene DPI-Skalierungen
 - Vulkan/DX12-Verhalten
+- uncapped/offscreen Renderer-Durchsatz, damit VSync die Vergleichswerte nicht begrenzt
 
 ## Nächste Renderer-Schritte
 
