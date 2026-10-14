@@ -3,11 +3,15 @@ name: Rust spike checks
 on:
   push:
     paths:
-      - "spikes/**"
+      - "spikes/Cargo.toml"
+      - "spikes/*/Cargo.toml"
+      - "spikes/*/src/**"
       - ".github/workflows/spikes.yml"
   pull_request:
     paths:
-      - "spikes/**"
+      - "spikes/Cargo.toml"
+      - "spikes/*/Cargo.toml"
+      - "spikes/*/src/**"
       - ".github/workflows/spikes.yml"
   workflow_dispatch:
 
