@@ -1,11 +1,13 @@
 # Fortschritt
 
-## 14.10.2026 – v0 Designiteration 2 ausgewertet
+## 14.10.2026 – v0 Designiteration 2 vollständig dokumentiert
 
 ### Erledigt
 
 - [x] v0-Gegenentwurf anhand der Screenshots geprüft
 - [x] vollständigen v0-ZIP-Export mit Haupteditor, Aufbau, Datenmanager, Dokumentation, Einfügezentrum und Projektstart geprüft
+- [x] vollständiges Screenshot-Set mit 32 Ansichten ausgewertet
+- [x] Screenshot-Inventar unter `docs/V0_SCREENSHOT_INVENTORY.md` dokumentiert
 - [x] v0-Entwurf als bevorzugte aktuelle UI/UX-Richtung übernommen
 - [x] Light Mode geprüft
 - [x] Dark UI + heller Zeichenbogen geprüft und als bevorzugter Dark-Standard bestätigt
@@ -13,15 +15,20 @@
 - [x] kompakte Top-Navigation `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation` bestätigt
 - [x] `Ctrl+K` Command Palette als zentrales Bedienkonzept bestätigt
 - [x] permanenter, dynamischer Eigenschaften-/Prüf-Inspector bestätigt
+- [x] Navigatoren für Seiten, Betriebsmittel, Klemmen, Kabel und SPS geprüft
+- [x] Leitungswerkzeug und Einfügezentrum geprüft
 - [x] v0-Aufbauworkflow mit Auto-Layout, TE-Bilanz, Drag & Drop, Reservefeldern und Positionssperren geprüft
-- [x] v0-Datenmanager mit Tabellen-/Power-User-Bedienung geprüft
-- [x] v0-Dokumentations-/Exportansicht geprüft
+- [x] Geräte-Inspector, Fehlerzustände und Türansicht im Aufbau geprüft
+- [x] alle acht Datenmanager-Register geprüft
+- [x] Datenmanager-Power-User-Funktionen Spalten, Suchen/Ersetzen, Nur-Befunde und Mehrfachänderung geprüft
+- [x] v0-Dokumentations-/Exportansicht mit Stückliste und Klemmenplan geprüft
+- [x] UX-Konzept / Begründung der Layoutentscheidungen geprüft
 - [x] notwendige Verfeinerungen vor Rust-Implementierung dokumentiert
-- [x] Review unter `docs/V0_REVIEW.md` abgelegt
+- [x] Review unter `docs/V0_REVIEW.md` erweitert
 
 ### Designentscheidung
 
-Die v0-Haupteditor-Richtung ist die aktuelle bevorzugte Designbasis. Sie ersetzt die ersten Mockups nicht vollständig, konkretisiert deren Layout und Interaktionen aber deutlich.
+Die v0-Richtung ist die aktuelle bevorzugte Designbasis. Die 32 Ansichten decken die wesentlichen Arbeitsbereiche und Interaktionsmuster ausreichend ab; vor Definition des Designsystems sind keine weiteren grundsätzlichen Mockups erforderlich.
 
 Der Next.js/React-Code bleibt **Designprototyp**. Die Produktivanwendung wird weiterhin eigenständig in Rust entwickelt.
 
@@ -34,6 +41,7 @@ Der Next.js/React-Code bleibt **Designprototyp**. Die Produktivanwendung wird we
 - [ ] Potentialfarben als Projekt-/Firmenprofil definieren
 - [ ] Titelblock-Template-System spezifizieren
 - [ ] Workspace-/Panel-Docking-Konzept für Multi-Monitor-Betrieb definieren
+- [ ] Tabelleninteraktion exakt spezifizieren
 
 ## 14.10.2026 – Private Referenzpläne / Dokumentations- und Aufbauanforderungen
 
@@ -143,6 +151,7 @@ Der derzeitige Schwerpunkt liegt absichtlich auf Produktdefinition, Datenmodell 
 
 | Datum | Entscheidung | Status |
 |---|---|---|
+| 14.10.2026 | vollständiges v0-Screenshot-Set mit 32 Ansichten ist ausreichende visuelle Referenz für die nächste Spezifikationsphase | beschlossen |
 | 14.10.2026 | v0-Entwurf wird als aktuelle bevorzugte UI/UX-Designbasis übernommen | beschlossen |
 | 14.10.2026 | Dark UI + heller Zeichenbogen ist bevorzugter Dark-Standard; Full Dark Canvas bleibt optional | beschlossen |
 | 14.10.2026 | Next.js/React-v0-Code dient nur als Designreferenz, Produktivcode bleibt Rust-Neuentwicklung | beschlossen |
