@@ -23,7 +23,7 @@ OpenE-CAD ist als neue, eigenständige Open-Source-Anwendung für die Erstellung
 
 ## Aktueller Stand
 
-**Phase: Produktspezifikation / UX- und Domänenmodell – noch kein Produktivcode.**
+**Phase: Produktspezifikation / Architekturvorbereitung – noch kein Produktivcode.**
 
 Der aktuelle Stand umfasst inzwischen:
 
@@ -39,8 +39,9 @@ Der aktuelle Stand umfasst inzwischen:
 - Hersteller-/Artikel-/Katalogmodell mit Datenherkunft und Projekt-Snapshots
 - Projektprüfungs-/Finding-/RuleProfile-Modell
 - Command-/Transaktions-/Undo-/Recovery-Grundarchitektur
-- offene `.oecad`-Containerstruktur mit Schema-Versionierung und Migrationen
+- offene `.oecad`-Containerstruktur mit Schema-Versionierung, Migrationen und atomarem Speichern
 - Seitentypen, Titelblock-/Dokumentstruktur und generierte Auswertungsseiten
+- vorläufige Lizenzstrategie; MPL-2.0 ist derzeit bevorzugt, endgültige Entscheidung steht noch aus
 
 Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive Designreferenz. Die eigentliche Anwendung bleibt als eigenständige Rust-Neuentwicklung geplant.
 
@@ -67,6 +68,7 @@ Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive
 - [Projektprüfung und Regel-Engine](docs/VALIDATION_MODEL.md)
 - [Undo/Redo-, Command- und Transaktionsmodell](docs/UNDO_TRANSACTION_MODEL.md)
 - [`.oecad` Projektformat und Schema-Versionierung](docs/PROJECT_FORMAT.md)
+- [Lizenzstrategie](docs/LICENSE_STRATEGY.md)
 
 ### Referenzen / Designiteration
 
@@ -139,4 +141,4 @@ Ein Schütz ist damit nicht nur eine Zeichnung. Es ist ein Gerät mit stabiler i
 
 ## Lizenz
 
-Noch nicht festgelegt. Die Lizenzentscheidung wird bewusst vor dem ersten Produktivcode getroffen, da sie auch die Auswahl von Rust-UI-Frameworks und weiteren Abhängigkeiten beeinflussen kann. Referenzprojekte werden nicht kopiert oder portiert; die Implementierung soll eigenständig entstehen.
+Noch nicht endgültig festgelegt. [Die aktuelle Entscheidungsvorlage](docs/LICENSE_STRATEGY.md) empfiehlt vorläufig **MPL-2.0** als guten Kompromiss aus offenem Core und Integrations-/Plugin-Flexibilität; **GPL-3.0-or-later** bleibt die Alternative für stärkeren Copyleft-Schutz. Die endgültige Entscheidung erfolgt vor dem ersten Produktivcode.
