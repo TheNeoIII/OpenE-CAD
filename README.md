@@ -18,8 +18,9 @@ OpenE-CAD ist als neue, eigenständige Open-Source-Anwendung für die Erstellung
 - Herstellerkataloge und neutrale Importformate; Eaton ist als erster Referenzhersteller vorgesehen
 - automatisch generierbare und manuell korrigierbare Verteilerfrontansichten mit Reihen-/TE-Logik
 - automatische Auswertungen wie Stücklisten, Klemmen-, Kabel- und Verdrahtungslisten
+- SPS/I/O als eigenes, aber in denselben Geräte-/Anschlussgraph integriertes Engineering-Modell
 - vollständige technische Projekt-PDF mit Inhaltsverzeichnis, Stromlaufplänen, Aufbauplan und Auswertungen
-- langfristig erweitertes Schaltschrank-Engineering, SPS/I/O, Fertigungsdaten und weitere Automatisierung
+- langfristig erweitertes Schaltschrank-Engineering, Fertigungsdaten und weitere Automatisierung
 
 ## Aktueller Stand
 
@@ -36,11 +37,13 @@ Der aktuelle Stand umfasst inzwischen:
 - detailliertes Verteiler-/Reihen-/TE-Modell mit deterministischem Auto-Layout
 - Klemmen-/Mehrstockklemmen-/Brückenmodell
 - Kabel-/Ader-/Schirmmodell
+- herstellerneutrales SPS-/I/O-Modell mit Systemen, Stationen, Modulen, Kanälen und getrennten SPS-Adressen
 - Hersteller-/Artikel-/Katalogmodell mit Datenherkunft und Projekt-Snapshots
 - Projektprüfungs-/Finding-/RuleProfile-Modell
 - Command-/Transaktions-/Undo-/Recovery-Grundarchitektur
 - offene `.oecad`-Containerstruktur mit Schema-Versionierung, Migrationen und atomarem Speichern
 - Seitentypen, Titelblock-/Dokumentstruktur und generierte Auswertungsseiten
+- sichere deklarative Titelblock-/Template-Ausdrücke statt eingebetteter Scripts
 - UUIDv7 als persistente Objekt-ID und `i64`-µm als persistente CAD-Koordinatenbasis festgelegt
 - technische Rust-Zielarchitektur und reproduzierbarer Spike-Plan für UI, wgpu-Renderer, Tabellen, Persistenz und DPI vorbereitet
 - vorläufige Lizenzstrategie; MPL-2.0 ist derzeit bevorzugt, endgültige Entscheidung steht noch aus
@@ -61,11 +64,13 @@ Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive
 
 - [ECAD-Datenmodell](docs/DATA_MODEL.md)
 - [Seitentypen und Dokumentstruktur](docs/SHEET_TYPES.md)
+- [Titelblock-, Rahmen- und Ausdrucksmodell](docs/TITLE_BLOCK_TEMPLATE_MODEL.md)
 - [Symbol-, Funktions- und Anschlussmodell](docs/SYMBOL_FUNCTION_MODEL.md)
 - [Referenzkennzeichen-, BMK- und Strukturmodell](docs/REFERENCE_DESIGNATION_MODEL.md)
 - [Elektrisches Modell: Anschlüsse, Netze und Potentiale](docs/ELECTRICAL_MODEL.md)
 - [Verteiler-, Reihen- und Auto-Layout-Modell](docs/CABINET_LAYOUT_MODEL.md)
 - [Klemmen- und Kabelmodell](docs/TERMINAL_CABLE_MODEL.md)
+- [SPS-/I/O-Modell](docs/PLC_IO_MODEL.md)
 - [Artikel-, Hersteller- und Katalogmodell](docs/ARTICLE_CATALOG_MODEL.md)
 - [Projektprüfung und Regel-Engine](docs/VALIDATION_MODEL.md)
 - [Undo/Redo-, Command- und Transaktionsmodell](docs/UNDO_TRANSACTION_MODEL.md)
