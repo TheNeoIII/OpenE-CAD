@@ -1,6 +1,47 @@
 # Fortschritt
 
-## 14.10.2026 – P0 weitgehend abgeschlossen / P1 vorbereitet
+## 14.10.2026 – P0 fachlich abgeschlossen / Lizenzentscheidung offen
+
+### Letzte P0-Spezifikationen
+
+- [x] `docs/TITLE_BLOCK_TEMPLATE_MODEL.md` erstellt
+- [x] FrameTemplate und TitleBlockTemplate als versionierte Vorlagen definiert
+- [x] sichere deklarative Datenbindungen wie `{project.name}` und `{sheet.page_label}` vorgesehen
+- [x] einfache Formatfilter, bedingte Sichtbarkeit und Revisionstabellen vorgesehen
+- [x] eingebettete Scripts/Dateisystem-/Netzwerkzugriff in Templates ausgeschlossen
+- [x] CompanyProfile, LogoSlots, Template-Snapshots und Templateprüfung spezifiziert
+- [x] Screen- und PDF-Ausgabe auf dasselbe Template-Modell ausgerichtet
+
+- [x] `docs/PLC_IO_MODEL.md` erstellt
+- [x] PLCSystem, Station, Module und Channel herstellerneutral modelliert
+- [x] SPS-Adresse strikt von BMK und stabiler Objekt-ID getrennt
+- [x] PLCAddressProfile als hersteller-/plattformabhängige Format-/Parserregel vorgesehen
+- [x] automatische/manuelle Adressierung getrennt und Preview/Undo vorbereitet
+- [x] PLCChannels in denselben elektrischen ConnectionPoint-/Netzgraph integriert
+- [x] I/O-Navigator, Datenmanager, I/O-Liste und spätere Import-/Sync-Adapter spezifiziert
+- [x] Safety-I/O semantisch vorbereitet, ohne Sicherheitsnachweis zu behaupten
+
+### Offener P0-Punkt
+
+- [ ] **endgültige Projektlizenz durch Projektowner festlegen**
+  - aktuelle Empfehlung: MPL-2.0
+  - Alternative für stärkeren Copyleft-Schutz: GPL-3.0-or-later
+
+Die Lizenzentscheidung blockiert die fachliche Architektur nicht, soll aber vor dem ersten Produktivcode getroffen werden.
+
+### Nächster technischer Schritt
+
+P1 kann nun mit **isoliertem Spike-/Wegwerfcode** beginnen:
+
+1. S1 Core Types / Geometry
+2. S2 wgpu CAD Renderer
+3. danach UI-Shell-Vergleich Slint / egui / iced
+
+Der Spike-Code wird klar von Produktivcode getrennt und unter `spikes/` abgelegt.
+
+---
+
+## 14.10.2026 – P1 vorbereitet
 
 ### Technische Grundentscheidungen
 
@@ -38,22 +79,12 @@
 - [x] Persistence-/Migration-/Roundtrip-Spike definiert
 - [x] Referenzprojekt für Spikes ausdrücklich synthetisch/anonym vorgesehen
 
-### Lizenz
+### Lizenzstrategie
 
 - [x] `docs/LICENSE_STRATEGY.md` erstellt
 - [x] aktuelle Lizenzbedingungen relevanter UI-/Renderer-Kandidaten geprüft
 - [x] MPL-2.0 als **vorläufiger Favorit** dokumentiert
-- [ ] endgültige Projektlizenz durch Projektowner festlegen
-
-### P0 verbleibend
-
-Nicht blockierend für den ersten technischen Spike:
-
-- [ ] endgültige Projektlizenz bestätigen
-- [ ] Titelblock-Expression-Sprache vertiefen
-- [ ] SPS/I/O-Modell später detaillieren
-
-**Status:** Die Produktspezifikation ist ausreichend stabil, um P1-Spikes zu beginnen, ohne bereits Produktivcode festzuschreiben.
+- [x] Hersteller-/Katalogdaten von der Code-Lizenz getrennt
 
 ---
 
@@ -213,4 +244,4 @@ Der Next.js/React-Code bleibt ausschließlich Designreferenz.
 
 ## Aktueller Status
 
-**Noch kein Produktivcode.** Der nächste echte technische Schritt ist S1/S2 des dokumentierten Spike-Plans: Core-Geometrietypen und ein isolierter wgpu-CAD-Renderer-Test.
+**Noch kein Produktivcode.** Fachlich ist P0 bis auf die endgültige Lizenzbestätigung abgeschlossen. Der nächste technische Schritt ist S1/S2 des dokumentierten Spike-Plans: Core-Geometrietypen und ein isolierter wgpu-CAD-Renderer-Test.
