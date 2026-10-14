@@ -16,18 +16,27 @@ Er ist **nicht** der spätere Produktiv-Workspace.
 
 ### S1 – `core-geometry`
 
-Validiert UUIDv7, Fixed-Point-Geometrie in µm, milli-TE, Snap, Bounds und Roundtrip.
+Validiert UUIDv7, Fixed-Point-Geometrie in µm, milli-TE, Snap, Bounds, Paper↔Screen-Transformationen und Roundtrip.
 
 ### S2 – `cad-renderer`
 
-Isolierter `wgpu`-Renderer mit technischer LineList-Testszene, Pan/Zoom, Themeumschaltung und Stressmodus.
+Isolierter `wgpu`-CAD-Renderer mit technischer Testszene, Pan/Zoom, Light/Dark, Raster, Junction-Hit-Testing, Interaktions-Overlay, Stressmodus sowie Cached-vs-Rebuild-Benchmark.
+
+### S2 – `text-renderer`
+
+Separater technischer Textspike mit `glyphon 0.12` / `cosmic-text 0.19` auf derselben `wgpu 30`-Linie. Prüft kleine ECAD-Schriftgrößen, BMK/Anschlussbezeichnungen, Sonderzeichen, Sans/Monospace und Light/Dark.
 
 ## Ausführen
 
 ```bash
 cd spikes
-cargo test --workspace
+cargo test -p opene-cad-core-geometry-spike
 cargo run -p opene-cad-cad-renderer-spike --release
+cargo run -p opene-cad-text-renderer-spike --release
 ```
 
-Die UI-Framework-Spikes (Slint / egui / iced) folgen erst nach belastbaren Ergebnissen aus S1 und S2.
+## Architekturhinweis
+
+Technische Weltgeometrie, Welttext und bildschirmbezogene Interaktions-Overlays werden getrennt behandelt. Details stehen in `docs/RENDER_LAYERS.md`.
+
+Die UI-Framework-Spikes (Slint / egui / iced) folgen nach belastbaren Ergebnissen aus S1/S2.
