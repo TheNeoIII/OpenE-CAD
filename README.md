@@ -35,6 +35,8 @@ Der aktuelle Stand umfasst:
 - frameworkneutrales Designsystem mit Layout-, Theme-, Farb-, Typografie- und Interaktionstokens
 - erste maschinenlesbare Design-Tokens unter `design/design-tokens.json`
 - fachliches ECAD-Datenmodell v0.1 für Projekt, Seiten, Geräte, Funktionen, Anschlüsse, Netze, Klemmen, Kabel, SPS, Aufbau und Dokumentation
+- Seitentypen und Dokumentstruktur einschließlich generierter Auswertungsseiten und PDF-Seitenlogik spezifiziert
+- elektrisches Graphmodell für ConnectionPoints, Netze, Junctions, Potentiale und grafische Leitungswege spezifiziert
 - kompakte Arbeitsbereichsnavigation `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation`
 - Light Mode, Dark UI + heller Zeichenbogen und optionaler Full-Dark-Canvas
 - Anforderungen an Verteilerfrontansicht / Aufbauplan
@@ -49,6 +51,8 @@ Der von v0 erzeugte Next.js/React-Prototyp dient ausschließlich als interaktive
 - [UI/UX- und Designkonzept](docs/DESIGN_CONCEPT.md)
 - [Designsystem](docs/DESIGN_SYSTEM.md)
 - [ECAD-Datenmodell](docs/DATA_MODEL.md)
+- [Seitentypen und Dokumentstruktur](docs/SHEET_TYPES.md)
+- [Elektrisches Modell: Anschlüsse, Netze und Potentiale](docs/ELECTRICAL_MODEL.md)
 - [Funktionsumfang und Roadmap](docs/ROADMAP.md)
 - [Recherche und Referenzen](docs/RESEARCH_REFERENCES.md)
 - [Anforderungen aus privaten Referenzdokumenten – abstrahiert](docs/REFERENCE_DERIVED_REQUIREMENTS.md)
