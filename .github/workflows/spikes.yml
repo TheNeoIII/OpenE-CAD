@@ -41,3 +41,6 @@ jobs:
 
       - name: Check S2 CAD renderer
         run: cargo check --manifest-path spikes/Cargo.toml -p opene-cad-cad-renderer-spike
+
+      - name: Check S2 glyphon text renderer
+        run: cargo check --manifest-path spikes/Cargo.toml -p opene-cad-text-renderer-spike
