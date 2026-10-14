@@ -35,6 +35,7 @@ jobs:
           name: OpenE-CAD-S2-renderer-windows
           path: |
             spikes/target/release/opene-cad-cad-renderer-spike.exe
+            spikes/target/release/integrated_text.exe
             spikes/target/release/opene-cad-text-renderer-spike.exe
           if-no-files-found: error
           retention-days: 14
