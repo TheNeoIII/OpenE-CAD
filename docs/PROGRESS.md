@@ -1,90 +1,109 @@
 # Fortschritt
 
-## 14.10.2026 – P0 fachlich abgeschlossen / Lizenzentscheidung offen
+## 14.10.2026 – MPL-2.0 beschlossen / P1 gestartet
 
-### Letzte P0-Spezifikationen
+### Lizenz
 
-- [x] `docs/TITLE_BLOCK_TEMPLATE_MODEL.md` erstellt
-- [x] FrameTemplate und TitleBlockTemplate als versionierte Vorlagen definiert
-- [x] sichere deklarative Datenbindungen wie `{project.name}` und `{sheet.page_label}` vorgesehen
-- [x] einfache Formatfilter, bedingte Sichtbarkeit und Revisionstabellen vorgesehen
-- [x] eingebettete Scripts/Dateisystem-/Netzwerkzugriff in Templates ausgeschlossen
-- [x] CompanyProfile, LogoSlots, Template-Snapshots und Templateprüfung spezifiziert
-- [x] Screen- und PDF-Ausgabe auf dasselbe Template-Modell ausgerichtet
+- [x] **Mozilla Public License 2.0 (MPL-2.0)** als verbindliche Projektlizenz beschlossen
+- [x] vollständige `LICENSE` im Repository abgelegt
+- [x] `docs/LICENSE_STRATEGY.md` von Entscheidungsvorlage auf beschlossen aktualisiert
+- [x] SPDX-Identifier `MPL-2.0` für neue Rust-Quelldateien festgelegt
+- [x] Hersteller-/Katalogdaten weiterhin lizenzrechtlich getrennt vom Programmcode behandelt
 
-- [x] `docs/PLC_IO_MODEL.md` erstellt
-- [x] PLCSystem, Station, Module und Channel herstellerneutral modelliert
-- [x] SPS-Adresse strikt von BMK und stabiler Objekt-ID getrennt
-- [x] PLCAddressProfile als hersteller-/plattformabhängige Format-/Parserregel vorgesehen
-- [x] automatische/manuelle Adressierung getrennt und Preview/Undo vorbereitet
-- [x] PLCChannels in denselben elektrischen ConnectionPoint-/Netzgraph integriert
-- [x] I/O-Navigator, Datenmanager, I/O-Liste und spätere Import-/Sync-Adapter spezifiziert
-- [x] Safety-I/O semantisch vorbereitet, ohne Sicherheitsnachweis zu behaupten
+### S1 – Core Types / Geometry
 
-### Offener P0-Punkt
+- [x] experimentellen Rust-Workspace unter `spikes/` angelegt
+- [x] UUIDv7 als `ObjectId` umgesetzt
+- [x] persistente Koordinaten als `i64`-µm umgesetzt
+- [x] Paper-, Model- und Screen-Space als getrennte Typen begonnen
+- [x] milli-TE umgesetzt
+- [x] deterministisches Raster/Snap inklusive negativer Koordinaten umgesetzt
+- [x] exakte orthogonale Rotation und Integer-Bounds/Hit-Test-Basis umgesetzt
+- [x] JSON/Serde-Roundtrip-Test umgesetzt
+- [x] **6/6 Tests unter Ubuntu bestanden**
+- [x] **6/6 Tests unter Windows bestanden**
+- [x] Ergebnisse unter `spikes/core-geometry/results.md` dokumentiert
 
-- [ ] **endgültige Projektlizenz durch Projektowner festlegen**
-  - aktuelle Empfehlung: MPL-2.0
-  - Alternative für stärkeren Copyleft-Schutz: GPL-3.0-or-later
+Zwischenfazit: **UUIDv7 + `i64`-µm + milli-TE bleiben bestätigt.**
 
-Die Lizenzentscheidung blockiert die fachliche Architektur nicht, soll aber vor dem ersten Produktivcode getroffen werden.
+### S2 – wgpu CAD Renderer
 
-### Nächster technischer Schritt
+- [x] isolierten Renderer-Spike mit `wgpu 30.0.1` und `winit 0.30.13` angelegt
+- [x] WGSL-LineList-Pipeline umgesetzt
+- [x] synthetische technische A3-Testszene ohne private Projektdaten erstellt
+- [x] N blau, PE grün, Steuerzweig rot und Querverweise orange dargestellt
+- [x] Light- und Full-Dark-Canvas eingebaut
+- [x] Pan per mittlerer Maustaste und Zoom per Mausrad eingebaut
+- [x] Referenz- und Stressszene mit zusätzlich 10.000 Segmenten eingebaut
+- [x] FPS-/Segmentanzeige vorbereitet
+- [x] ersten CI-API-Bruch von wgpu 30 gefunden und behoben
+- [x] `cargo check` **unter Ubuntu bestanden**
+- [x] `cargo check` **unter Windows bestanden**
+- [x] Ergebnisse unter `spikes/cad-renderer/results.md` dokumentiert
+- [x] Windows-Release-Preview als GitHub-Actions-Artefakt vorbereitet
 
-P1 kann nun mit **isoliertem Spike-/Wegwerfcode** beginnen:
+Wichtig: CI bestätigt derzeit Kompilierbarkeit. Interaktives GPU-/DPI-Verhalten muss zusätzlich auf realer Desktop-Hardware geprüft werden.
 
-1. S1 Core Types / Geometry
-2. S2 wgpu CAD Renderer
-3. danach UI-Shell-Vergleich Slint / egui / iced
+### CI
 
-Der Spike-Code wird klar von Produktivcode getrennt und unter `spikes/` abgelegt.
+- [x] Cross-Platform-Workflow für Ubuntu + Windows angelegt
+- [x] `actions/checkout@v5` verwendet
+- [x] S1 Unit-Tests und S2 `cargo check` automatisiert
+- [x] reine Spike-Dokumentationsänderungen von unnötigen Build-Runs ausgeschlossen
+- [x] separaten Windows-Preview-Build mit Artefakt-Upload angelegt
+
+### Nächste P1-Schritte
+
+1. S1: Paper↔Screen-Transformation, DPI, Zoom-Anker und rationale Maßstäbe
+2. S2: Zoom exakt auf Cursor, Raster, Document/Workspace-Trennung
+3. S2: Junction-/Auswahlzustände und Hit Testing
+4. S2: technische Textdarstellung evaluieren (`glyphon`/`cosmic-text` als Kandidat)
+5. S2: Baseline A gegen gecachte `RenderScene` und partielle Invalidation messen
+6. anschließend S3: identische UI-Shell in Slint / egui / iced vergleichen
 
 ---
 
-## 14.10.2026 – P1 vorbereitet
+## 14.10.2026 – P0 fachlich abgeschlossen
+
+### Titelblock / Dokumentvorlagen
+
+- [x] `docs/TITLE_BLOCK_TEMPLATE_MODEL.md`
+- [x] FrameTemplate und TitleBlockTemplate als versionierte Vorlagen
+- [x] sichere deklarative Datenbindungen wie `{project.name}` und `{sheet.page_label}`
+- [x] Formatfilter, bedingte Sichtbarkeit und Revisionstabellen
+- [x] keine eingebetteten Scripts sowie kein Dateisystem-/Netzwerkzugriff aus Templates
+- [x] CompanyProfile, LogoSlots, Template-Snapshots und Templateprüfung
+- [x] Screen- und PDF-Ausgabe auf dasselbe Template-Modell ausgerichtet
+
+### SPS / I/O
+
+- [x] `docs/PLC_IO_MODEL.md`
+- [x] PLCSystem, Station, Module und Channel herstellerneutral modelliert
+- [x] SPS-Adresse von BMK und stabiler Objekt-ID getrennt
+- [x] PLCAddressProfile für herstellerabhängige Format-/Parserregeln
+- [x] automatische/manuelle Adressierung mit Preview/Undo vorbereitet
+- [x] PLCChannels in denselben elektrischen ConnectionPoint-/Netzgraph integriert
+- [x] I/O-Navigator, Datenmanager, I/O-Liste und spätere Import-/Sync-Adapter spezifiziert
 
 ### Technische Grundentscheidungen
 
-- [x] `docs/CORE_TECH_DECISIONS.md` erstellt
-- [x] **UUIDv7** als persistente Standard-ID für neue Domänenobjekte festgelegt
-- [x] persistente CAD-Geometrie als **`i64` in µm** festgelegt
-- [x] Paper Space, Model Space und Screen Space semantisch getrennt
-- [x] TE-Werte als ganzzahlige milli-TE statt Float vorgesehen
-- [x] freie Rotation als Fixed-Point-Winkel und fachlicher Maßstab rational vorgesehen
-- [x] GPU-/Screen-Floats ausdrücklich als Cache/View-Daten statt Projektwahrheit festgelegt
+- [x] `docs/CORE_TECH_DECISIONS.md`
+- [x] UUIDv7 für persistente neue Domänenobjekte
+- [x] CAD-Geometrie als `i64` in µm
+- [x] Paper Space, Model Space und Screen Space getrennt
+- [x] TE als ganzzahlige milli-TE
+- [x] GPU-/Screen-Floats nur als View-/Cache-Daten
 
-### Rust-Zielarchitektur
+### Rust-Zielarchitektur und Spike-Plan
 
-- [x] `docs/TECHNICAL_ARCHITECTURE.md` erstellt
+- [x] `docs/TECHNICAL_ARCHITECTURE.md`
 - [x] Domain Core von UI, Renderer, Persistenz, Validation und Katalog getrennt
-- [x] Mutation ausschließlich über Commands/Transactions vorgesehen
-- [x] Read-only Queries/Projections für UI vorgesehen
-- [x] RenderScene als renderoptimierter Cache zwischen Domain und GPU vorgesehen
-- [x] wgpu als aktueller CAD-Renderer-Favorit für den Spike festgelegt
-- [x] UI-Framework bleibt austauschbar bis zum Vergleich
-- [x] Slint, egui und iced als Spike-Kandidaten festgelegt
-- [x] Bildschirmrendering und PDF/SVG-Vektorexport als getrennte Backends vorgesehen
-
-### Technischer Spike-Plan
-
-- [x] `docs/TECHNICAL_SPIKE_PLAN.md` erstellt
-- [x] Spike-Reihenfolge S1–S8 definiert
-- [x] Core-Geometrie-/Roundtrip-Test definiert
-- [x] wgpu-CAD-Renderer-Test mit kleinen, großen und Stress-Szenen definiert
-- [x] Light/Dark/Full-Dark-Rendererzustände aufgenommen
-- [x] identische v0-Shell für Slint, egui und iced als Vergleichstest festgelegt
-- [x] Framework-Bewertungsmatrix mit Gewichtungen definiert
-- [x] große Datenmanager-Tabelle mit 10.000 Zeilen als UI-Testfall vorgesehen
-- [x] Cross-platform-/DPI-Matrix vorbereitet
-- [x] Persistence-/Migration-/Roundtrip-Spike definiert
-- [x] Referenzprojekt für Spikes ausdrücklich synthetisch/anonym vorgesehen
-
-### Lizenzstrategie
-
-- [x] `docs/LICENSE_STRATEGY.md` erstellt
-- [x] aktuelle Lizenzbedingungen relevanter UI-/Renderer-Kandidaten geprüft
-- [x] MPL-2.0 als **vorläufiger Favorit** dokumentiert
-- [x] Hersteller-/Katalogdaten von der Code-Lizenz getrennt
+- [x] Mutation ausschließlich über Commands/Transactions
+- [x] read-only Queries/Projections für UI
+- [x] `RenderScene` als späterer renderoptimierter Cache vorgesehen
+- [x] Bildschirmrendering und PDF/SVG-Vektorexport als getrennte Backends
+- [x] `docs/TECHNICAL_SPIKE_PLAN.md`
+- [x] Spike-Reihenfolge S1–S8 und Abnahmekriterien definiert
 
 ---
 
@@ -105,46 +124,36 @@ Der Spike-Code wird klar von Produktivcode getrennt und unter `spikes/` abgelegt
 - [x] `docs/REFERENCE_DESIGNATION_MODEL.md`
 - [x] stabile IDs unabhängig von sichtbaren BMK
 - [x] IEC-81346-orientiertes, profilbasiertes Aspektmodell
-- [x] Strukturvererbung, Overrides, manuelle/automatische Kennzeichen
+- [x] Strukturvererbung, Overrides und manuelle/automatische Kennzeichen
 - [x] Nummerierungssequenzen, Reservierungen und Renummerierungs-Preview
-- [x] Klemmen-, Kabel- und SPS-Unterkennzeichnungen getrennt
+
+### Elektrische Topologie
+
+- [x] `docs/ELECTRICAL_MODEL.md`
+- [x] ConnectionPoint, Net, ElectricalConnection und ConnectionPath getrennt
+- [x] JunctionNodes für echte T-Verbindungen
+- [x] Linienkreuzung verbindet standardmäßig nicht
+- [x] ContinuationNodes für Seitenfortsetzungen
+- [x] schaltende Funktionen trennen statische Netze
+- [x] Potentialtyp, Renderfarbe und physische Leiterfarbe getrennt
 
 ### Verteiler / Aufbau
 
 - [x] `docs/CABINET_LAYOUT_MODEL.md`
-- [x] Enclosure, MountingSurface, RailRow, CabinetPlacement
-- [x] TE und mm getrennt
+- [x] Enclosure, MountingSurface, RailRow und CabinetPlacement
+- [x] TE und reale mm getrennt
 - [x] `unplaced / auto / manual / locked`
 - [x] deterministische Auto-Layout-Pipeline
-- [x] stabile Positionen, Reservefelder, Türflächen, Gruppen
-- [x] Preview + atomare Undo-Transaktion
+- [x] Reservefelder, Türflächen, Gruppen und Layout-Preview
 
 ### Klemmen / Kabel
 
 - [x] `docs/TERMINAL_CABLE_MODEL.md`
 - [x] TerminalStrip, Terminal, Levels und Bridges
-- [x] Mehrstock-, PE-, Trenn- und Durchgangsklemmen vorbereitet
+- [x] Mehrstock-, PE-, Trenn- und Durchgangsklemmen
 - [x] Cable, CableCore und CableShield
 - [x] Reserveadern und Aderzuweisungen
-- [x] Klemmenplan/Kabelliste/Verdrahtungsliste als Projektionen des Graphen
-
-### Undo / Transaktionen / Recovery
-
-- [x] `docs/UNDO_TRANSACTION_MODEL.md`
-- [x] Commands, atomare Transactions, Preview-Commands und Composite Commands
-- [x] sinnvolles Coalescing bei Drag/Textedit
-- [x] Delete ImpactReport
-- [x] Project State vs. Workspace State
-- [x] Autosave/Recovery und Atomic Save
-
-### `.oecad`
-
-- [x] `docs/PROJECT_FORMAT.md`
-- [x] ZIP-kompatibler JSON-Container als Arbeitshypothese
-- [x] Manifest, Domain-Dateien, Sheets, Profile, Assets und Snapshots
-- [x] `format_version` und `schema_version` getrennt
-- [x] Migrationen, Feature Flags und Integritätsprüfung
-- [x] Atomic Save, Recovery-Sidecar, Lockfile und optionaler entpackter Modus
+- [x] Klemmenplan/Kabelliste/Verdrahtungsliste als Projektionen des gemeinsamen Graphen
 
 ### Artikel / Herstellerkatalog
 
@@ -152,89 +161,58 @@ Der Spike-Code wird klar von Produktivcode getrennt und unter `spikes/` abgelegt
 - [x] Manufacturer, Article, typisierte Properties und Provenance
 - [x] Datenqualität und Lizenz-/Redistributionsmetadaten
 - [x] Katalogschichten und Projekt-Snapshots
-- [x] Zubehör-/Alternativartikelbeziehungen
-- [x] BOM-Aggregation
+- [x] Zubehör-/Alternativartikelbeziehungen und BOM-Aggregation
 
 ### Projektprüfung
 
 - [x] `docs/VALIDATION_MODEL.md`
 - [x] ValidationRule, RuleProfile, Finding, Suppression und FixAction
 - [x] harte Invarianten getrennt von normalen Findings
-- [x] stabile ObjectRefs und LocationHints
 - [x] Inspector, Aufbau und `Nur mit Befunden` auf derselben Finding-Quelle
-- [x] Exportpolitik und spätere inkrementelle Validation vorbereitet
 
-### Zentrale Architekturentscheidungen
+### Undo / Transaktionen / Persistenz
+
+- [x] `docs/UNDO_TRANSACTION_MODEL.md`
+- [x] Commands, Transactions, Preview- und Composite-Commands
+- [x] Project State vs. Workspace State
+- [x] Autosave/Recovery und Atomic Save
+- [x] `docs/PROJECT_FORMAT.md`
+- [x] ZIP-kompatibler JSON-Container als Arbeitshypothese
+- [x] `format_version` und `schema_version` getrennt
+- [x] Migrationen, Feature Flags, Integritätsprüfung und Projektlock
+
+### Zentrale Architekturregeln
 
 - Fachobjekte werden über stabile IDs verknüpft, nie über formatierte BMK-Texte.
 - Symbole sind Darstellungen von Functions; sie sind weder Article noch Device.
 - Stromlaufplan, Aufbau, Datenmanager und Dokumentation referenzieren dieselben Geräteinstanzen.
 - Elektrische Topologie und gezeichnete Leitungsgeometrie sind getrennt.
-- Linienkreuzung verbindet standardmäßig nicht; T-Verbindungen verwenden explizite JunctionNodes.
 - Auswertungen werden aus dem gemeinsamen Projektmodell generiert.
 - Auto-Layout ist deterministisch und respektiert manuelle/gesperrte Positionen.
 - Jede fachliche Mutation läuft über Commands/Transactions und ist grundsätzlich Undo-fähig.
-- `.oecad` verwendet eine explizite Persistenz-/DTO-Schicht statt interner Rust-Structs als öffentliches Schema.
+- `.oecad` verwendet eine explizite DTO-/Persistenzschicht statt interner Rust-Structs als öffentliches Dateischema.
 - `0 Projektbefunde` ist keine pauschale Aussage über normative oder elektrische Sicherheit.
 
 ---
 
-## 14.10.2026 – Seitentypen und elektrisches Modell
+## 14.10.2026 – Designiteration 2 / Referenzen
 
-- [x] `docs/SHEET_TYPES.md`
-- [x] manuelle, datengetriebene und generierte Seiten getrennt
-- [x] technische Projektseite, Dokumentseite und physische PDF-Seite getrennt
-- [x] Titelblock-/Rahmen-Templates und Datenbindings vorgesehen
-- [x] Dokumentationssets unabhängig von Projektseitenfolge
-- [x] `docs/ELECTRICAL_MODEL.md`
-- [x] ConnectionPoint, Net, ElectricalConnection und ConnectionPath getrennt
-- [x] JunctionNodes für T-Verbindungen
-- [x] ContinuationNodes für Seitenfortsetzungen
-- [x] schaltende Funktionen trennen statische Netze
-- [x] Potentialtyp, Renderfarbe und physische Leiterfarbe getrennt
-
----
-
-## 14.10.2026 – Designsystem und Datenmodell v0.1
-
-- [x] `docs/DESIGN_SYSTEM.md`
-- [x] `design/design-tokens.json`
-- [x] Light, Dark UI + heller Plan und Full-Dark-Canvas spezifiziert
-- [x] Layout-, Typografie-, Farb- und Interaktionstokens
-- [x] `docs/DATA_MODEL.md`
-- [x] `Article → Device → Function → ConnectionPoint → Net/Connection → Placement`
-- [x] TE und reale mm-Abmessungen getrennt
-
----
-
-## 14.10.2026 – v0 Designiteration 2
-
-- [x] vollständigen v0-Prototyp/ZIP geprüft
-- [x] 32 Ansichten ausgewertet und inventarisiert
-- [x] v0 als aktuelle bevorzugte UI/UX-Designbasis übernommen
+- [x] v0-Prototyp und ZIP vollständig geprüft
+- [x] 32 Ansichten inventarisiert
+- [x] v0 als aktuelle bevorzugte UI/UX-Richtung übernommen
 - [x] `Projekt / Stromlaufplan / Aufbau / Daten / Dokumentation`
 - [x] Ctrl+K Command Palette
-- [x] permanenter dynamischer Inspector
+- [x] dynamischer Inspector rechts
 - [x] Dark UI + heller Zeichenbogen als bevorzugter Dark-Standard
 - [x] Full-Dark-Canvas optional
-
-Der Next.js/React-Code bleibt ausschließlich Designreferenz.
-
----
-
-## 14.10.2026 – Private Referenzpläne
-
-- [x] private ELCAD- und WSCAD-Beispiele analysiert
-- [x] Original-PDFs werden nicht öffentlich gespeichert
-- [x] abstrahierte Anforderungen dokumentiert
-- [x] vollständige Projekt-PDF, Verteilerfront und farbige Potentialdarstellung aufgenommen
+- [x] private ELCAD-/WSCAD-Beispiele analysiert; Originale bleiben außerhalb des öffentlichen Repositories
 
 ---
 
 ## 13.10.2026 – Projektstart
 
 - [x] Repository `TheNeoIII/OpenE-CAD`
-- [x] Produktvision
+- [x] Produktvision definiert
 - [x] eigenständige Neuentwicklung statt Fork/Port
 - [x] Rust als primäre Sprache
 - [x] EPLAN/WSCAD/ELCAD/QElectroTech als Referenzen
@@ -244,4 +222,4 @@ Der Next.js/React-Code bleibt ausschließlich Designreferenz.
 
 ## Aktueller Status
 
-**Noch kein Produktivcode.** Fachlich ist P0 bis auf die endgültige Lizenzbestätigung abgeschlossen. Der nächste technische Schritt ist S1/S2 des dokumentierten Spike-Plans: Core-Geometrietypen und ein isolierter wgpu-CAD-Renderer-Test.
+**P0 ist abgeschlossen. P1 läuft.** Der bisherige Rust-Code unter `spikes/` ist absichtlich Evaluierungs-/Wegwerfcode und noch kein Produktivcode.
