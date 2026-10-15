@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "egui-shell",
     "iced-shell",
+    "slint-shell",
 ]
 
 [workspace.package]
