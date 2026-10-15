@@ -37,6 +37,7 @@ Darstellungsmodi:
 - [x] drei Darstellungsmodi
 - [x] synthetische große Datenmengen für S3
 - [x] Windows/Linux-Check
+- [x] Windows Release-Preview
 - [ ] abschließender visueller Vergleich nach v0-Nachstyling
 - [ ] reale CAD-Renderer-Integration erst in S4
 
@@ -47,6 +48,11 @@ Erster Nutzerbefund:
 - Projektseite musste strukturell neu an v0 angenähert werden
 - Dark UI + heller Plan war im ersten Build noch nicht vorhanden und ist nun Pflichtmodus
 
+Aktueller Windows-Release-Build:
+
+- EXE: **14.540.288 Byte**
+- GitHub-Artifact-ZIP: ca. **6,0 MB**
+
 ### iced 0.14
 
 - [x] v0-orientierte Shell implementiert
@@ -56,8 +62,8 @@ Erster Nutzerbefund:
 - [x] Projektseite nach derselben v0-Struktur
 - [x] Daten-/Dokumentationsansicht
 - [x] Ubuntu `cargo check`
-- [ ] Windows `cargo check`
-- [ ] Windows Preview
+- [x] Windows `cargo check`
+- [x] Windows Release-Preview
 - [ ] reale UX-Sichtprüfung
 
 Technischer S3-Befund:
@@ -65,6 +71,11 @@ Technischer S3-Befund:
 - reales iced-0.14-Cargo-Resolve verwendet derzeit `wgpu 27.0.1`
 - OpenE-CAD-CAD-Renderer verwendet `wgpu 30`
 - damit ist iced 0.14 für direkte Device-/Queue-Teilung aktuell im Nachteil
+
+Aktueller Windows-Release-Build:
+
+- EXE: **11.447.808 Byte**
+- GitHub-Artifact-ZIP: ca. **4,4 MB**
 
 ### Slint 1.18.1
 
@@ -75,9 +86,30 @@ Technischer S3-Befund:
 - [x] drei Darstellungsmodi
 - [x] Command-Palette-Overlay
 - [x] `unstable-wgpu-30` im technischen Spike aktiviert
-- [ ] Windows/Linux-Check
-- [ ] Windows Preview
+- [x] Windows/Linux-Check
+- [x] Windows Release-Preview
 - [ ] reale UX-Sichtprüfung
+
+Der erste große Inline-Entwurf wurde bewusst als Experiment erhalten. Für den Build verwendet der Spike einen kompakteren Vergleichseinstiegspunkt (`src/compare.rs`), damit Sprach-/Parserdetails des ersten Entwurfs die Frameworkbewertung nicht verfälschen.
+
+Linux benötigt im aktuellen Slint-Feature-Set für den Build `libfontconfig1-dev`; dies ist im CI-Workflow dokumentiert.
+
+Aktueller Windows-Release-Build:
+
+- EXE: **12.988.928 Byte**
+- GitHub-Artifact-ZIP: ca. **6,1 MB**
+
+## Cross-Platform-CI vom 15.10.2026
+
+Alle drei S3-Kandidaten bestehen nun denselben Grundcheck:
+
+| Kandidat | Ubuntu Check | Windows Check | Windows Release |
+|---|---:|---:|---:|
+| egui 0.36.2 | ✅ | ✅ | ✅ |
+| iced 0.14 | ✅ | ✅ | ✅ |
+| Slint 1.18.1 | ✅ | ✅ | ✅ |
+
+Damit ist erstmals ein sinnvoller visueller/ergonomischer Drei-Wege-Vergleich auf derselben Windows-Hardware möglich.
 
 ## Vergleichspunkte für die Windows-Previews
 
@@ -114,6 +146,8 @@ Zielwerte für den finalen S3-Test:
 - keine merklichen Hänger beim Scrollen
 - keine vollständige Neuberechnung des CAD-Renderers durch reine UI-Interaktion
 
+Die derzeitigen S3-Shells besitzen noch **unterschiedliche Reifegrade** bei den synthetischen Datenmengen. Dieser Punkt wird deshalb erst nach einer gemeinsamen Virtualisierungs-/Scroll-Messrunde abschließend bewertet.
+
 ### D. Renderer-Perspektive
 
 - gleiche WGPU-Major-Version
@@ -121,6 +155,12 @@ Zielwerte für den finalen S3-Test:
 - Texture-/Custom-Render-Integration
 - keine GPU→CPU-Kopie
 - UI darf Pan/Zoom nicht ausbremsen
+
+Bisherige technische Tendenz:
+
+- egui: sehr günstige WGPU-30-Nähe
+- iced 0.14: aktueller stabiler Unterbau auf WGPU 27 ist ein klarer Nachteil
+- Slint 1.18.1: `unstable-wgpu-30` ermöglicht direkten S4-Test auf passender Major-Linie, allerdings bewusst über eine instabile Integrations-API
 
 ### E. Desktop-Funktionen
 
