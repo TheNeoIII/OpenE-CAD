@@ -13,3 +13,5 @@ pollster.workspace = true
 wgpu.workspace = true
 winit.workspace = true
 opene-cad-cad-primitives-spike = { path = "../cad-primitives" }
+opene-cad-editor-interaction-spike = { path = "../editor-interaction" }
+opene-cad-text-lod-spike = { path = "../text-lod" }
