@@ -1,0 +1,9 @@
+[package]
+name = "opene-cad-ui-iced-spike"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+iced = { version = "0.14.0", features = ["wgpu", "advanced-shaping"] }
