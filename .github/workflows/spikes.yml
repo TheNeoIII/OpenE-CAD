@@ -39,6 +39,9 @@ jobs:
       - name: Test S1 core geometry
         run: cargo test --manifest-path spikes/Cargo.toml -p opene-cad-core-geometry-spike
 
+      - name: Test S2 analytic CAD primitives
+        run: cargo test --manifest-path spikes/Cargo.toml -p opene-cad-cad-primitives-spike
+
       - name: Check S2 CAD renderer
         run: cargo check --manifest-path spikes/Cargo.toml -p opene-cad-cad-renderer-spike
 
