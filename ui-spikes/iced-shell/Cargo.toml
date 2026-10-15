@@ -6,4 +6,4 @@ license.workspace = true
 publish = false
 
 [dependencies]
-iced = { version = "0.14.0", features = ["wgpu", "advanced-shaping"] }
+iced = { version = "0.14.0", features = ["wgpu", "advanced-shaping", "canvas"] }
