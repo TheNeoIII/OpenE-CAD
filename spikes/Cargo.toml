@@ -4,6 +4,7 @@ members = [
     "core-geometry",
     "cad-primitives",
     "cad-renderer",
+    "render-cache",
     "text-layout",
     "text-renderer",
 ]
