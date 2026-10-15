@@ -4,8 +4,10 @@ members = [
     "core-geometry",
     "cad-primitives",
     "cad-renderer",
+    "editor-interaction",
     "render-cache",
     "text-layout",
+    "text-lod",
     "text-renderer",
 ]
 
