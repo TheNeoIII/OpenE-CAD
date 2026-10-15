@@ -42,8 +42,14 @@ jobs:
       - name: Test S2 analytic CAD primitives
         run: cargo test --manifest-path spikes/Cargo.toml -p opene-cad-cad-primitives-spike
 
+      - name: Test S2 editor interaction
+        run: cargo test --manifest-path spikes/Cargo.toml -p opene-cad-editor-interaction-spike
+
       - name: Test S2 technical text layout
         run: cargo test --manifest-path spikes/Cargo.toml -p opene-cad-text-layout-spike
+
+      - name: Test S2 technical text LOD
+        run: cargo test --manifest-path spikes/Cargo.toml -p opene-cad-text-lod-spike
 
       - name: Test S2 RenderScene invalidation
         run: cargo test --manifest-path spikes/Cargo.toml -p opene-cad-render-cache-spike
