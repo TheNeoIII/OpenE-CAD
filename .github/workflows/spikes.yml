@@ -45,6 +45,9 @@ jobs:
       - name: Test S2 technical text layout
         run: cargo test --manifest-path spikes/Cargo.toml -p opene-cad-text-layout-spike
 
+      - name: Test S2 RenderScene invalidation
+        run: cargo test --manifest-path spikes/Cargo.toml -p opene-cad-render-cache-spike
+
       - name: Check S2 CAD renderer
         run: cargo check --manifest-path spikes/Cargo.toml -p opene-cad-cad-renderer-spike
 
