@@ -51,6 +51,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install Slint Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
       - name: Check Slint shell
         run: cargo check --manifest-path ui-spikes/Cargo.toml -p opene-cad-ui-slint-spike
 
