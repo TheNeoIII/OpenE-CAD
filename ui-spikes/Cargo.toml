@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "egui-shell",
+    "iced-shell",
 ]
 
 [workspace.package]
