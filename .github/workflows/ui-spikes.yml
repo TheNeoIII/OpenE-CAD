@@ -20,17 +20,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
+        os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install stable Rust
-        uses: dtolnay/rust-toolchain@stable
-
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
       - name: Check egui shell
         run: cargo check --manifest-path ui-spikes/Cargo.toml -p opene-cad-ui-egui-spike
 
@@ -39,33 +33,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
+        os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install stable Rust
-        uses: dtolnay/rust-toolchain@stable
-
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
       - name: Check iced shell
         run: cargo check --manifest-path ui-spikes/Cargo.toml -p opene-cad-ui-iced-spike
+
+  check-slint:
+    name: Check Slint shell (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check Slint shell
+        run: cargo check --manifest-path ui-spikes/Cargo.toml -p opene-cad-ui-slint-spike
 
   windows-egui-preview:
     name: Build Windows egui preview
     runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install stable Rust
-        uses: dtolnay/rust-toolchain@stable
-
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
       - name: Build release egui shell
         run: cargo build --manifest-path ui-spikes/Cargo.toml -p opene-cad-ui-egui-spike --release
-
       - name: Upload egui preview
         uses: actions/upload-artifact@v7
         with:
@@ -78,19 +74,30 @@ jobs:
     name: Build Windows iced preview
     runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install stable Rust
-        uses: dtolnay/rust-toolchain@stable
-
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
       - name: Build release iced shell
         run: cargo build --manifest-path ui-spikes/Cargo.toml -p opene-cad-ui-iced-spike --release
-
       - name: Upload iced preview
         uses: actions/upload-artifact@v7
         with:
           name: OpenE-CAD-S3-iced-shell-windows
           path: ui-spikes/target/release/opene-cad-ui-iced-spike.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-slint-preview:
+    name: Build Windows Slint preview
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build release Slint shell
+        run: cargo build --manifest-path ui-spikes/Cargo.toml -p opene-cad-ui-slint-spike --release
+      - name: Upload Slint preview
+        uses: actions/upload-artifact@v7
+        with:
+          name: OpenE-CAD-S3-slint-shell-windows
+          path: ui-spikes/target/release/opene-cad-ui-slint-spike.exe
           if-no-files-found: error
           retention-days: 14
