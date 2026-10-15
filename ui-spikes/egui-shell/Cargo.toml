@@ -4,7 +4,12 @@ version = "0.0.0"
 edition.workspace = true
 license.workspace = true
 publish = false
+autobins = false
 
 [dependencies]
 eframe = "0.36.2"
 egui = "0.36.2"
+
+[[bin]]
+name = "opene-cad-ui-egui-spike"
+path = "src/workbench.rs"
