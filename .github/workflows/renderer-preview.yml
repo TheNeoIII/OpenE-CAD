@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "spikes/Cargo.toml"
+      - "spikes/cad-primitives/**"
       - "spikes/cad-renderer/**"
       - "spikes/text-renderer/**"
       - ".github/workflows/renderer-preview.yml"
@@ -36,6 +37,7 @@ jobs:
           path: |
             spikes/target/release/opene-cad-cad-renderer-spike.exe
             spikes/target/release/integrated_text.exe
+            spikes/target/release/primitives_overlay.exe
             spikes/target/release/opene-cad-text-renderer-spike.exe
           if-no-files-found: error
           retention-days: 14
