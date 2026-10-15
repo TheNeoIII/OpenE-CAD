@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "core-geometry",
+    "cad-primitives",
     "cad-renderer",
     "text-renderer",
 ]
