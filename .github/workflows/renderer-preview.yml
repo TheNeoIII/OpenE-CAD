@@ -6,6 +6,8 @@ on:
       - "spikes/Cargo.toml"
       - "spikes/cad-primitives/**"
       - "spikes/cad-renderer/**"
+      - "spikes/editor-interaction/**"
+      - "spikes/text-lod/**"
       - "spikes/text-renderer/**"
       - ".github/workflows/renderer-preview.yml"
   workflow_dispatch:
@@ -38,6 +40,7 @@ jobs:
             spikes/target/release/opene-cad-cad-renderer-spike.exe
             spikes/target/release/integrated_text.exe
             spikes/target/release/primitives_overlay.exe
+            spikes/target/release/interaction_overlay_v2.exe
             spikes/target/release/opene-cad-text-renderer-spike.exe
           if-no-files-found: error
           retention-days: 14
