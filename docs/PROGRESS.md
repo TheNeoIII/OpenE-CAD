@@ -98,6 +98,49 @@ Korrektur und reale Gegenprüfung:
 
 Die allgemeine Layer-Architektur steht in `docs/RENDER_LAYERS.md`.
 
+### Analytische CAD-Primitives
+
+Neuer Spike: `spikes/cad-primitives`
+
+- [x] Kreis als analytisches Objekt
+- [x] Bogen mit Startwinkel und vorzeichenbehaftetem Sweep
+- [x] rotierte Ellipse
+- [x] Cubic Bézier
+- [x] chord-error-basierte Tessellation für Kreis/Bogen
+- [x] adaptive Bézier-Unterteilung
+- [x] Unit-Tests für Endpunkte, Sweep, Toleranz und Extents
+- [x] Architekturregel: analytische Form bleibt im Projektmodell; Polylinie ist nur Render-/Exportableitung
+
+Visueller Renderer-Spike: `primitives_overlay.exe`
+
+- [x] Motor-Kreis aus analytischem Circle
+- [x] Arc-Demo
+- [x] rotierte Ellipse
+- [x] Bézier-Kurve
+- [x] 5-mm-Snap
+- [x] pixelkonstanter Snap-Marker
+- [x] Auswahlrahmen mit pixelkonstanten Eck-Handles
+- [x] orthogonale Leitungsvorschau H→V / V→H
+- [x] Leitungssegmente können testweise gesetzt und gecacht werden
+
+Details: `spikes/cad-primitives/README.md`
+
+### Partielle RenderScene-Invalidation
+
+Neuer Spike: `spikes/render-cache`
+
+- [x] Render-Layer explizit modelliert: Dokument, Grid, statische Geometrie, dynamische Welt, Text, Interaction
+- [x] Kameraänderung invalidiert **keine** Weltgeometrie
+- [x] Selection/Hover/Snap invalidiert nur Interaction-Overlay
+- [x] Textänderung invalidiert nur technischen Text
+- [x] Gridänderung invalidiert nur Grid
+- [x] Geometrieänderung invalidiert Geometrie + abhängigen Text/Interaction
+- [x] Themewechsel invalidiert alle visuellen Layer
+- [x] Layer-Generationen für gezielte Cache-Neubildung
+- [x] Unit-Tests für Invalidation-Regeln
+
+Ziel: Der spätere Renderer baut nur betroffene GPU-Caches neu auf; Pan/Zoom bleiben reine Projektionsänderungen.
+
 ## S2 – Technischer Text
 
 Verwendete Linie:
@@ -132,8 +175,6 @@ Details: `spikes/text-renderer/README.md`
 
 ### CAD + Text integriert
 
-Neu:
-
 - [x] `glyphon` als Abhängigkeit des CAD-Renderer-Spikes
 - [x] kombinierter Target `spikes/cad-renderer/src/bin/integrated_text.rs`
 - [x] BMK und Anschlussbezeichnungen besitzen Papier-/Weltpositionen
@@ -145,28 +186,49 @@ Neu:
 - [x] Junction-/Selection-Handles bleiben separat pixelkonstant
 - [x] Zoom-Presets 25 %, 100 %, 400 % zum Gegenprüfen eingebaut
 
+### Textanker / Rotation
+
+Neuer frameworkneutraler Spike: `spikes/text-layout`
+
+- [x] Left / Center / Right
+- [x] Top / Middle / Baseline / Bottom
+- [x] 0° / 90° / 180° / 270° als fachliche Textrotation
+- [x] papierbezogene Textmetriken in mm
+- [x] transformierte Bounds
+- [x] LOD-Helfer in Screen-Pixeln
+- [x] Unit-Tests für Anker, Baseline und orthogonale Rotation
+
+Wichtiger Befund:
+
+- die im Spike verwendete `glyphon::TextArea`-API besitzt keine allgemeine Rotationstransformation
+- fachliches Textmodell bleibt deshalb strikt vom Renderer getrennt
+- bevorzugter nächster Rotationsversuch: eigener Glyph-Quad-Pfad auf `cosmic-text`/Swash
+
+Details: `docs/TEXT_RENDERING_ARCHITECTURE.md`
+
 ## CI / Preview
 
 - [x] Cross-Platform GitHub Actions für Ubuntu + Windows
 - [x] S1 Unit-Tests
+- [x] CAD-Primitives Unit-Tests
+- [x] Text-Layout Unit-Tests
+- [x] RenderScene-Invalidation Unit-Tests
 - [x] CAD-Renderer `cargo check`
 - [x] Text-Renderer `cargo check`
 - [x] Windows Release-Preview
-- [x] Preview enthält CAD-Renderer und Standalone-Textspike
-- [x] Workflow um integrierten CAD+Text-Build erweitert
+- [x] Preview enthält CAD-Renderer, integrierten Textspike, Standalone-Textspike und Primitives/Overlay-Preview
 
 ---
 
 # Nächste P1-Schritte
 
-1. integrierten CAD+Text-Build auf realer Windows-Hardware prüfen: 25/100/400 %, freies Pan/Zoom, Light/Dark
-2. Textrotation 0/90/180/270° und Anchor-/Alignment-Modell prüfen
-3. Kreise/Bögen und echte Symbol-Primitives ergänzen
-4. Selection Rectangle, Snap Marker und Leitungs-/Platzierungsvorschau als getrennte Overlay-Layer ergänzen
-5. Text-Culling/LOD und größere Textmengen testen
-6. partielle `RenderScene`-Invalidation statt vollständigem Cache-Rebuild
-7. danach S3: identische UI-Shell in Slint / egui / iced vergleichen
-8. S4: denselben unabhängigen wgpu-CAD-Renderer in die zwei besten UI-Kandidaten integrieren
+1. neuen `primitives_overlay`-Preview visuell auf Windows prüfen: Circle/Arc/Ellipse/Bézier, Snap, Auswahlrahmen und Leitungswerkzeug
+2. integrierten CAD+Text-Build auf realer Windows-Hardware prüfen: 25/100/400 %, freies Pan/Zoom, Light/Dark
+3. eigenen Glyph-Quad-Prototyp für 90°/180°/270° beginnen
+4. Text-Culling/LOD mit deutlich größeren Textmengen testen
+5. RenderScene-Invalidation in einen interaktiven Renderer-Spike übernehmen und Neubauten zählen
+6. anschließend S3: identische UI-Shell in Slint / egui / iced vergleichen
+7. S4: denselben unabhängigen wgpu-CAD-Renderer in die zwei besten UI-Kandidaten integrieren
 
 ---
 
@@ -208,6 +270,7 @@ Wichtige Dokumente:
 - `docs/TITLE_BLOCK_TEMPLATE_MODEL.md`
 - `docs/TECHNICAL_ARCHITECTURE.md`
 - `docs/RENDER_LAYERS.md`
+- `docs/TEXT_RENDERING_ARCHITECTURE.md`
 
 ---
 
