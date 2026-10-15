@@ -1,9 +1,9 @@
 # S3 – Rust UI-Framework-Evaluierung
 
 Stand: 15.10.2026  
-Status: **Vorbereitung / Vergleichsmatrix**
+Status: **praktischer Drei-Kandidaten-Vergleich läuft**
 
-OpenE-CAD trennt den datenorientierten Domain-Core und den unabhängigen `wgpu`-CAD-Renderer von der Desktop-UI. Deshalb wird das UI-Framework nicht nach einer Demo oder persönlicher Vorliebe gewählt, sondern mit derselben Engineering-Oberfläche praktisch verglichen.
+OpenE-CAD trennt den datenorientierten Domain-Core und den unabhängigen `wgpu`-CAD-Renderer von der Desktop-UI. Deshalb wird das UI-Framework nicht nach einer Demo oder persönlichen Vorliebe gewählt, sondern mit derselben Engineering-Oberfläche praktisch verglichen.
 
 ## 1. Muss-Kriterien
 
@@ -15,7 +15,8 @@ Der spätere UI-Layer muss mindestens beherrschen:
 - große Daten-Tabellen mit direkter Bearbeitung
 - Tree/Navigatoren mit tausenden Einträgen
 - Tastaturfokus und Shortcuts
-- Light/Dark und eigene Design-Tokens
+- drei Darstellungsmodi: Light, Dark UI + heller Plan, Full Dark Canvas
+- eigene Design-Tokens und möglichst genaue v0-Umsetzung
 - DPI 100/125/150/200 %
 - Multi-Window bzw. später abdockbare Panels
 - Einbettung unseres unabhängigen `wgpu 30`-Renderers ohne unnötige GPU→CPU-Kopie
@@ -23,81 +24,91 @@ Der spätere UI-Layer muss mindestens beherrschen:
 - MPL-2.0-Projektlizenz darf durch die Framework-Wahl nicht unnötig verkompliziert werden
 - langfristig wartbare API und aktives Ökosystem
 
-## 2. Kandidaten
+## 2. Gemeinsame visuelle Referenz
 
-### egui / eframe
+Die im Projekt dokumentierte **v0-Iteration ist für alle S3-Kandidaten dieselbe Zieloberfläche**. Ein Kandidat darf nicht allein deshalb besser oder schlechter bewertet werden, weil seine erste Demo näher am Standardlook des jeweiligen Frameworks liegt.
 
-Aktueller Vergleichsstand: **egui 0.36.x**.
+Zu vergleichen sind insbesondere:
+
+- Projektseite: Projektliste links, Projektübersicht in der Mitte, offene Punkte rechts
+- Stromlaufplan: Navigator / CAD-Fläche / Inspector
+- Aufbau
+- Datenmanager
+- Dokumentation
+- Command Palette
+- Light / Dark UI + heller Plan / Full Dark Canvas
+
+## 3. Kandidaten
+
+### egui / eframe 0.36.2
+
+Status: **S3-Shell implementiert, Windows/Linux-Checks erfolgreich**.
 
 Relevante Punkte:
 
 - MIT OR Apache-2.0
-- `egui-wgpu` nutzt inzwischen WGPU 30
-- unmittelbares Immediate-Mode-Modell; sehr schnelle Entwicklung komplexer Tool-UIs
-- `egui-wgpu` besitzt einen direkten Custom-WGPU-Callback-Pfad
-- eigener CAD-Renderer kann damit im selben GPU-Kontext/Renderablauf integriert werden
-- sehr flexibel für Inspector, Toolbars, Debug-/Engineering-Oberflächen
-- Docking ist nicht Kernbestandteil von egui selbst und muss über Zusatzkomponenten bzw. eigenes Workspace-Modell gelöst werden
-- Tabellen/Tree-Ansichten müssen auf große Datenmengen und Tastaturbedienung gezielt geprüft werden
+- `egui-wgpu` liegt auf derselben WGPU-30-Linie wie unser CAD-Renderer
+- direkter Custom-WGPU-Callback-Pfad
+- Immediate-Mode-Modell ermöglicht sehr schnelle Entwicklung komplexer Engineering-Tools
+- 1.000 Navigator-Einträge und große synthetische Datenansichten sind Bestandteil des Spikes
+- Projektseite und Farbgebung wurden nach dem ersten Windows-Test deutlich stärker an v0 angenähert
+- drei Darstellungsmodi sind im Spike vorgesehen
+- Docking ist nicht Kernbestandteil und benötigt Zusatzkomponenten bzw. ein eigenes Workspace-Modell
+- der Standardlook wirkt ohne gezieltes Styling schnell wie ein Debug-/Developer-Tool; v0-Nähe muss deshalb bewusst durch eigenes Designsystem erzeugt werden
 
-Quellen:
+### iced 0.14
 
-- <https://github.com/emilk/egui>
-- <https://github.com/emilk/egui/tree/main/crates/egui-wgpu>
-
-### iced
-
-Aktueller stabiler Vergleichsstand: **iced 0.14**.
+Status: **v0-orientierte S3-Shell implementiert; Cross-Platform-CI läuft**.
 
 Relevante Punkte:
 
 - MIT
 - deklarativ/Elm-inspiriertes Update/View-Modell
-- 0.14 enthält offizielle `table`- und `grid`-Widgets
-- eigener `Shader`-Widget-Pfad für WGPU-Anwendungen
-- strukturierte Zustandsführung passt grundsätzlich gut zu Commands/Transactions
+- offizielle Tabellen-/Grid- und Canvas-/Shader-Konzepte
+- strukturierte Zustandsführung passt gut zu Commands/Transactions
 - Multi-Window vorhanden
-- auf Master wird bereits WGPU 30 verwendet; der stabile 0.14-Pfad wird im Spike gegen unsere Renderer-Abhängigkeiten geprüft
-- Docking/komplexe professionelle Workbench-Anordnung ist kein fertiges Kernfeature und muss evaluiert werden
+- die v0-Zielstruktur ist im Spike mit Projekt, Stromlaufplan, Aufbau, Daten und Dokumentation nachgebildet
 
-Quellen:
+#### Reale WGPU-Erkenntnis aus dem S3-Build
 
-- <https://github.com/iced-rs/iced/releases/tag/0.14.0>
-- <https://docs.rs/iced/latest/iced/widget/shader/>
+Der reale Cargo-Resolve von **iced 0.14.0** zieht in unserem S3-Spike derzeit **`wgpu 27.0.1`** über `iced_wgpu 0.14.0` ein. Unser CAD-Renderer basiert auf **wgpu 30**.
 
-### Slint
+Das bedeutet:
 
-Aktueller stabiler Vergleichsstand: **Slint 1.18.x**.
+- eine direkte gemeinsame Nutzung derselben `wgpu::Device` / `Queue` zwischen stabilem iced 0.14 und unserem Renderer ist nicht ohne Weiteres möglich;
+- zwei unterschiedliche WGPU-Major-Versionen im Prozess sind prinzipiell möglich, aber für einen eingebetteten CAD-Renderer deutlich unattraktiver;
+- ein Texture-/Interop-Pfad müsste gesondert untersucht werden und darf keine unnötige GPU→CPU-Kopie verursachen;
+- alternativ müsste eine zukünftige/stärkere iced-Version mit derselben WGPU-Linie geprüft werden.
+
+Dies ist für S4 ein **relevanter technischer Nachteil** und wird in der gewichteten Renderer-Integrationswertung berücksichtigt. iced bleibt für S3 trotzdem im Vergleich, weil UI-Qualität, Tabellen, Fokus und Zustandsmodell unabhängig davon bewertet werden sollen.
+
+### Slint 1.18.1
+
+Status: **dritter S3-Kandidat wird aufgebaut**.
 
 Relevante Punkte:
 
-- sehr ausgereiftes deklaratives Desktop-UI und Designer-/Preview-Workflow
-- `unstable-wgpu-30` bietet explizite Integration externer WGPU-30-Renderer
-- gemeinsame `wgpu::Device` / `Queue` können verwendet werden; RenderingNotifier bzw. externe Texture-Integration stehen zur Verfügung
-- Styling und pixelgenaue Nachbildung des v0-Designs sind attraktiv
-- die WGPU-30-API ist ausdrücklich als `unstable-*` markiert und kann sich zwischen Minor-Versionen ändern
+- aktuelle stabile GitHub-Version zum Testzeitpunkt: **1.18.1**
+- deklaratives UI eignet sich sehr gut für eine präzise Nachbildung der v0-Oberfläche
+- Desktop-Backends und mehrere Renderer vorhanden
+- Slint 1.18.1 bietet explizit die Feature-API **`unstable-wgpu-30`**
+- die Slint-Dokumentation empfiehlt für diese instabilen Drittanbieter-API-Features bewusst eine Tilde-Version wie `~1.18`
+- dadurch kann der S4-Test grundsätzlich auf derselben WGPU-30-Major-Linie wie OpenE-CAD erfolgen
+- die WGPU-API ist ausdrücklich nicht Teil der normalen Slint-API-Stabilitätsgarantie
 
 #### Lizenzbesonderheit
 
-Das Slint-Framework ist derzeit dreifach lizenziert:
+Das Slint-Framework ist dreifach lizenziert:
 
 1. Slint Royalty-free Desktop/Mobile/Web License
 2. GPLv3
 3. Commercial License
 
-Für eine MPL-2.0-Anwendung ist deshalb die konkrete Distributionsform vor einer Produktentscheidung sorgfältig festzulegen. Die Royalty-free Desktop-Lizenz erlaubt Desktop-Anwendungen mit Attribution, während die GPL-Variante den kombinierten vertriebenen Gesamtgegenstand unter GPL-Bedingungen stellt. Für OpenE-CAD soll eine UI-Framework-Wahl die beschlossene MPL-2.0-Richtung möglichst nicht unnötig einschränken.
+Für eine MPL-2.0-Anwendung ist deshalb die konkrete Distributionsform vor einer Produktentscheidung festzulegen. Das ist **kein technischer Ausschluss**, aber ein eigener Bewertungspunkt. Eine spätere Entscheidung muss Attribution und die tatsächlich gewählte Slint-Lizenzvariante dokumentieren.
 
-Das ist **kein technischer Ausschluss**, aber ein eigener Bewertungspunkt.
+## 4. Praktischer S3-Test
 
-Quellen:
-
-- <https://docs.slint.dev/latest/docs/rust/slint/wgpu_30/>
-- <https://github.com/slint-ui/slint/blob/master/LICENSE.md>
-- <https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md>
-
-## 3. Praktischer S3-Test
-
-Alle drei Kandidaten erhalten dieselbe Mini-Anwendung. Keine Kandidaten-spezifische Vereinfachung.
+Alle drei Kandidaten erhalten dieselbe Mini-Anwendung. Keine Kandidaten-spezifische Vereinfachung der Ziel-UX.
 
 ```text
 ┌────────────────────────────────────────────────────────────┐
@@ -113,21 +124,22 @@ Alle drei Kandidaten erhalten dieselbe Mini-Anwendung. Keine Kandidaten-spezifis
 └────────────────────────────────────────────────────────────┘
 ```
 
-Jeder Spike benötigt:
+Jeder Spike benötigt bzw. wird darauf bewertet:
 
-- v0-nahe Dark-UI
-- Umschaltung Light/Dark
-- resizable linkes/rechtes Panel
-- Seitenbaum mit mindestens 1.000 synthetischen Einträgen
-- Inspector mit einklappbaren Gruppen und editierbaren Feldern
-- Tabelle mit mindestens 10.000 synthetischen Datensätzen bzw. Virtualisierung
+- v0-nahe Oberfläche
+- drei Darstellungsmodi
+- Projektseite nach derselben Struktur
+- resizable linkes/rechtes Panel, soweit das Framework dies sinnvoll unterstützt
+- Seitenbaum/Navigator mit großer Datenmenge
+- Inspector mit Gruppen und editierbaren Feldern
+- Tabelle mit großer synthetischer Datenmenge / Virtualisierung
 - Command Palette Overlay
 - Tastaturfokus sichtbar
 - `Ctrl+K`, `Esc`, `F2`, `Delete`, `Ctrl+Z`
-- eingebettete CAD-Fläche als Platzhalter und anschließend echter unabhängiger wgpu-Renderer
+- CAD-Fläche als S3-Platzhalter
 - DPI-Test 100/125/150/200 %
 
-## 4. Bewertungsmatrix
+## 5. Bewertungsmatrix
 
 Jeder Punkt 0–5.
 
@@ -147,7 +159,7 @@ Jeder Punkt 0–5.
 
 Die Renderer-Integration und echte Daten-Workflows zählen bewusst stärker als optische Demoqualität.
 
-## 5. Messungen
+## 6. Messungen
 
 Neben subjektiver UX werden notiert:
 
@@ -157,32 +169,30 @@ Neben subjektiver UX werden notiert:
 - Idle-CPU
 - Idle-RAM
 - UI-Framezeit beim Resize
-- Scrollen durch 10k Tabellenzeilen
+- Scrollen durch große Tabellen/Navigatoren
 - Öffnen/Schließen der Command Palette
 - Panel-Resize bei laufendem CAD-Renderer
 - Verhalten bei 100/125/150/200 % Windows-DPI
 - Fokusnavigation ohne Maus
 
-## 6. Aktuelle technische Tendenz vor dem Spike
+## 7. Zwischenstand
 
 Noch **keine endgültige Frameworkentscheidung**.
 
-Vorläufig:
+Aktuell:
 
-- **egui**: sehr starker Kandidat wegen direkter WGPU-Integration und hoher Flexibilität für Engineering-Tools.
-- **iced**: sehr interessanter Kandidat wegen strukturierter Zustandsführung, Tabellen/Grid und WGPU-Shader-Widget.
-- **Slint**: visuell/deklarativ sehr attraktiv und technisch WGPU-30-fähig, aber WGPU-API-Stabilität und Lizenzmodell müssen im Ergebnis separat gewichtet werden.
+- **egui:** technisch besonders interessant wegen direkter WGPU-30-Nähe und Flexibilität; Styling muss konsequent an v0 angepasst werden.
+- **iced 0.14:** strukturiertes Zustandsmodell und UI-Konzept attraktiv, aber der reale stabile WGPU-27-Unterbau ist für OpenE-CAD aktuell ein deutlicher S4-Nachteil.
+- **Slint 1.18.1:** visuell/deklarativ sehr interessant und bietet direkt `unstable-wgpu-30`; Lizenz- und Unstable-API-Themen müssen gegen die Vorteile gewichtet werden.
 
-Die Rangfolge darf durch die praktischen S3-Messungen vollständig geändert werden.
-
-## 7. Übergang zu S4
+## 8. Übergang zu S4
 
 Nur die **zwei besten** S3-Kandidaten gehen in S4.
 
-Dort wird nicht mehr mit einer Platzhalterfläche gearbeitet, sondern derselbe OpenE-CAD-CAD-Renderer mit:
+Dort wird derselbe OpenE-CAD-CAD-Renderer mit:
 
 - World/Paper-Space
-- Text
+- glyphon-/technischem Textpfad
 - Junction-/Snap-Overlay
 - Pan/Zoom
 - Auswahl
