@@ -42,5 +42,6 @@ jobs:
             spikes/target/release/primitives_overlay.exe
             spikes/target/release/interaction_overlay_v2.exe
             spikes/target/release/opene-cad-text-renderer-spike.exe
+            spikes/target/release/lod_policy_preview.exe
           if-no-files-found: error
           retention-days: 14
