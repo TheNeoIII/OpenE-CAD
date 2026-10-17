@@ -1,0 +1,190 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  --color-app: var(--app);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-muted: var(--muted-fg);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-error: var(--error);
+  --color-error-soft: var(--error-soft);
+  --color-ok: var(--ok);
+  --color-xref: var(--xref);
+
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+}
+
+:root {
+  color-scheme: light;
+  --app: oklch(0.955 0.003 250);
+  --panel: oklch(0.985 0.002 250);
+  --panel-2: oklch(0.945 0.004 250);
+  --hover: oklch(0.925 0.005 250);
+  --line: oklch(0.885 0.005 250);
+  --line-strong: oklch(0.8 0.006 250);
+  --fg: oklch(0.24 0.01 255);
+  --fg-2: oklch(0.38 0.01 255);
+  --muted-fg: oklch(0.5 0.01 255);
+  --accent: oklch(0.56 0.13 225);
+  --accent-soft: oklch(0.56 0.13 225 / 0.12);
+  --accent-fg: oklch(0.99 0 0);
+  --warn: oklch(0.62 0.14 70);
+  --warn-soft: oklch(0.8 0.14 80 / 0.18);
+  --error: oklch(0.57 0.2 25);
+  --error-soft: oklch(0.6 0.2 25 / 0.12);
+  --ok: oklch(0.56 0.12 155);
+  --xref: oklch(0.6 0.17 45);
+
+  /* Drawing sheet (print image) */
+  --sheet-bg: oklch(1 0 0);
+  --sheet-ink: oklch(0.2 0.005 255);
+  --sheet-ink-2: oklch(0.45 0.005 255);
+  --sheet-grid-minor: oklch(0.93 0.004 250);
+  --sheet-grid-major: oklch(0.87 0.005 250);
+  --sheet-desk: oklch(0.905 0.004 250);
+  --sheet-select: oklch(0.56 0.15 225);
+  --w-main: oklch(0.2 0.005 255);
+  --w-blue: oklch(0.5 0.16 255);
+  --w-green: oklch(0.56 0.14 150);
+  --w-red: oklch(0.55 0.19 25);
+  --w-gray: oklch(0.55 0.005 255);
+  --w-xref: oklch(0.6 0.17 45);
+  --w-xref-bg: oklch(0.86 0.1 60);
+  --w-xref-ink: oklch(0.28 0.06 45);
+}
+
+.dark {
+  color-scheme: dark;
+  --app: oklch(0.215 0.006 255);
+  --panel: oklch(0.245 0.006 255);
+  --panel-2: oklch(0.275 0.007 255);
+  --hover: oklch(0.3 0.008 255);
+  --line: oklch(0.32 0.007 255);
+  --line-strong: oklch(0.4 0.008 255);
+  --fg: oklch(0.92 0.006 90);
+  --fg-2: oklch(0.82 0.006 90);
+  --muted-fg: oklch(0.66 0.008 255);
+  --accent: oklch(0.7 0.12 220);
+  --accent-soft: oklch(0.7 0.12 220 / 0.16);
+  --accent-fg: oklch(0.18 0.01 255);
+  --warn: oklch(0.8 0.14 80);
+  --warn-soft: oklch(0.8 0.14 80 / 0.14);
+  --error: oklch(0.7 0.17 25);
+  --error-soft: oklch(0.68 0.18 25 / 0.16);
+  --ok: oklch(0.74 0.13 155);
+  --xref: oklch(0.74 0.15 55);
+  --sheet-desk: oklch(0.19 0.006 255);
+}
+
+/* Keep translucent orange xref tags and wire colours when printing instead of letting the browser drop backgrounds. */
+@media print {
+  svg,
+  svg * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Optional working view: dark sheet. PDF output stays print-oriented light. */
+.canvas-dark {
+  --sheet-bg: oklch(0.235 0.006 255);
+  --sheet-ink: oklch(0.88 0.006 90);
+  --sheet-ink-2: oklch(0.68 0.006 90);
+  --sheet-grid-minor: oklch(0.27 0.006 255);
+  --sheet-grid-major: oklch(0.33 0.006 255);
+  --sheet-desk: oklch(0.17 0.005 255);
+  --sheet-select: oklch(0.74 0.13 220);
+  --w-main: oklch(0.88 0.006 90);
+  --w-blue: oklch(0.7 0.13 245);
+  --w-green: oklch(0.74 0.14 150);
+  --w-red: oklch(0.72 0.15 28);
+  --w-gray: oklch(0.6 0.006 255);
+  --w-xref: oklch(0.76 0.15 55);
+  --w-xref-bg: oklch(0.78 0.13 60);
+  --w-xref-ink: oklch(0.88 0.09 60);
+}
+
+/* Monochrome: potentials stay distinguishable by line type and identifier */
+[data-mono='true'] {
+  --w-blue: var(--sheet-ink);
+  --w-green: var(--sheet-ink);
+  --w-red: var(--sheet-ink);
+}
+[data-mono='true'] .wire-blue {
+  stroke-dasharray: 24 8;
+}
+[data-mono='true'] .wire-green {
+  stroke-dasharray: 30 6 4 6;
+}
+
+@layer base {
+  * {
+    @apply border-line;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-app text-fg font-sans antialiased;
+    font-size: 13px;
+    overflow: auto;
+    user-select: none;
+  }
+  input,
+  textarea,
+  select {
+    user-select: text;
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  button:focus-visible,
+  [role='menuitem']:focus-visible,
+  [role='tab']:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+}
+
+@keyframes sheet-lift {
+  from { transform: rotate(0deg) scale(1); opacity: 1; }
+  to { transform: rotate(-4deg) scale(1.03); opacity: 0.72; }
+}
+@keyframes sheet-slot-in {
+  from { height: 0; opacity: 0; margin: 0; }
+  to { height: 1.75rem; opacity: 1; }
+}
+.sheet-ghost {
+  transform-origin: 20% 50%;
+  animation: sheet-lift 140ms ease-out forwards;
+}
+.sheet-drop-slot {
+  overflow: hidden;
+  animation: sheet-slot-in 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-ghost { animation: none; transform: rotate(-4deg); opacity: 0.72; }
+  .sheet-drop-slot { animation: none; }
+}
