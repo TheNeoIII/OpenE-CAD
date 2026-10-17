@@ -1,0 +1,12 @@
+{
+  "name": "openecad-root",
+  "private": true,
+  "description": "Forwards preview/dev commands to the frontend in v0-frontend/",
+  "scripts": {
+    "postinstall": "pnpm --dir v0-frontend install --frozen-lockfile",
+    "dev": "pnpm --dir v0-frontend dev",
+    "build": "pnpm --dir v0-frontend build",
+    "preview": "pnpm --dir v0-frontend preview",
+    "typecheck": "pnpm --dir v0-frontend typecheck"
+  }
+}
