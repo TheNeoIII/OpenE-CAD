@@ -19,6 +19,11 @@ Prefer small, targeted changes over broad rewrites or refactors.
 - Do not restate project history already captured here or in repository documentation.
 - When a task concerns one tool/component, keep analysis and edits scoped to that tool/component unless a shared subsystem is demonstrably involved.
 
+## Context order
+1. This file. 2. The current user task. 3. Directly affected source files.
+4. Only if needed: `docs/architecture.md`. 5. Only if needed: `docs/editor-behavior.md`.
+6. Further files only on a real dependency. No precautionary reading of large parts of the project.
+
 ## Change policy
 - Preserve existing working functionality.
 - No unrelated visual redesigns, dependency swaps, formatting sweeps, or architectural refactors.
