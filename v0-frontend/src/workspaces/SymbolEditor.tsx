@@ -2,7 +2,7 @@ import { Circle, Copy, Download, Minus, MousePointer2, Plus, RotateCcw, Square, 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, IconButton } from '@/components/ui/primitives'
 import { ShapeList, SymbolGlyph } from '@/features/schematic/components/SymbolGlyph'
-import { BUILTIN_SYMBOL_KINDS, customKind, symbolDef, symbolOverrideOf } from '@/features/schematic/models/symbolLibrary'
+import { customKind, symbolDef, symbolOverrideOf, symbolShapes, symbolVariants, shapesBounds, variantKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
 import { useDocumentStore } from '@/stores/documentStore'
 import type { BuiltinSymbolKind, CadConnectionPoint, CadDocument, CustomSymbolDef, SymbolKind, SymbolOverride, SymbolShape } from '@/types/cad'
 import type { DeviceCategory, MountType } from '@/types/device'
@@ -120,7 +120,7 @@ function MetaForm({ value, onPatch }: { value: { label: string; description: str
   )
 }
 
-function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
+function ShapeCanvas({ sym, onPatch }: { sym: CustomSymbolDef; onPatch: (label: string, patch: Partial<CustomSymbolDef>) => void }) {
   const [tool, setTool] = useState<Tool>('select')
   const [sel, setSel] = useState<Sel>(null)
   const [draft, setDraft] = useState<{ shapes: SymbolShape[]; pins: CadConnectionPoint[] } | null>(null)
@@ -129,6 +129,8 @@ function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
   const svgRef = useRef<SVGSVGElement>(null)
   const shapes = draft?.shapes ?? sym.shapes
   const pins = draft?.pins ?? sym.pins
+  const bounds = shapesBounds(sym.shapes, sym.pins)
+  const extent = Math.max(VIEW, -bounds.x + 40, bounds.x + bounds.w + 40, -bounds.y + 40, bounds.y + bounds.h + 40)
 
   useEffect(() => setSel(null), [sym.id])
 
@@ -140,8 +142,8 @@ function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
 
   const removeSelected = () => {
     if (!sel) return
-    if (sel.type === 'shape') patchCustom(sym.id, 'Element gelöscht', { shapes: sym.shapes.filter((_, i) => i !== sel.index) })
-    else patchCustom(sym.id, 'Anschluss gelöscht', { pins: sym.pins.filter((_, i) => i !== sel.index) })
+    if (sel.type === 'shape') onPatch('Element gelöscht', { shapes: sym.shapes.filter((_, i) => i !== sel.index) })
+    else onPatch('Anschluss gelöscht', { pins: sym.pins.filter((_, i) => i !== sel.index) })
     setSel(null)
   }
 
@@ -158,12 +160,12 @@ function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
     }
     if (tool === 'pin') {
       const n = sym.pins.length + 1
-      patchCustom(sym.id, 'Anschluss hinzugefügt', { pins: [...sym.pins, { id: String(n), x: p.x, y: p.y }] })
+      onPatch('Anschluss hinzugefügt', { pins: [...sym.pins, { id: String(n), x: p.x, y: p.y }] })
       setSel({ type: 'pin', index: sym.pins.length })
       return
     }
     if (tool === 'text') {
-      patchCustom(sym.id, 'Text hinzugefügt', { shapes: [...sym.shapes, { t: 'text', x: p.x, y: p.y, text: 'Text', size: 40, anchor: 'middle' }] })
+      onPatch('Text hinzugefügt', { shapes: [...sym.shapes, { t: 'text', x: p.x, y: p.y, text: 'Text', size: 40, anchor: 'middle' }] })
       setSel({ type: 'shape', index: sym.shapes.length })
       setTool('select')
       return
@@ -197,14 +199,14 @@ function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
     if (d?.mode === 'move' && draft) {
       const changed = draft.shapes !== sym.shapes && JSON.stringify(draft.shapes) !== JSON.stringify(sym.shapes)
       const pinsChanged = JSON.stringify(draft.pins) !== JSON.stringify(sym.pins)
-      if (changed || pinsChanged) patchCustom(sym.id, 'Symbolelement verschoben', draft)
+      if (changed || pinsChanged) onPatch('Symbolelement verschoben', draft)
       setDraft(null)
       return
     }
     if (preview) {
       const valid = preview.t === 'line' ? preview.x1 !== preview.x2 || preview.y1 !== preview.y2 : preview.t === 'rect' ? preview.w > 0 && preview.h > 0 : preview.t === 'circle' ? preview.r > 0 : true
       if (valid) {
-        patchCustom(sym.id, 'Element gezeichnet', { shapes: [...sym.shapes, preview] })
+        onPatch('Element gezeichnet', { shapes: [...sym.shapes, preview] })
         setSel({ type: 'shape', index: sym.shapes.length })
       }
       setPreview(null)
@@ -213,8 +215,8 @@ function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
 
   const selShape = sel?.type === 'shape' ? sym.shapes[sel.index] : undefined
   const selPin = sel?.type === 'pin' ? sym.pins[sel.index] : undefined
-  const updateShape = (p: Partial<SymbolShape>) => sel && patchCustom(sym.id, 'Element geändert', { shapes: sym.shapes.map((s, i) => (i === sel.index ? ({ ...s, ...p } as SymbolShape) : s)) })
-  const updatePin = (p: Partial<CadConnectionPoint>) => sel && patchCustom(sym.id, 'Anschluss geändert', { pins: sym.pins.map((s, i) => (i === sel.index ? { ...s, ...p } : s)) })
+  const updateShape = (p: Partial<SymbolShape>) => sel && onPatch('Element geändert', { shapes: sym.shapes.map((s, i) => (i === sel.index ? ({ ...s, ...p } as SymbolShape) : s)) })
+  const updatePin = (p: Partial<CadConnectionPoint>) => sel && onPatch('Anschluss geändert', { pins: sym.pins.map((s, i) => (i === sel.index ? { ...s, ...p } : s)) })
 
   const tools: { id: Tool; label: string; icon: typeof Minus }[] = [
     { id: 'select', label: 'Auswählen / Verschieben', icon: MousePointer2 },
@@ -240,7 +242,7 @@ function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
           ref={svgRef}
           tabIndex={0}
           aria-label="Symbolzeichenfläche"
-          viewBox={`${-VIEW} ${-VIEW} ${VIEW * 2} ${VIEW * 2}`}
+          viewBox={`${-extent} ${-extent} ${extent * 2} ${extent * 2}`}
           className={cn('min-h-0 w-full flex-1 touch-none text-fg outline-none', tool === 'select' ? 'cursor-default' : 'cursor-crosshair')}
           onPointerDown={(e) => onDown(e)}
           onPointerMove={onMove}
@@ -262,7 +264,7 @@ function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
               <circle cx={0} cy={0} r={1.6} className="fill-muted/40" />
             </pattern>
           </defs>
-          <rect x={-VIEW} y={-VIEW} width={VIEW * 2} height={VIEW * 2} fill="url(#sym-grid)" />
+          <rect x={-extent} y={-extent} width={extent * 2} height={extent * 2} fill="url(#sym-grid)" />
           <path d={`M${-VIEW} 0 H${VIEW} M0 ${-VIEW} V${VIEW}`} className="stroke-muted/30" strokeWidth={1.5} strokeDasharray="6 6" />
           <g fill="none" stroke="currentColor" strokeWidth={7} strokeLinecap="round" strokeLinejoin="round">
             {shapes.map((s, i) => {
@@ -313,7 +315,7 @@ function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
       </div>
 
       <aside aria-label="Elementeigenschaften" className="flex w-56 shrink-0 flex-col gap-3 rounded-md border border-line bg-panel p-3">
-        <h3 className="text-[11px] font-semibold tracking-wide text-muted uppercase">{selPin ? 'Anschluss' : selShape ? { line: 'Linie', rect: 'Rechteck', circle: 'Kreis', text: 'Text' }[selShape.t] : 'Kein Element'}</h3>
+        <h3 className="text-[11px] font-semibold tracking-wide text-muted uppercase">{selPin ? 'Anschluss' : selShape ? { line: 'Linie', rect: 'Rechteck', circle: 'Kreis', text: 'Text', path: 'Bogen' }[selShape.t] : 'Kein Element'}</h3>
         {selPin && (
           <>
             <TextField label="Anschlussname" value={selPin.id} mono onCommit={(v) => v && updatePin({ id: v })} />
@@ -361,6 +363,12 @@ function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
             </label>
           </>
         )}
+        {selShape?.t === 'path' && (
+          <div className="grid grid-cols-2 gap-2">
+            <NumField label="X" value={selShape.x} onCommit={(x) => updateShape({ x })} />
+            <NumField label="Y" value={selShape.y} onCommit={(y) => updateShape({ y })} />
+          </div>
+        )}
         {selShape?.t === 'text' && (
           <>
             <TextField label="Inhalt" value={selShape.text} onCommit={(text) => text && updateShape({ text })} />
@@ -377,23 +385,24 @@ function ShapeCanvas({ sym }: { sym: CustomSymbolDef }) {
   )
 }
 
-type Entry = { kind: SymbolKind; custom?: CustomSymbolDef }
+type Entry = SymbolVariant & { custom?: CustomSymbolDef }
 
 export function SymbolEditor() {
   const doc = useDocumentStore((s) => s.document)
-  const [selected, setSelected] = useState<SymbolKind>(BUILTIN_SYMBOL_KINDS[0])
+  const [selected, setSelected] = useState('breaker:1')
   const [search, setSearch] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   const entries = useMemo<Entry[]>(() => {
-    const all: Entry[] = [...BUILTIN_SYMBOL_KINDS.map((kind) => ({ kind })), ...(doc?.customSymbols ?? []).map((c) => ({ kind: customKind(c.id), custom: c }))]
+    const all: Entry[] = symbolVariants().map((v) => ({ ...v, custom: doc?.customSymbols?.find((c) => customKind(c.id) === v.kind) }))
     const n = search.trim().toLowerCase()
-    return n ? all.filter((e) => `${symbolDef(e.kind).label} ${symbolDef(e.kind).bmkPrefix}`.toLowerCase().includes(n)) : all
+    return n ? all.filter((e) => `${e.label} ${symbolDef(e.kind).bmkPrefix}`.toLowerCase().includes(n)) : all
   }, [doc, search])
 
   if (!doc) return null
-  const current = entries.find((e) => e.kind === selected) ?? { kind: selected, custom: doc.customSymbols?.find((c) => customKind(c.id) === selected) }
+  const variant = symbolVariants().find((v) => v.key === selected) ?? symbolVariants()[0]
+  const current: Entry = { ...variant, custom: doc.customSymbols?.find((c) => customKind(c.id) === variant.kind) }
   const def = symbolDef(current.kind)
   const used = usageCount(doc, current.kind)
   const builtin = !current.custom
@@ -419,15 +428,14 @@ export function SymbolEditor() {
       ...base,
     }
     commitCustom('Symbol angelegt', (list) => [...list, sym])
-    setSelected(customKind(id))
+    setSelected(variantKey(customKind(id), 1))
   }
 
   const duplicate = () => {
-    const pins = def.pins({ id: '', kind: current.kind, x: 0, y: 0, rotation: 0, poles: 1 } as never)
-    const box = def.bbox({ poles: 1 })
+    const pins = def.pins({ poles: current.poles })
     createSymbol({
-      ...(current.custom ? { shapes: current.custom.shapes } : { shapes: [{ t: 'rect', x: box.x, y: box.y, w: box.w, h: box.h }, ...pins.map((p): SymbolShape => ({ t: 'line', x1: p.x, y1: p.y, x2: p.x, y2: p.y < 0 ? box.y : box.y + box.h }))] }),
-      label: `${def.label} (Kopie)`,
+      shapes: structuredClone(symbolShapes(current.kind, current.poles)),
+      label: `${current.label} (Kopie)`,
       description: def.description,
       bmkPrefix: def.bmkPrefix,
       category: def.category,
@@ -441,7 +449,7 @@ export function SymbolEditor() {
     if (used && !window.confirm(`Das Symbol wird ${used}× im Projekt verwendet. Trotzdem löschen? Platzierte Symbole werden als „Unbekanntes Symbol“ angezeigt.`)) return
     const id = current.custom.id
     commitCustom('Symbol gelöscht', (list) => list.filter((s) => s.id !== id))
-    setSelected(BUILTIN_SYMBOL_KINDS[0])
+    setSelected('breaker:1')
   }
 
   const exportLib = () => {
@@ -513,15 +521,15 @@ export function SymbolEditor() {
                   {items.map((e) => {
                     const d = symbolDef(e.kind)
                     return (
-                      <li key={e.kind}>
+                      <li key={e.key}>
                         <button
                           type="button"
-                          onClick={() => setSelected(e.kind)}
-                          aria-current={e.kind === current.kind}
-                          className={cn('flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] hover:bg-panel-2', e.kind === current.kind && 'bg-accent-soft text-fg')}
+                          onClick={() => setSelected(e.key)}
+                          aria-current={e.key === current.key}
+                          className={cn('flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] hover:bg-panel-2', e.key === current.key && 'bg-accent-soft text-fg')}
                         >
-                          <SymbolGlyph kind={e.kind} poles={1} className="size-8 shrink-0 rounded-sm bg-app text-fg" />
-                          <span className="min-w-0 flex-1 truncate">{d.label}</span>
+                          <SymbolGlyph kind={e.kind} poles={e.poles} className="size-8 shrink-0 rounded-sm bg-app text-fg" />
+                          <span className="min-w-0 flex-1 truncate">{e.label}</span>
                           <span className="font-mono text-[11px] text-muted">{d.bmkPrefix}</span>
                         </button>
                       </li>
@@ -536,11 +544,11 @@ export function SymbolEditor() {
 
       <section aria-label="Symbol bearbeiten" className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         <header className="flex items-start gap-3">
-          <SymbolGlyph kind={current.kind} poles={1} className="size-14 shrink-0 rounded-md border border-line bg-app text-fg" />
+          <SymbolGlyph kind={current.kind} poles={current.poles} className="size-14 shrink-0 rounded-md border border-line bg-app text-fg" />
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[15px] font-semibold">{def.label}</h2>
+            <h2 className="truncate text-[15px] font-semibold">{current.label}</h2>
             <p className="text-[12px] text-muted">
-              {builtin ? 'Standardsymbol – Grafik fest, Stammdaten anpassbar' : 'Projektsymbol – frei editierbar'} · {used}× verwendet
+              {builtin ? 'Standardvorlage – Grafik dieser Polvariante im Projekt editierbar' : 'Projektsymbol – frei editierbar'} · {used}× verwendet
             </p>
           </div>
           <div className="flex gap-1">
@@ -564,13 +572,18 @@ export function SymbolEditor() {
           <MetaForm value={def} onPatch={(p) => (current.custom ? patchCustom(current.custom.id, 'Symbol geändert', p) : patchOverride(current.kind as BuiltinSymbolKind, p))} />
         </div>
 
-        {current.custom ? (
-          <ShapeCanvas sym={current.custom} />
-        ) : (
-          <p className="max-w-xl rounded-md border border-line bg-panel p-3 text-[12px] leading-relaxed text-muted">
-            Die Grafik von Standardsymbolen ist fest hinterlegt. Mit „Duplizieren“ entsteht ein Projektsymbol mit denselben Anschlüssen, dessen Grafik frei gezeichnet werden kann.
-          </p>
-        )}
+        <ShapeCanvas
+          key={current.key}
+          sym={current.custom ?? { ...def, id: current.key, shapes: symbolShapes(current.kind, current.poles), pins: def.pins({ poles: current.poles }) }}
+          onPatch={(label, patch) => {
+            if (current.custom) return patchCustom(current.custom.id, label, patch)
+            const kind = current.kind as BuiltinSymbolKind
+            patchOverride(kind, { geometry: { ...symbolOverrideOf(kind)?.geometry, [current.poles]: {
+              shapes: patch.shapes ?? symbolShapes(kind, current.poles),
+              pins: patch.pins ?? def.pins({ poles: current.poles }),
+            } } })
+          }}
+        />
       </section>
     </div>
   )

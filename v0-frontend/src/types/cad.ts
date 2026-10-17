@@ -52,10 +52,11 @@ export interface CadConnectionPoint {
 
 /** Graphic primitive of a project symbol, in symbol-local world units (0.1 mm). */
 export type SymbolShape =
-  | { t: 'line'; x1: number; y1: number; x2: number; y2: number; dashed?: boolean }
-  | { t: 'rect'; x: number; y: number; w: number; h: number; filled?: boolean }
+  | { t: 'line'; x1: number; y1: number; x2: number; y2: number; dashed?: boolean; dash?: string }
+  | { t: 'path'; x: number; y: number; w: number; h: number; d: string }
+  | { t: 'rect'; x: number; y: number; w: number; h: number; filled?: boolean; rx?: number; noStroke?: boolean }
   | { t: 'circle'; cx: number; cy: number; r: number; filled?: boolean }
-  | { t: 'text'; x: number; y: number; text: string; size: number; anchor?: 'start' | 'middle' | 'end' }
+  | { t: 'text'; x: number; y: number; text: string; size: number; anchor?: 'start' | 'middle' | 'end'; weight?: number; font?: 'inherit' }
 
 /** Project-specific symbol created in the symbol editor or imported from a library file. */
 export interface CustomSymbolDef {
@@ -69,8 +70,9 @@ export interface CustomSymbolDef {
   shapes: SymbolShape[]
 }
 
-/** Project-level metadata changes for a built-in symbol; its graphic stays fixed. */
+/** Project-level metadata and per-pole geometry changes for a built-in symbol. */
 export interface SymbolOverride {
+  geometry?: Partial<Record<1 | 3, Pick<CustomSymbolDef, 'shapes' | 'pins'>>>
   label?: string
   description?: string
   bmkPrefix?: string
@@ -90,6 +92,10 @@ export interface CadSymbol {
   terminalNo?: string
   /** Rotates only the device label (BMK/function text), never the symbol graphic. */
   labelRotation?: 0 | 90
+  labelSide?: 'left' | 'right' | 'custom'
+  /** World-axis offset from the symbol origin; follows translation, not rotation. */
+  labelOffset?: Point
+  labelAnchor?: 'start' | 'end'
 }
 
 export type WireColor = 'auto' | 'black' | 'blue' | 'red' | 'green' | 'gray' | 'brown' | 'orange' | 'violet'

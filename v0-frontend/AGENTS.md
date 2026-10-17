@@ -42,7 +42,7 @@ Prefer small, targeted changes over broad rewrites or refactors.
 - Existing zoom, pan, selection and drawing interactions must not regress when changing a single tool.
 
 ## Symbol library invariants
-- Custom definitions and built-in metadata overrides belong to the document and its save/undo lifecycle. Keep `setProjectSymbols` synchronized on load/replace, including undo/redo and project switches.
+- Custom definitions and built-in metadata/per-pole geometry overrides belong to the document and its save/undo lifecycle. Keep `setProjectSymbols` synchronized on load/replace, including undo/redo and project switches.
 - Resolve symbols through the project-aware registry; preserve stable `custom:<id>` instance references, pin identities and local 0.1 mm geometry. Main-editor rendering, bounds and electrical docking must agree.
 - Do not silently rewrite/delete placed instances when editing/importing/deleting definitions. See `docs/architecture.md` and `docs/editor-behavior.md` for the compact symbol contract.
 

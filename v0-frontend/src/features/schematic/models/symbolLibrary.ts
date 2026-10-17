@@ -1,5 +1,6 @@
 import type { BuiltinSymbolKind, CadConnectionPoint, CadDocument, CadSymbol, CustomSymbolDef, Rect, SymbolKind, SymbolOverride, SymbolShape } from '@/types/cad'
 import type { DeviceCategory, MountType } from '@/types/device'
+import { builtinShapes } from './builtinShapes'
 
 export interface SymbolDef {
   kind: SymbolKind
@@ -211,7 +212,7 @@ export function shapesBounds(shapes: SymbolShape[], pins: CadConnectionPoint[]):
   for (const p of pins) xs.push(p.x), ys.push(p.y)
   for (const s of shapes) {
     if (s.t === 'line') xs.push(s.x1, s.x2), ys.push(s.y1, s.y2)
-    else if (s.t === 'rect') xs.push(s.x, s.x + s.w), ys.push(s.y, s.y + s.h)
+    else if (s.t === 'rect' || s.t === 'path') xs.push(s.x, s.x + s.w), ys.push(s.y, s.y + s.h)
     else if (s.t === 'circle') xs.push(s.cx - s.r, s.cx + s.r), ys.push(s.cy - s.r, s.cy + s.r)
     else {
       const w = s.text.length * s.size * 0.6
@@ -247,7 +248,14 @@ function customDef(kind: SymbolKind, c: CustomSymbolDef | undefined): SymbolDef 
 function withOverride(def: SymbolDef, o: SymbolOverride | undefined): SymbolDef {
   if (!o) return def
   const clean = Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== '')) as SymbolOverride
-  return { ...def, ...clean }
+  return {
+    ...def, ...clean,
+    pins: (s) => o.geometry?.[s.poles]?.pins.map((p, i) => ({ ...p, id: s.pinNames?.[i] ?? p.id })) ?? def.pins(s),
+    bbox: (s) => {
+      const geometry = o.geometry?.[s.poles]
+      return geometry ? shapesBounds(geometry.shapes, geometry.pins) : def.bbox(s)
+    },
+  }
 }
 
 let customById = new Map<string, CustomSymbolDef>()
@@ -263,6 +271,11 @@ export function symbolDef(kind: SymbolKind): SymbolDef {
 
 export const customSymbolOf = (kind: SymbolKind) => (isCustomKind(kind) ? customById.get(kind.slice(CUSTOM_PREFIX.length)) : undefined)
 export const symbolOverrideOf = (kind: BuiltinSymbolKind) => overrides[kind]
+
+export function symbolShapes(kind: SymbolKind, poles: 1 | 3): SymbolShape[] {
+  if (isCustomKind(kind)) return customSymbolOf(kind)?.shapes ?? []
+  return overrides[kind]?.geometry?.[poles]?.shapes ?? builtinShapes(kind, poles)
+}
 
 /** Syncs the module registry with the open document; called by the document store on every change. */
 export function setProjectSymbols(doc: Pick<CadDocument, 'customSymbols' | 'symbolOverrides'> | null) {

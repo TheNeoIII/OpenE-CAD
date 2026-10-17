@@ -13,6 +13,7 @@ import { CHARACTERISTICS, executionKind, executionType } from '../models/executi
 import { LINE_STYLE_LABELS, potentialDefsOf, presetPatch, presetsOf, WIRE_COLOR_LABELS, WIRE_WEIGHT_LABELS } from '../models/wireStyles'
 import { connectedConductors } from '../models/netTrace'
 import { WireSwatch } from './WireSwatch'
+import { symbolLabelPosition } from '../models/labels'
 import type { Device } from '@/types/device'
 import { cn } from '@/utils/cn'
 import { fmtTime } from '@/utils/format'
@@ -344,6 +345,18 @@ function Properties() {
           <CommitInput id="i-tno" mono value={obj.terminalNo ?? ''} onCommit={(v) => updateObject(obj.id, { terminalNo: v })} />
             </Field>
           )}
+          <Field label="Beschriftungsposition" htmlFor="i-lside">
+            <Select id="i-lside" value={obj.labelSide ?? 'left'} onChange={(e) => {
+              const labelSide = e.target.value as 'left' | 'right' | 'custom'
+              const at = symbolLabelPosition(obj)
+              updateObject(obj.id, { labelSide, ...(labelSide === 'custom' ? { labelOffset: obj.labelOffset ?? { x: at.x - obj.position.x, y: at.y - obj.position.y }, labelAnchor: obj.labelAnchor ?? at.anchor } : {}) }, 'Beschriftungsposition geändert')
+            }}>
+              <option value="left">Links</option>
+              <option value="right">Rechts</option>
+              <option value="custom">Benutzerdefiniert</option>
+            </Select>
+          </Field>
+          {obj.labelSide === 'custom' && <p className="col-span-2 text-[11px] text-muted">Ankerpunkt der Beschriftung im Plan mit der Maus ziehen. Esc bricht ab.</p>}
           <Field label="Beschriftung" htmlFor="i-lrot">
             <Select id="i-lrot" value={obj.labelRotation ?? 0} onChange={(e) => updateObject(obj.id, { labelRotation: Number(e.target.value) === 90 ? 90 : 0 })}>
               <option value={0}>Waagerecht</option>

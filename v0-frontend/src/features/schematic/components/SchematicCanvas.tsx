@@ -12,10 +12,10 @@ import { useCursorStore, useViewportStore } from '@/stores/viewportStore'
 import type { CadPage, Point, Rect } from '@/types/cad'
 import { pageSequence } from '@/utils/pages'
 import { executionType } from '../models/execution'
-import { addLine, addSymbol, addText, addWire, moveJunction, moveObjects, moveWireSegment, relocateJunction, resizeRails } from '../actions'
+import { addLine, addSymbol, addText, addWire, moveJunction, moveObjects, moveWireSegment, relocateJunction, resizeRails, updateObject } from '../actions'
 import { detachJunction, junctionHost, movePage, moveSegmentPage, railEndLimits, relocateJunctionPage, routeModeAfter, routeModeForSnap } from '../models/wireEdit'
 import { CanvasScrollbars } from './CanvasScrollbars'
-import { terminalLabelGroups } from '../models/labels'
+import { symbolLabelPosition, terminalLabelGroups } from '../models/labels'
 import { normalizeRect, objectBounds, pageObjects, rectContains, routeOrthogonal, samePoint, simplifyPolyline, snapPoint, symbolBounds, symbolPins, TEXT_LINE } from '../models/geometry'
 import { ELECTRICAL_SNAP_KINDS, resolveSnap, type SnapResult } from '../models/snap'
 import { symbolDef } from '../models/symbolLibrary'
@@ -63,6 +63,7 @@ const polyD = (pts: Point[]) => 'M' + pts.map((p) => `${p.x} ${p.y}`).join(' L')
 const intersects = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
 
 type Gesture =
+  | { kind: 'label'; id: string; origin: Point; offset: Point; delta: Point }
   | { kind: 'pan'; x: number; y: number }
   | { kind: 'drag'; origin: Point; ids: string[]; dx: number; dy: number; moved: boolean }
   | { kind: 'marquee'; a: Point; b: Point; additive: boolean }
@@ -117,6 +118,13 @@ function CanvasInner({ page }: { page: CadPage }) {
   const [hover, setHover] = useState<SnapResult | null>(null)
   const [shift, setShift] = useState(false)
   const [space, setSpace] = useState(false)
+  useEffect(() => {
+    const cancel = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setGesture((current) => current?.kind === 'label' ? null : current)
+    }
+    window.addEventListener('keydown', cancel)
+    return () => window.removeEventListener('keydown', cancel)
+  }, [])
   const lastWorld = useRef<Point | null>(null)
   /** Latest rendered wire preview, so Enter commits exactly what is on screen. */
   const previewRef = useRef<Point[] | null>(null)
@@ -313,6 +321,12 @@ function CanvasInner({ page }: { page: CadPage }) {
     }
     const id = hitId(e.target)
     const sel = useSelectionStore.getState()
+    const labelId = (e.target as Element).closest?.('[data-label-anchor]')?.getAttribute('data-label-anchor')
+    const labelSymbol = labelId ? page.symbols.find((symbol) => symbol.id === labelId && symbol.labelSide === 'custom') : undefined
+    if (labelSymbol && tool === 'select') {
+      const at = symbolLabelPosition(labelSymbol)
+      return setGesture({ kind: 'label', id: labelSymbol.id, origin: w, offset: { x: at.x - labelSymbol.position.x, y: at.y - labelSymbol.position.y }, delta: { x: 0, y: 0 } })
+    }
     const railEnd = (e.target as Element).closest?.('[data-rail-end]')?.getAttribute('data-rail-end')
     const rail = id && (railEnd === 'x1' || railEnd === 'x2') ? page.potentials.find((r) => r.id === id) : undefined
     if (rail && (railEnd === 'x1' || railEnd === 'x2')) {
@@ -358,6 +372,7 @@ function CanvasInner({ page }: { page: CadPage }) {
     if (tool === 'wire' || tool === 'place' || tool === 'line') setHover(snapped)
     if (shift !== e.shiftKey) setShift(e.shiftKey)
     if (!gesture) return
+    if (gesture.kind === 'label') return setGesture({ ...gesture, delta: { x: w.x - gesture.origin.x, y: w.y - gesture.origin.y } })
     if (gesture.kind === 'pan') {
       panBy(e.clientX - gesture.x, e.clientY - gesture.y)
       return setGesture({ ...gesture, x: e.clientX, y: e.clientY })
@@ -391,7 +406,12 @@ function CanvasInner({ page }: { page: CadPage }) {
     setGesture({ ...gesture, b: w })
   }
 
-  const onPointerUp = () => {
+  const onPointerUp = (e: RPointerEvent) => {
+    if (gesture?.kind === 'label') {
+      const end = toWorld(e)
+      const dx = end.x - gesture.origin.x, dy = end.y - gesture.origin.y
+      if (dx || dy) updateObject(gesture.id, { labelOffset: { x: gesture.offset.x + dx, y: gesture.offset.y + dy } }, 'Beschriftung verschoben')
+    }
     if (gesture?.kind === 'drag' && gesture.moved && (gesture.dx || gesture.dy)) moveObjects(gesture.ids, gesture.dx, gesture.dy)
     if (gesture?.kind === 'junction' && gesture.snap && !samePoint(gesture.snap.point, gesture.at)) {
       const target = gesture.snap.point
@@ -456,7 +476,9 @@ function CanvasInner({ page }: { page: CadPage }) {
       ? moveSegmentPage(basePage, segDrag.wireId, segDrag.index, segDrag.delta).page
       : junctionDrag
         ? relocateJunctionPage(basePage, junctionDrag.at, junctionDrag.snap)
-        : basePage
+        : gesture?.kind === 'label'
+          ? { ...basePage, symbols: basePage.symbols.map((symbol) => symbol.id === gesture.id ? { ...symbol, labelOffset: { x: gesture.offset.x + gesture.delta.x, y: gesture.offset.y + gesture.delta.y } } : symbol) }
+          : basePage
   const activeSeg = segDrag ? null : segment
   const draftPreview = tool === 'wire' && wireDraft.length && hover ? [...wireDraft, ...routeOrthogonal(wireDraft[wireDraft.length - 1], hover.point, routeMode)] : null
   previewRef.current = draftPreview
@@ -472,6 +494,7 @@ function CanvasInner({ page }: { page: CadPage }) {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onPointerCancel={() => setGesture(null)}
       onPointerLeave={() => (useCursorStore.getState().set(null, null, false), setHover(null))}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
@@ -619,6 +642,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
             const issue = issues.get(sym.id)
             const color = sel ? selColor : ink
             const wp = symbolPins(sym)
+            const label = symbolLabelPosition(sym)
             return (
               <g key={sym.id} data-id={sym.id} transform={offset(sym.id)}>
                 <rect x={b.x - 12} y={b.y - 12} width={b.w + 24} height={b.h + 24} fill="transparent" />
@@ -634,15 +658,20 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
                 {!(sym.kind === 'outlet' && !dev) && <SymbolLabel
                   rotated={sym.labelRotation === 90}
                   numberOnly={numberOnly.has(sym.id)}
-                  x={b.x - 22}
-                  y={sym.position.y}
-                  top={b.y}
+                  {...label}
                   bmk={dev?.bmk ?? `-${symbolDef(sym.kind).bmkPrefix}?`}
                   terminalNo={sym.kind === 'terminal' ? sym.terminalNo : undefined}
                   spec={executionType(dev, sym.kind, sym.poles)}
                   fn={dev?.function}
                   color={sel ? selColor : dev ? ink : 'var(--error)'}
                 />}
+                {sel && sym.labelSide === 'custom' && tool === 'select' && !(sym.kind === 'outlet' && !dev) && (
+                  <g data-label-anchor={sym.id} style={{ cursor: 'move' }}>
+                    <title>Beschriftungsanker ziehen</title>
+                    <circle cx={label.x} cy={label.y} r={10 / s} fill="transparent" />
+                    <circle cx={label.x} cy={label.y} r={5 / s} fill="var(--sheet-bg)" stroke={selColor} strokeWidth={1.5 / s} />
+                  </g>
+                )}
                 {issue && (
                   <g transform={`translate(${b.x + b.w + 6} ${b.y - 6})`} pointerEvents="none">
                     <circle r={16} fill={issue === 'error' ? 'var(--error)' : issue === 'warning' ? 'var(--warn)' : 'var(--accent)'} />

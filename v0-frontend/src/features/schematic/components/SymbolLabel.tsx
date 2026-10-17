@@ -1,7 +1,8 @@
 interface SymbolLabelProps {
   rotated: boolean
   numberOnly: boolean
-  /** Right edge of the label; the label sits left of the symbol. */
+  anchor?: 'start' | 'end'
+  /** Label anchor in world coordinates. */
   x: number
   y: number
   top: number
@@ -14,13 +15,13 @@ interface SymbolLabelProps {
 
 const truncate = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s)
 
-/** Device label left of a symbol. Rotating it never rotates the symbol graphic. */
-export function SymbolLabel({ rotated, numberOnly, x, y, top, bmk, terminalNo, spec, fn, color }: SymbolLabelProps) {
+/** Device label at its per-instance anchor. Rotating it never rotates the symbol graphic. */
+export function SymbolLabel({ rotated, numberOnly, x, y, top, bmk, terminalNo, spec, fn, color, anchor = 'end' }: SymbolLabelProps) {
   const head = terminalNo ? `${bmk}:${terminalNo}` : bmk
 
   if (numberOnly) {
     return (
-      <text x={x + 8} y={y + 8} textAnchor="end" fontSize={22} fontWeight={700} fill={color} fontFamily="var(--font-mono)" pointerEvents="none">
+      <text x={x + (anchor === 'end' ? 8 : -8)} y={y + 8} textAnchor={anchor} fontSize={22} fontWeight={700} fill={color} fontFamily="var(--font-mono)" pointerEvents="none">
         {terminalNo ?? bmk}
       </text>
     )
@@ -28,7 +29,7 @@ export function SymbolLabel({ rotated, numberOnly, x, y, top, bmk, terminalNo, s
 
   if (rotated) {
     return (
-      <g transform={`translate(${x - 40} ${top - 10}) rotate(-90)`} pointerEvents="none">
+      <g transform={`translate(${x + (anchor === 'end' ? -40 : 0)} ${top - 10}) rotate(-90)`} pointerEvents="none">
         <text x={0} y={0} fontSize={26} fontWeight={700} fill={color}>
           {head}
         </text>
@@ -47,7 +48,7 @@ export function SymbolLabel({ rotated, numberOnly, x, y, top, bmk, terminalNo, s
   }
 
   return (
-    <g pointerEvents="none" textAnchor="end">
+    <g pointerEvents="none" textAnchor={anchor}>
       <text x={x} y={y - 4} fontSize={30} fontWeight={700} fill={color}>
         {head}
       </text>
