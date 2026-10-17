@@ -19,6 +19,11 @@ Prefer small, targeted changes over broad rewrites or refactors.
 - Do not restate project history already captured here or in repository documentation.
 - When a task concerns one tool/component, keep analysis and edits scoped to that tool/component unless a shared subsystem is demonstrably involved.
 
+## Context order
+1. This file. 2. The current user task. 3. Directly affected source files.
+4. Only if needed: `docs/architecture.md`. 5. Only if needed: `docs/editor-behavior.md`.
+6. Further files only on a real dependency. No precautionary reading of large parts of the project.
+
 ## Change policy
 - Preserve existing working functionality.
 - No unrelated visual redesigns, dependency swaps, formatting sweeps, or architectural refactors.
@@ -35,6 +40,11 @@ Prefer small, targeted changes over broad rewrites or refactors.
 - Rectangle creation must commit the snapped release/end point when snapping is active, not the raw pointer position.
 - Line/wire creation must preserve its existing click-based workflow and snapping behaviour.
 - Existing zoom, pan, selection and drawing interactions must not regress when changing a single tool.
+
+## Symbol library invariants
+- Custom definitions and built-in metadata overrides belong to the document and its save/undo lifecycle. Keep `setProjectSymbols` synchronized on load/replace, including undo/redo and project switches.
+- Resolve symbols through the project-aware registry; preserve stable `custom:<id>` instance references, pin identities and local 0.1 mm geometry. Main-editor rendering, bounds and electrical docking must agree.
+- Do not silently rewrite/delete placed instances when editing/importing/deleting definitions. See `docs/architecture.md` and `docs/editor-behavior.md` for the compact symbol contract.
 
 ## Current UX decisions
 - Selection/control handles should remain approximately constant in apparent screen size across zoom levels.
