@@ -12,6 +12,8 @@ import { fmtNumber } from '@/utils/format'
 import { potentialDefsOf, presetsOf } from '@/features/schematic/models/wireStyles'
 import { WireStylesEditor } from './WireStylesEditor'
 import { PotentialsEditor } from './PotentialsEditor'
+import { SymbolEditor } from './SymbolEditor'
+import { BUILTIN_SYMBOL_KINDS } from '@/features/schematic/models/symbolLibrary'
 
 const VIEWS: { value: DataViewId; label: string }[] = [
   { value: 'devices', label: 'Betriebsmittel' },
@@ -112,23 +114,26 @@ export function DataWorkspace() {
 
   return (
     <main aria-label="Datenmanager" className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <Tabs<DataViewId | 'wireStyles' | 'potentials'>
+      <Tabs<DataViewId | 'wireStyles' | 'potentials' | 'symbols'>
         label="Datenansicht"
         value={pane === 'table' ? view : pane}
         onChange={(v) => {
           setEditing(null)
           useDataStore.getState().setSelected([], null)
-          if (v === 'wireStyles' || v === 'potentials') useUiStore.getState().set({ dataPane: v })
+          if (v === 'wireStyles' || v === 'potentials' || v === 'symbols') useUiStore.getState().set({ dataPane: v })
           else useUiStore.getState().set({ dataPane: 'table', dataView: v })
         }}
         tabs={[
           ...VIEWS.map((v) => ({ ...v, count: pane === 'table' && v.value === view ? table?.rows.length : undefined })),
           { value: 'potentials' as const, label: 'Potentiale', count: potentialDefsOf(doc).length },
           { value: 'wireStyles' as const, label: 'Leiterstile', count: presetsOf(doc).length },
+          { value: 'symbols' as const, label: 'Symbole', count: BUILTIN_SYMBOL_KINDS.length + (doc?.customSymbols?.length ?? 0) },
         ]}
         className="bg-panel px-2"
       />
-      {pane === 'wireStyles' ? (
+      {pane === 'symbols' ? (
+        <SymbolEditor />
+      ) : pane === 'wireStyles' ? (
         <WireStylesEditor />
       ) : pane === 'potentials' ? (
         <PotentialsEditor />

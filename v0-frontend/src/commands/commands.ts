@@ -62,7 +62,7 @@ import {
   useClipboardStore,
 } from '@/features/schematic/actions'
 import { pageObjects } from '@/features/schematic/models/geometry'
-import { SYMBOLS } from '@/features/schematic/models/symbolLibrary'
+import { symbolDef } from '@/features/schematic/models/symbolLibrary'
 import { fitPage, fitSelection, fitWidth, setZoom, zoomAt } from '@/features/schematic/viewport'
 import { stepResult } from '@/features/validation/navigate'
 import { getActivePage, useDocumentStore } from '@/stores/documentStore'
@@ -94,7 +94,7 @@ function goWorkspace(w: Workspace) {
 function placeAtCenter(kind: SymbolKind, poles: 1 | 3) {
   useToolStore.getState().startPlace(kind, poles)
   ui().setWorkspace('schematic')
-  toast(`${SYMBOLS[kind].label}: Klick in den Plan setzt das Symbol`)
+  toast(`${symbolDef(kind).label}: Klick in den Plan setzt das Symbol`)
 }
 
 function stepPage(dir: 1 | -1) {

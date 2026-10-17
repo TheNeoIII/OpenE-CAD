@@ -1,4 +1,4 @@
-import type { CadConnectionPoint, CadSymbol, Rect, SymbolKind } from '@/types/cad'
+import type { BuiltinSymbolKind, CadConnectionPoint, CadDocument, CadSymbol, CustomSymbolDef, Rect, SymbolKind, SymbolOverride, SymbolShape } from '@/types/cad'
 import type { DeviceCategory, MountType } from '@/types/device'
 
 export interface SymbolDef {
@@ -47,7 +47,8 @@ const twoPin =
     { id: s.pinNames?.[1] ?? b, x: 0, y: 100 },
   ]
 
-export const SYMBOLS: Record<SymbolKind, SymbolDef> = {
+/** Built-in symbol definitions. Use `symbolDef()` at call sites so project overrides and custom symbols apply. */
+export const SYMBOLS: Record<BuiltinSymbolKind, SymbolDef> = {
   breaker: {
     kind: 'breaker',
     label: 'Leitungsschutzschalter',
@@ -198,7 +199,82 @@ export const SYMBOLS: Record<SymbolKind, SymbolDef> = {
   },
 }
 
-export const SYMBOL_KINDS = Object.keys(SYMBOLS) as SymbolKind[]
+export const BUILTIN_SYMBOL_KINDS = Object.keys(SYMBOLS) as BuiltinSymbolKind[]
+
+export const CUSTOM_PREFIX = 'custom:'
+export const isCustomKind = (kind: SymbolKind): kind is `custom:${string}` => kind.startsWith(CUSTOM_PREFIX)
+export const customKind = (id: string) => `${CUSTOM_PREFIX}${id}` as SymbolKind
+
+export function shapesBounds(shapes: SymbolShape[], pins: CadConnectionPoint[]): Rect {
+  const xs: number[] = []
+  const ys: number[] = []
+  for (const p of pins) xs.push(p.x), ys.push(p.y)
+  for (const s of shapes) {
+    if (s.t === 'line') xs.push(s.x1, s.x2), ys.push(s.y1, s.y2)
+    else if (s.t === 'rect') xs.push(s.x, s.x + s.w), ys.push(s.y, s.y + s.h)
+    else if (s.t === 'circle') xs.push(s.cx - s.r, s.cx + s.r), ys.push(s.cy - s.r, s.cy + s.r)
+    else {
+      const w = s.text.length * s.size * 0.6
+      const x0 = s.anchor === 'middle' ? s.x - w / 2 : s.anchor === 'end' ? s.x - w : s.x
+      xs.push(x0, x0 + w)
+      ys.push(s.y - s.size, s.y)
+    }
+  }
+  if (!xs.length) return { x: -50, y: -50, w: 100, h: 100 }
+  const x = Math.min(...xs)
+  const y = Math.min(...ys)
+  return { x, y, w: Math.max(Math.max(...xs) - x, 20), h: Math.max(Math.max(...ys) - y, 20) }
+}
+
+function customDef(kind: SymbolKind, c: CustomSymbolDef | undefined): SymbolDef {
+  if (!c) {
+    return { kind, label: 'Unbekanntes Symbol', description: 'Symbol fehlt in der Projektbibliothek', bmkPrefix: 'X', category: 'Klemme', mount: 'rail', supportsPoles: false, pins: () => [], bbox: () => ({ x: -50, y: -50, w: 100, h: 100 }) }
+  }
+  const box = shapesBounds(c.shapes, c.pins)
+  return {
+    kind,
+    label: c.label,
+    description: c.description,
+    bmkPrefix: c.bmkPrefix,
+    category: c.category,
+    mount: c.mount,
+    supportsPoles: false,
+    pins: (s) => c.pins.map((p, i) => ({ ...p, id: s.pinNames?.[i] ?? p.id })),
+    bbox: () => box,
+  }
+}
+
+function withOverride(def: SymbolDef, o: SymbolOverride | undefined): SymbolDef {
+  if (!o) return def
+  const clean = Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== '')) as SymbolOverride
+  return { ...def, ...clean }
+}
+
+let customById = new Map<string, CustomSymbolDef>()
+let overrides: Partial<Record<BuiltinSymbolKind, SymbolOverride>> = {}
+const defCache = new Map<SymbolKind, SymbolDef>()
+let variants: SymbolVariant[] = []
+const variantIndex = new Map<string, SymbolVariant>()
+
+/** Resolved definition for any symbol kind, including project overrides and custom symbols. */
+export function symbolDef(kind: SymbolKind): SymbolDef {
+  return defCache.get(kind) ?? (isCustomKind(kind) ? customDef(kind, undefined) : SYMBOLS[kind as BuiltinSymbolKind] ?? customDef(kind, undefined))
+}
+
+export const customSymbolOf = (kind: SymbolKind) => (isCustomKind(kind) ? customById.get(kind.slice(CUSTOM_PREFIX.length)) : undefined)
+export const symbolOverrideOf = (kind: BuiltinSymbolKind) => overrides[kind]
+
+/** Syncs the module registry with the open document; called by the document store on every change. */
+export function setProjectSymbols(doc: Pick<CadDocument, 'customSymbols' | 'symbolOverrides'> | null) {
+  customById = new Map((doc?.customSymbols ?? []).map((s) => [s.id, s]))
+  overrides = doc?.symbolOverrides ?? {}
+  defCache.clear()
+  for (const k of BUILTIN_SYMBOL_KINDS) defCache.set(k, withOverride(SYMBOLS[k], overrides[k]))
+  for (const c of customById.values()) defCache.set(customKind(c.id), customDef(customKind(c.id), c))
+  variants = [...BUILTIN_SYMBOL_KINDS, ...[...customById.keys()].map(customKind)].flatMap(variantsOf)
+  variantIndex.clear()
+  for (const v of variants) variantIndex.set(v.key, v)
+}
 
 /** A concrete placeable entry: symbol kind plus pole count, e.g. "FI 3+N". */
 export interface SymbolVariant {
@@ -210,22 +286,24 @@ export interface SymbolVariant {
   group: '1' | '3'
 }
 
-export const variantKey = (kind: SymbolKind, poles: 1 | 3) => `${kind}:${SYMBOLS[kind].supportsPoles ? poles : 1}`
+export const variantKey = (kind: SymbolKind, poles: 1 | 3) => `${kind}:${symbolDef(kind).supportsPoles ? poles : 1}`
 
 function variantsOf(kind: SymbolKind): SymbolVariant[] {
-  const def = SYMBOLS[kind]
+  const def = symbolDef(kind)
   const make = (poles: 1 | 3, label: string, group: '1' | '3' = poles === 3 ? '3' : '1'): SymbolVariant => ({ key: variantKey(kind, poles), kind, poles, label, group })
-  if (kind === 'breakerN') return [make(1, 'LS-Schalter 1+N'), make(3, 'LS-Schalter 3+N')]
-  if (kind === 'rcd') return [make(1, 'FI-Schutzschalter 1+N (2-polig)'), make(3, 'FI-Schutzschalter 3+N (4-polig)')]
+  const renamed = !isCustomKind(kind) && !!overrides[kind as BuiltinSymbolKind]?.label
+  if (kind === 'breakerN' && !renamed) return [make(1, 'LS-Schalter 1+N'), make(3, 'LS-Schalter 3+N')]
+  if (kind === 'rcd' && !renamed) return [make(1, 'FI-Schutzschalter 1+N (2-polig)'), make(3, 'FI-Schutzschalter 3+N (4-polig)')]
   if (def.supportsPoles) return [make(1, `${def.label} 1-polig`), make(3, `${def.label} 3-polig`)]
   return [make(1, def.label, kind === 'motor' ? '3' : '1')]
 }
 
-export const SYMBOL_VARIANTS: SymbolVariant[] = SYMBOL_KINDS.flatMap(variantsOf)
+/** All placeable variants for the open project (built-in and custom). */
+export const symbolVariants = () => variants
+export const variantByKey = (key: string) => variantIndex.get(key)
+export const variantLabel = (kind: SymbolKind, poles: 1 | 3) => variantIndex.get(variantKey(kind, poles))?.label ?? symbolDef(kind).label
 
-const VARIANT_BY_KEY = new Map(SYMBOL_VARIANTS.map((v) => [v.key, v]))
-export const variantByKey = (key: string) => VARIANT_BY_KEY.get(key)
-export const variantLabel = (kind: SymbolKind, poles: 1 | 3) => VARIANT_BY_KEY.get(variantKey(kind, poles))?.label ?? SYMBOLS[kind].label
+setProjectSymbols(null)
 
 export const DEFAULT_FAVORITES = ['breaker:3', 'rcd:3', 'breakerN:1', 'contactor:3', 'coil:1', 'terminal:1']
 

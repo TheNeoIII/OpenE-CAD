@@ -4,7 +4,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button, Field, Input, Segmented, Select, Spinner } from '@/components/ui/primitives'
 import { addPotential, addCrossReference, assignArticle, updatePageMeta } from '@/features/schematic/actions'
 import { Star } from 'lucide-react'
-import { articleVariant, SYMBOLS, SYMBOL_VARIANTS, variantByKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
+import { articleVariant, symbolDef, symbolVariants, variantByKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { SymbolGlyph } from '@/features/schematic/components/SymbolGlyph'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -90,7 +90,7 @@ const variantEntry = (v: SymbolVariant, prefix = ''): PickEntry => ({
   id: prefix + v.key,
   variant: v,
   title: v.label,
-  sub: `-${SYMBOLS[v.kind].bmkPrefix} · ${SYMBOLS[v.kind].category}`,
+  sub: `-${symbolDef(v.kind).bmkPrefix} · ${symbolDef(v.kind).category}`,
 })
 
 const allArticles = () => loadArticles('')
@@ -130,11 +130,11 @@ function SymbolPickerBody({ articles }: { articles: Article[] }) {
     const poleOk = (v: SymbolVariant) => poles === 'all' || v.group === poles
     const match = (e: PickEntry) => !needle || `${e.title} ${e.sub} ${e.article?.articleNo ?? ''} ${e.article?.manufacturer ?? ''}`.toLowerCase().includes(needle)
 
-    const symbols = SYMBOL_VARIANTS.filter(poleOk).map((v) => variantEntry(v)).filter(match)
+    const symbols = symbolVariants().filter(poleOk).map((v) => variantEntry(v)).filter(match)
     const devices = articles
       .map((a): PickEntry | null => {
         const v = articleVariant(a)
-        return v && poleOk(v) ? { id: `art:${a.id}`, variant: v, article: a, title: a.description, sub: `${a.manufacturer} ${a.articleNo} · -${SYMBOLS[v.kind].bmkPrefix}` } : null
+        return v && poleOk(v) ? { id: `art:${a.id}`, variant: v, article: a, title: a.description, sub: `${a.manufacturer} ${a.articleNo} · -${symbolDef(v.kind).bmkPrefix}` } : null
       })
       .filter((e): e is PickEntry => !!e && match(e))
     const favs = needle

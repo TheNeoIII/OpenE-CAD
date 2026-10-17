@@ -41,6 +41,11 @@ Prefer small, targeted changes over broad rewrites or refactors.
 - Line/wire creation must preserve its existing click-based workflow and snapping behaviour.
 - Existing zoom, pan, selection and drawing interactions must not regress when changing a single tool.
 
+## Symbol library invariants
+- Custom definitions and built-in metadata overrides belong to the document and its save/undo lifecycle. Keep `setProjectSymbols` synchronized on load/replace, including undo/redo and project switches.
+- Resolve symbols through the project-aware registry; preserve stable `custom:<id>` instance references, pin identities and local 0.1 mm geometry. Main-editor rendering, bounds and electrical docking must agree.
+- Do not silently rewrite/delete placed instances when editing/importing/deleting definitions. See `docs/architecture.md` and `docs/editor-behavior.md` for the compact symbol contract.
+
 ## Current UX decisions
 - Selection/control handles should remain approximately constant in apparent screen size across zoom levels.
 - Text must remain visible down to approximately 20% zoom. Do not hide ordinary drawing text already around 94% or 75% zoom.

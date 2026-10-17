@@ -9,7 +9,7 @@ import type {
   Rotation,
 } from '@/types/cad'
 import type { CadText } from '@/types/cad'
-import { SYMBOLS } from './symbolLibrary'
+import { symbolDef } from './symbolLibrary'
 
 export const TEXT_LINE = 1.25
 
@@ -39,14 +39,14 @@ export interface WorldPin {
 }
 
 export function symbolPins(s: CadSymbol): WorldPin[] {
-  return SYMBOLS[s.kind].pins(s).map((p) => {
+  return symbolDef(s.kind).pins(s).map((p) => {
     const r = rotatePoint(p, s.rotation)
     return { symbolId: s.id, pinId: p.id, x: s.position.x + r.x, y: s.position.y + r.y }
   })
 }
 
 export function symbolBounds(s: CadSymbol): Rect {
-  const b = SYMBOLS[s.kind].bbox(s)
+  const b = symbolDef(s.kind).bbox(s)
   const corners = [
     { x: b.x, y: b.y },
     { x: b.x + b.w, y: b.y },

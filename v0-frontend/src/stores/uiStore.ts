@@ -60,7 +60,7 @@ interface UiState {
   cabinetSelection: string | null
   dataView: DataViewId
   /** Data workspace shows either a generated table or the wire style preset editor. */
-  dataPane: 'table' | 'wireStyles' | 'potentials'
+  dataPane: 'table' | 'wireStyles' | 'potentials' | 'symbols'
   docSection: DocSection
   projectFocusId: string | null
   /** Pages multi-selected in the navigator (for page copy/paste). */

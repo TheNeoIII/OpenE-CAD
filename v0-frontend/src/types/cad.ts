@@ -1,4 +1,4 @@
-import type { Cabinet, Cable, Device, PlcIo } from './device'
+import type { Cabinet, Cable, Device, DeviceCategory, MountType, PlcIo } from './device'
 
 /** World coordinates. 1 unit = 0.1 mm on the printed sheet. Never screen pixels. */
 export interface Point {
@@ -26,7 +26,7 @@ export const PAGE_FORMATS: Record<PageFormat, { label: string; width: number; he
   A3L: { label: 'A3 Querformat', width: 4200, height: 2970 },
 }
 
-export type SymbolKind =
+export type BuiltinSymbolKind =
   | 'breaker'
   | 'breakerN'
   | 'rcd'
@@ -40,11 +40,42 @@ export type SymbolKind =
   | 'pushbutton'
   | 'outlet'
 
+/** Built-in kinds are drawn in code; project symbols use `custom:<id>`. */
+export type SymbolKind = BuiltinSymbolKind | `custom:${string}`
+
 /** Connection point in symbol-local coordinates (before rotation/translation). */
 export interface CadConnectionPoint {
   id: string
   x: number
   y: number
+}
+
+/** Graphic primitive of a project symbol, in symbol-local world units (0.1 mm). */
+export type SymbolShape =
+  | { t: 'line'; x1: number; y1: number; x2: number; y2: number; dashed?: boolean }
+  | { t: 'rect'; x: number; y: number; w: number; h: number; filled?: boolean }
+  | { t: 'circle'; cx: number; cy: number; r: number; filled?: boolean }
+  | { t: 'text'; x: number; y: number; text: string; size: number; anchor?: 'start' | 'middle' | 'end' }
+
+/** Project-specific symbol created in the symbol editor or imported from a library file. */
+export interface CustomSymbolDef {
+  id: string
+  label: string
+  description: string
+  bmkPrefix: string
+  category: DeviceCategory
+  mount: MountType
+  pins: CadConnectionPoint[]
+  shapes: SymbolShape[]
+}
+
+/** Project-level metadata changes for a built-in symbol; its graphic stays fixed. */
+export interface SymbolOverride {
+  label?: string
+  description?: string
+  bmkPrefix?: string
+  category?: DeviceCategory
+  mount?: MountType
 }
 
 export interface CadSymbol {
@@ -197,6 +228,8 @@ export interface WirePreset {
   wirePresets?: WirePreset[]
   /** Project potential definitions; falls back to the built-in defaults when absent. */
   potentialDefs?: PotentialDef[]
+  customSymbols?: CustomSymbolDef[]
+  symbolOverrides?: Partial<Record<BuiltinSymbolKind, SymbolOverride>>
   functionGroups: FunctionGroup[]
   pages: CadPage[]
   devices: Device[]

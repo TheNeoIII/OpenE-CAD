@@ -1,5 +1,5 @@
-import type { SymbolKind } from '@/types/cad'
-import { SYMBOLS } from '../models/symbolLibrary'
+import type { SymbolKind, SymbolShape } from '@/types/cad'
+import { customSymbolOf, isCustomKind, symbolDef } from '../models/symbolLibrary'
 
 const POLE = 100
 
@@ -17,8 +17,30 @@ function NoContact({ x, mark }: { x: number; mark?: 'arc' | 'x' }) {
   )
 }
 
+/** Renders editor shapes; shared by placed custom symbols and the symbol editor canvas. */
+export function ShapeList({ shapes }: { shapes: SymbolShape[] }) {
+  return (
+    <g>
+      {shapes.map((s, i) => {
+        if (s.t === 'line') return <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} strokeDasharray={s.dashed ? '16 12' : undefined} />
+        if (s.t === 'rect') return <rect key={i} x={s.x} y={s.y} width={s.w} height={s.h} fill={s.filled ? 'currentColor' : 'none'} />
+        if (s.t === 'circle') return <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill={s.filled ? 'currentColor' : 'none'} />
+        return (
+          <text key={i} x={s.x} y={s.y} fontSize={s.size} textAnchor={s.anchor ?? 'start'} fill="currentColor" stroke="none" fontFamily="ui-monospace, monospace">
+            {s.text}
+          </text>
+        )
+      })}
+    </g>
+  )
+}
+
 /** Symbol body in local world units (0.1 mm). Stroke/fill inherit from the parent group. */
 export function SymbolBody({ kind, poles }: { kind: SymbolKind; poles: 1 | 3 }) {
+  if (isCustomKind(kind)) {
+    const custom = customSymbolOf(kind)
+    return custom ? <ShapeList shapes={custom.shapes} /> : <path d="M-50 -50 H50 V50 H-50 Z M-50 -50 L50 50 M50 -50 L-50 50" strokeDasharray="10 8" />
+  }
   switch (kind) {
     case 'contactor':
     case 'breaker': {
@@ -134,7 +156,7 @@ export function SymbolBody({ kind, poles }: { kind: SymbolKind; poles: 1 | 3 }) 
 }
 
 export function SymbolGlyph({ kind, poles, className }: { kind: SymbolKind; poles: 1 | 3; className?: string }) {
-  const b = SYMBOLS[kind].bbox({ poles })
+  const b = symbolDef(kind).bbox({ poles })
   const pad = 30
   return (
     <svg viewBox={`${b.x - pad} ${b.y - pad} ${b.w + pad * 2} ${b.h + pad * 2}`} className={className} aria-hidden>

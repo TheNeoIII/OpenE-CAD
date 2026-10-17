@@ -48,6 +48,13 @@
 
 Mutations are immutable: build a new document (via `actions.ts` / `updatePage`), push history, set document.
 
+## Symbol library and editor
+- Entry: `DataWorkspace` → `Daten / Symbole` → `SymbolEditor.tsx`; resolution in `models/symbolLibrary.ts`, rendering through `SymbolBody` / `ShapeList`.
+- `CadDocument.customSymbols` holds `CustomSymbolDef`: stable id, label/description, BMK prefix, category/mount, local pins `{id,x,y}`, and line/rect/circle/text primitives. Coordinates are local 0.1 mm units. Instances reference `kind: custom:<id>`; built-in metadata overrides live in `symbolOverrides`.
+- Definitions use the document's existing save/backend path and snapshot undo/redo, not a separate library database. `documentStore.load/replace` synchronizes the derived registry through `setProjectSymbols`; consumers use `symbolDef`, `symbolVariants` and `variantByKey` rather than indexing built-ins directly.
+- JSON export contains custom definitions only: `{format: 'symbol-library', version: 1, symbols: [...]}`. Import accepts that wrapper or an array and merges by id (incoming definitions replace matching ids). Current validation checks top-level fields/arrays only, not the full shape schema. Built-in overrides are saved with the project but not exported in the library.
+- Main-editor placement, bounds, graphics and docking pins resolve through the same registry. Editing a definition affects all its instances; missing definitions render an unknown-symbol fallback.
+
 ## Rendering
 - One SVG per sheet; a `<g>` transform applies pan + `scale(s)`. All geometry is drawn in world units.
 - `s = zoom * BASE_SCALE`, `BASE_SCALE = 96 / 25.4 / 10` (world unit = 0.1 mm; zoom 1 = 1:1 at 96 dpi).

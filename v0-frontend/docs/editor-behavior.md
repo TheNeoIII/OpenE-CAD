@@ -46,7 +46,7 @@ Durable rules. Invariants in `../AGENTS.md` take precedence; this file adds code
   Shift constrains to 45 degree steps.
 
 ## Rectangles
-- There is currently no rectangle drawing tool; the only rectangle interaction is the selection band.
+- The main schematic editor has no rectangle drawing tool; its rectangle interaction is the selection band. The separate symbol editor supports rectangle primitives.
   A future rectangle tool must commit the `resolveSnap` release point (AGENTS.md invariant).
 
 ## Potential rails (`type: 'potential'`)
@@ -62,6 +62,13 @@ Durable rules. Invariants in `../AGENTS.md` take precedence; this file adds code
 ## Text
 - Drawn in world units (`fontSize = t.size`) and not hidden at low zoom; must stay visible down to ~20% zoom.
 - Metrics: `textWidth`, `TEXT_LINE = 1.25` in `models/geometry.ts`.
+
+## Symbol editor (`Daten → Symbole`)
+- Search, create, duplicate and edit project symbols; built-in graphics stay fixed while metadata can be overridden/reset. Duplicating a built-in copies its single-pole pins and metadata with a bounding-box graphic, not its original detailed drawing. Duplicating a custom symbol copies its primitives.
+- Local drawing tools: select/move, line, rectangle, circle, text and pin; grid is 25 world units (2.5 mm). Properties use local 0.1 mm units; numeric edits commit on change, text on blur/Enter. Delete removes the selected primitive/pin.
+- Changes use document history and project saving. Shared definition ids and pin ids are connection identities: do not casually regenerate them. Pins are the main editor's electrical docking points, not merely decorative markers.
+- JSON library import merges by id and can replace a definition used on existing sheets. Export includes all custom symbols, not built-in metadata overrides.
+- Deleting a used custom symbol requires confirmation and leaves its placed instances with an unknown-symbol fallback; it does not delete the instances.
 
 ## History
 - Every user-visible document change goes through `historyStore.push(label, doc)` (done in `actions.ts`).

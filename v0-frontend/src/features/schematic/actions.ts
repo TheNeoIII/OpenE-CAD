@@ -13,7 +13,7 @@ import { connectedConductors } from './models/netTrace'
 import { findObject, objectBounds, simplifyPolyline, translateObject } from './models/geometry'
 import { centerOn } from './viewport'
 import type { SnapResult } from './models/snap'
-import { SYMBOLS } from './models/symbolLibrary'
+import { symbolDef } from './models/symbolLibrary'
 import { moveJunctionPage, movePage, moveSegmentPage, relocateJunctionPage } from './models/wireEdit'
 
 const commit = (label: string, fn: (d: CadDocument) => CadDocument) => useDocumentStore.getState().commit(label, fn)
@@ -82,7 +82,7 @@ function nextBmk(doc: CadDocument, prefix: string) {
 }
 
 function newDevice(doc: CadDocument, kind: SymbolKind): Device {
-  const def = SYMBOLS[kind]
+  const def = symbolDef(kind)
   return {
     id: uid('dev'),
     bmk: nextBmk(doc, def.bmkPrefix),
@@ -115,13 +115,13 @@ export function addSymbol(kind: SymbolKind, poles: 1 | 3, position: Point) {
   const pageId = activeId()
   if (!pageId) return
   let createdId = ''
-  commit(`${SYMBOLS[kind].label} platziert`, (doc) => {
+  commit(`${symbolDef(kind).label} platziert`, (doc) => {
     const base = newDevice(doc, kind)
     const a = useToolStore.getState().placeArticle
     const dev: Device = a
       ? { ...base, function: a.description, articleId: a.id, manufacturer: a.manufacturer, articleNo: a.articleNo, type: a.type, ratedCurrent: a.ratedCurrent, ac3Power: a.ac3Power, coilVoltage: a.coilVoltage, auxContacts: a.auxContacts, widthTE: a.widthTE, dimensions: a.dimensions }
       : base
-    const sym: CadSymbol = { id: uid('sym'), type: 'symbol', kind, deviceId: dev.id, position, rotation: 0, poles: SYMBOLS[kind].supportsPoles ? poles : 1 }
+    const sym: CadSymbol = { id: uid('sym'), type: 'symbol', kind, deviceId: dev.id, position, rotation: 0, poles: symbolDef(kind).supportsPoles ? poles : 1 }
     if (kind === 'terminal') sym.terminalNo = '1'
     createdId = sym.id
     return updatePage({ ...doc, devices: [...doc.devices, dev] }, pageId, (p) => ({ ...p, symbols: [...p.symbols, sym] }))

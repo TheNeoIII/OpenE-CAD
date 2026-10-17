@@ -18,7 +18,7 @@ import { CanvasScrollbars } from './CanvasScrollbars'
 import { terminalLabelGroups } from '../models/labels'
 import { normalizeRect, objectBounds, pageObjects, rectContains, routeOrthogonal, samePoint, simplifyPolyline, snapPoint, symbolBounds, symbolPins, TEXT_LINE } from '../models/geometry'
 import { ELECTRICAL_SNAP_KINDS, resolveSnap, type SnapResult } from '../models/snap'
-import { SYMBOLS } from '../models/symbolLibrary'
+import { symbolDef } from '../models/symbolLibrary'
 import { LINE_DASH, WEIGHT_FACTOR, WIRE_STROKE, styleResolver } from '../models/wireStyles'
 import { fitPage, pageRect, panBy, scaleOf, screenToWorld, zoomAt } from '../viewport'
 import { SheetFrame, XREF_H, XREF_TIP, XREF_W, xrefTip } from './SheetFrame'
@@ -257,7 +257,7 @@ function CanvasInner({ page }: { page: CadPage }) {
       symbolName: (id) => {
         const sym = pg.symbols.find((x) => x.id === id)
         const dev = sym?.deviceId ? devices.get(sym.deviceId) : undefined
-        return dev?.bmk ?? (sym ? `-${SYMBOLS[sym.kind].bmkPrefix}?` : '?')
+        return dev?.bmk ?? (sym ? `-${symbolDef(sym.kind).bmkPrefix}?` : '?')
       },
     })
   const snapAt = (w: Point, alt: boolean): SnapResult => snapOn(page, w, alt, tool === 'wire' || tool === 'place')
@@ -500,7 +500,7 @@ function CanvasInner({ page }: { page: CadPage }) {
 
           {tool === 'place' && hover && (
             <g transform={`translate(${hover.point.x} ${hover.point.y})`} fill="none" stroke="var(--sheet-select)" color="var(--sheet-select)" strokeWidth={STROKE} opacity={0.65} pointerEvents="none">
-              <SymbolBody kind={placeKind} poles={SYMBOLS[placeKind].supportsPoles ? placePoles : 1} />
+              <SymbolBody kind={placeKind} poles={symbolDef(placeKind).supportsPoles ? placePoles : 1} />
             </g>
           )}
 
@@ -637,7 +637,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
                   x={b.x - 22}
                   y={sym.position.y}
                   top={b.y}
-                  bmk={dev?.bmk ?? `-${SYMBOLS[sym.kind].bmkPrefix}?`}
+                  bmk={dev?.bmk ?? `-${symbolDef(sym.kind).bmkPrefix}?`}
                   terminalNo={sym.kind === 'terminal' ? sym.terminalNo : undefined}
                   spec={executionType(dev, sym.kind, sym.poles)}
                   fn={dev?.function}

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { setProjectSymbols } from '@/features/schematic/models/symbolLibrary'
 import { normalizePages, synchronizePage } from '@/utils/pageOrganization'
 import type { CadDocument, CadPage } from '@/types/cad'
 import { useHistoryStore } from './historyStore'
@@ -25,11 +26,13 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   activePageId: null,
   load: (doc) => {
     if (doc) doc = normalizePages(doc)
+    setProjectSymbols(doc)
     useHistoryStore.getState().clear()
     set({ document: doc, activePageId: doc ? defaultPage(doc) : null })
   },
   replace: (doc) => {
     doc = normalizePages(doc)
+    if (doc.customSymbols !== get().document?.customSymbols || doc.symbolOverrides !== get().document?.symbolOverrides) setProjectSymbols(doc)
     const active = get().activePageId
     set({ document: doc, activePageId: doc.pages.some((p) => p.id === active) ? active : (doc.pages[0]?.id ?? null) })
   },
