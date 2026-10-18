@@ -137,6 +137,22 @@ function SymbolFields({ symbols }: { symbols: CadSymbol[] }) {
           <option value="90">Senkrecht (90°)</option>
         </MultiSelect>
       </Field>
+      {symbols.every((s) => s.kind === 'terminal') && (
+        <>
+          <Field label="Nummernrichtung" htmlFor="m-tnor">
+            <MultiSelect id="m-tnor" value={common(symbols.map((s) => s.terminalNoOrientation ?? 'rotated'))} onChange={(v) => updateObjects(ids, { terminalNoOrientation: v as 'normal' | 'rotated' } as Partial<CadObject>, 'Nummernrichtung geändert')}>
+              <option value="normal">Normal (links → rechts)</option>
+              <option value="rotated">Gedreht (unten → oben)</option>
+            </MultiSelect>
+          </Field>
+          <Field label="Anschlussnummern" htmlFor="m-hpin">
+            <MultiSelect id="m-hpin" value={common(symbols.map((s) => (s.hidePinNumbers ? 'hide' : 'show')))} onChange={(v) => updateObjects(ids, { hidePinNumbers: v === 'hide' } as Partial<CadObject>, 'Anschlussnummern geändert')}>
+              <option value="show">Anzeigen</option>
+              <option value="hide">Ausblenden</option>
+            </MultiSelect>
+          </Field>
+        </>
+      )}
     </Section>
   )
 }

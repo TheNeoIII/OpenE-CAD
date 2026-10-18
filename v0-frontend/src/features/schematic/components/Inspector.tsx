@@ -345,7 +345,7 @@ function Properties() {
             </Select>
           </Field>
         </Section>
-        <Empty icon={MousePointerClick} title="Nichts ausgewählt">
+        <Empty icon={MousePointerClick} title="Nichts ausgew��hlt">
           Objekt im Plan anklicken oder mit gedrückter Maustaste einen Auswahlrahmen ziehen.
         </Empty>
       </div>
@@ -457,6 +457,22 @@ function Properties() {
             {obj.kind === 'terminal' && (
               <Field label="Klemmennummer" htmlFor="i-tno">
           <CommitInput id="i-tno" mono value={obj.terminalNo ?? ''} onCommit={(v) => updateObject(obj.id, { terminalNo: v })} />
+            </Field>
+          )}
+          {obj.kind === 'terminal' && (
+            <Field label="Nummernrichtung" htmlFor="i-tnor">
+              <Select id="i-tnor" value={obj.terminalNoOrientation ?? 'rotated'} onChange={(e) => updateObject(obj.id, { terminalNoOrientation: e.target.value as 'normal' | 'rotated' }, 'Nummernrichtung geändert')}>
+                <option value="normal">Normal (links → rechts)</option>
+                <option value="rotated">Gedreht (unten → oben)</option>
+              </Select>
+            </Field>
+          )}
+          {obj.kind === 'terminal' && (
+            <Field label="Anschlussnummern" htmlFor="i-hpin">
+              <Select id="i-hpin" value={obj.hidePinNumbers ? 'hide' : 'show'} disabled={!obj.terminalNo?.trim()} onChange={(e) => updateObject(obj.id, { hidePinNumbers: e.target.value === 'hide' }, 'Anschlussnummern geändert')}>
+                <option value="show">Anzeigen</option>
+                <option value="hide">Ausblenden</option>
+              </Select>
             </Field>
           )}
           <Field label="Beschriftungsposition" htmlFor="i-lside">
