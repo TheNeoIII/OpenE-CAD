@@ -436,6 +436,18 @@ export function movePage(input: CadPage, ids: string[], dx: number, dy: number):
     return { ...w, points: simplifyPolyline(pts) }
   })
 
+  for (const t of input.texts.filter((t) => t.style === 'xref' && !moving.has(t.id))) {
+    const target = followTarget(t.position)
+    const rail = movedRails.find((r) => r.y === t.position.y && t.position.x >= Math.min(r.x1, r.x2) && t.position.x <= Math.max(r.x1, r.x2))
+    if (!rail || !target || samePoint(target, t.position)) continue
+    wires.push({
+      id: uid('wire'), type: 'wire',
+      points: simplifyPolyline([t.position, ...routeOrthogonal(t.position, target, 'hv')]),
+      potential: rail.name, color: rail.color ?? 'auto', crossSection: rail.crossSection ?? '',
+      lineStyle: rail.lineStyle, weight: rail.weight,
+    })
+  }
+
   for (const t of input.texts.filter((t) => t.style === 'xref' && moving.has(t.id))) {
     const rail = input.potentials.find((r) => !moving.has(r.id) && r.y === t.position.y && t.position.x >= r.x1 && t.position.x <= r.x2)
     const alreadyWired = input.wires.some((w) => samePoint(w.points[0], t.position) || samePoint(w.points[w.points.length - 1], t.position))
