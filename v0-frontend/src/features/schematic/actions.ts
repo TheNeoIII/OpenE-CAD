@@ -227,6 +227,17 @@ export function resizeRails(ids: string[], end: 'x1' | 'x2', delta: number) {
 
 export function updateObjects(ids: string[], patch: Partial<CadObject>, label = 'Eigenschaft geändert') {
   withPage(label, (p) => mapObjects(p, new Set(ids), (o) => ({ ...o, ...patch }) as CadObject))
+  }
+
+/** Like updateObjects, but derives the patch per object so dependent fields (e.g. label offsets) stay correct; still one history entry. */
+export function updateObjectsWith(ids: string[], patchFor: (o: CadObject) => Partial<CadObject>, label = 'Eigenschaft geändert') {
+  withPage(label, (p) => mapObjects(p, new Set(ids), (o) => ({ ...o, ...patchFor(o) }) as CadObject))
+}
+
+export function updateDevices(ids: string[], patch: Partial<Device>, label = 'Betriebsmittel geändert') {
+  if (!ids.length) return
+  const set = new Set(ids)
+  commit(label, (doc) => ({ ...doc, devices: doc.devices.map((d) => (set.has(d.id) ? { ...d, ...patch } : d)) }))
 }
 
 export function deleteObjects(ids: string[]) {
