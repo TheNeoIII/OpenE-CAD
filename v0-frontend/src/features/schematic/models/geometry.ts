@@ -183,7 +183,7 @@ export function translateObject<T extends CadObject>(o: T, dx: number, dy: numbe
     case 'line':
       return { ...o, points: o.points.map((p) => translatePoint(p, dx, dy)) }
     case 'potential':
-      return { ...o, y: o.y + dy }
+      return { ...o, x1: o.x1 + dx, x2: o.x2 + dx, y: o.y + dy }
   }
 }
 

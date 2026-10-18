@@ -12,6 +12,8 @@ import { useCursorStore, useViewportStore } from '@/stores/viewportStore'
 import type { CadPage, Point, Rect } from '@/types/cad'
 import { pageSequence } from '@/utils/pages'
 import { executionType } from '../models/execution'
+import { extendRailEnd, relocateWireEnd } from '../actions'
+import { extendRailEndPage, relocateWireEndPage } from '../models/wireEdit'
 import { addLine, addSymbol, addText, addWire, moveJunction, moveObjects, moveWireSegment, relocateJunction, resizeRails, updateObject } from '../actions'
 import { detachJunction, junctionHost, movePage, moveSegmentPage, railEndLimits, relocateJunctionPage, routeModeAfter, routeModeForSnap } from '../models/wireEdit'
 import { CanvasScrollbars } from './CanvasScrollbars'
@@ -70,7 +72,8 @@ type Gesture =
   | { kind: 'marquee'; a: Point; b: Point; additive: boolean }
   | { kind: 'segment'; wireId: string; index: number; horizontal: boolean; origin: Point; delta: number }
   | { kind: 'junction'; at: Point; snapPage: CadPage; snap: SnapResult | null }
-  | { kind: 'railEnd'; railId: string; ids: string[]; end: 'x1' | 'x2'; x: number; start: number; min: number; max: number }
+  | { kind: 'wireEnd'; wireId: string; end: 'start' | 'end'; snapPage: CadPage; snap: SnapResult | null }
+  | { kind: 'railEnd'; railId: string; ids: string[]; end: 'x1' | 'x2'; x: number; start: number; min: number; max: number; target?: SnapResult }
 
 /** Snap-type specific cursor marker. `unit` = world units per screen pixel (clamped). */
 function SnapIndicator({ snap, unit }: { snap: SnapResult; unit: number }) {
@@ -335,7 +338,11 @@ function CanvasInner({ page }: { page: CadPage }) {
       const ref = conductorLabelRef(labelConductor)
       if (at) return setGesture({ kind: 'label', id: labelConductor.id, origin: w, offset: { x: at.x - ref.x, y: at.y - ref.y }, delta: { x: 0, y: 0 } })
     }
-    const railEnd = (e.target as Element).closest?.('[data-rail-end]')?.getAttribute('data-rail-end')
+    const wireEnd = (e.target as Element).closest?.('[data-wire-end]')?.getAttribute('data-wire-end')
+  if (tool === 'select' && id && (wireEnd === 'start' || wireEnd === 'end')) {
+    return setGesture({ kind: 'wireEnd', wireId: id, end: wireEnd, snapPage: { ...page, wires: page.wires.filter((wire) => wire.id !== id) }, snap: null })
+  }
+  const railEnd = (e.target as Element).closest?.('[data-rail-end]')?.getAttribute('data-rail-end')
     const rail = id && (railEnd === 'x1' || railEnd === 'x2') ? page.potentials.find((r) => r.id === id) : undefined
     if (rail && (railEnd === 'x1' || railEnd === 'x2')) {
       const rails = sel.ids.includes(rail.id) ? page.potentials.filter((r) => sel.ids.includes(r.id)) : [rail]
@@ -392,7 +399,7 @@ function CanvasInner({ page }: { page: CadPage }) {
       if (dx !== gesture.dx || dy !== gesture.dy) setGesture({ ...gesture, dx, dy, moved: true })
       return
     }
-    if (gesture.kind === 'junction') {
+    if (gesture.kind === 'junction' || gesture.kind === 'wireEnd') {
       const snap = snapOn(gesture.snapPage, w, e.altKey, true)
       const prev = gesture.snap
       if (!prev || !samePoint(prev.point, snap.point) || prev.kind !== snap.kind) setGesture({ ...gesture, snap })
@@ -401,7 +408,9 @@ function CanvasInner({ page }: { page: CadPage }) {
     if (gesture.kind === 'railEnd') {
       const g = settings.snap ? settings.gridSize : 1
       const x = Math.min(gesture.max, Math.max(gesture.min, Math.round(w.x / g) * g))
-      if (x !== gesture.x) setGesture({ ...gesture, x })
+      const rail = page.potentials.find((r) => r.id === gesture.railId)
+  const target = rail && Math.abs(w.y - rail.y) >= settings.gridSize ? snapOn(page, w, e.altKey, true) : undefined
+  setGesture({ ...gesture, x, target })
       return
     }
     if (gesture.kind === 'segment') {
@@ -430,7 +439,11 @@ function CanvasInner({ page }: { page: CadPage }) {
       if (moved) sel.set([moved.id])
       else sel.clear()
     }
-    if (gesture?.kind === 'railEnd' && gesture.x !== gesture.start) resizeRails(gesture.ids, gesture.end, gesture.x - gesture.start)
+    if (gesture?.kind === 'wireEnd' && gesture.snap) relocateWireEnd(gesture.wireId, gesture.end, gesture.snap)
+  if (gesture?.kind === 'railEnd') {
+    if (gesture.target) extendRailEnd(gesture.railId, gesture.end, gesture.target)
+    else if (gesture.x !== gesture.start) resizeRails(gesture.ids, gesture.end, gesture.x - gesture.start)
+  }
     if (gesture?.kind === 'segment' && gesture.delta) {
       const index = moveWireSegment(gesture.wireId, gesture.index, gesture.delta)
       useSelectionStore.getState().setSegment({ wireId: gesture.wireId, index })
@@ -476,10 +489,12 @@ function CanvasInner({ page }: { page: CadPage }) {
   const drag = gesture?.kind === 'drag' && (gesture.dx || gesture.dy) ? gesture : null
   const segDrag = gesture?.kind === 'segment' && gesture.delta ? gesture : null
   const junctionDrag = gesture?.kind === 'junction' && gesture.snap ? gesture : null
-  const railDrag = gesture?.kind === 'railEnd' && gesture.x !== gesture.start ? gesture : null
-  const basePage = railDrag ? { ...page, potentials: page.potentials.map((r) => (railDrag.ids.includes(r.id) ? { ...r, [railDrag.end]: r[railDrag.end] + railDrag.x - railDrag.start } : r)) } : page
-  const shownPage = drag
-    ? movePage(basePage, drag.ids, drag.dx, drag.dy)
+  const railDrag = gesture?.kind === 'railEnd' && (gesture.target || gesture.x !== gesture.start) ? gesture : null
+  const basePage = railDrag?.target ? extendRailEndPage(page, railDrag.railId, railDrag.end, railDrag.target) : railDrag ? { ...page, potentials: page.potentials.map((r) => (railDrag.ids.includes(r.id) ? { ...r, [railDrag.end]: r[railDrag.end] + railDrag.x - railDrag.start } : r)) } : page
+const shownPage = gesture?.kind === 'wireEnd' && gesture.snap
+  ? relocateWireEndPage(basePage, gesture.wireId, gesture.end, gesture.snap)
+  : drag
+  ? movePage(basePage, drag.ids, drag.dx, drag.dy)
     : segDrag
       ? moveSegmentPage(basePage, segDrag.wireId, segDrag.index, segDrag.delta).page
       : junctionDrag
@@ -540,6 +555,8 @@ function CanvasInner({ page }: { page: CadPage }) {
 
           {(tool === 'wire' || tool === 'line') && hover && <SnapIndicator snap={hover} unit={hs} />}
           {junctionDrag?.snap && <SnapIndicator snap={junctionDrag.snap} unit={hs} />}
+  {gesture?.kind === 'wireEnd' && gesture.snap && <SnapIndicator snap={gesture.snap} unit={hs} />}
+  {railDrag?.target && <SnapIndicator snap={railDrag.target} unit={hs} />}
 
           {gesture?.kind === 'marquee' &&
             (() => {
@@ -764,6 +781,13 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
             )
           })}
 
-
+          {!clean && tool === 'select' && shownPage.wires.filter((wire) => selected.has(wire.id)).flatMap((wire) => (['start', 'end'] as const).map((end) => {
+            const point = end === 'start' ? wire.points[0] : wire.points[wire.points.length - 1]
+            return point ? <g key={`${wire.id}-${end}`} data-id={wire.id} data-wire-end={end} style={{ cursor: 'move' }}>
+              <title>Leiterende ziehen und neu anschließen</title>
+              <circle cx={point.x} cy={point.y} r={9 / s} fill="transparent" />
+              <circle cx={point.x} cy={point.y} r={4 / s} fill="var(--sheet-bg)" stroke={selColor} strokeWidth={1.5 / s} />
+            </g> : null
+          }))}
 </>
 }

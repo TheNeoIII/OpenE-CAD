@@ -14,7 +14,15 @@ import { findObject, objectBounds, simplifyPolyline, translateObject } from './m
 import { centerOn } from './viewport'
 import type { SnapResult } from './models/snap'
 import { symbolDef } from './models/symbolLibrary'
-import { moveJunctionPage, movePage, moveSegmentPage, relocateJunctionPage } from './models/wireEdit'
+import { relocateWireEndPage, extendRailEndPage, moveJunctionPage, movePage, moveSegmentPage, relocateJunctionPage } from './models/wireEdit'
+
+export function relocateWireEnd(wireId: string, end: 'start' | 'end', target: SnapResult) {
+  withPage('Leiterende neu angeschlossen', (p) => relocateWireEndPage(p, wireId, end, target))
+}
+
+export function extendRailEnd(railId: string, end: 'x1' | 'x2', target: SnapResult) {
+  withPage('Schienenende angeschlossen', (p) => extendRailEndPage(p, railId, end, target))
+}
 
 const commit = (label: string, fn: (d: CadDocument) => CadDocument) => useDocumentStore.getState().commit(label, fn)
 const activeId = () => useDocumentStore.getState().activePageId
