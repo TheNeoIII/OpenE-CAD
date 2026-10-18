@@ -5,6 +5,7 @@ import { ShapeList, SymbolGlyph } from '@/features/schematic/components/SymbolGl
 import { articleVariant, customKind, symbolDef, symbolOverrideOf, symbolShapes, symbolVariants, shapesBounds, variantKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
 import { useDocumentStore } from '@/stores/documentStore'
 import type { BuiltinSymbolKind, CadConnectionPoint, CadDocument, CustomSymbolDef, SymbolKind, SymbolOverride, SymbolShape } from '@/types/cad'
+import { ColorPicker } from '@/components/ui/ColorPicker'
 import { backend } from '@/backend'
 import type { Article, DeviceCategory, MountType } from '@/types/device'
 import { cn } from '@/utils/cn'
@@ -138,6 +139,19 @@ function ShapeCanvas({ sym, onPatch }: { sym: CustomSymbolDef; onPatch: (label: 
   const extent = Math.max(VIEW, -bounds.x + 40, bounds.x + bounds.w + 40, -bounds.y + 40, bounds.y + bounds.h + 40)
 
   useEffect(() => setSel(null), [sym.id])
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (drag.current) return
+      const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? svg.clientHeight : 1)
+      setZoom((current) => Math.min(4, Math.max(0.25, current * Math.exp(-delta * 0.0015))))
+    }
+    svg.addEventListener('wheel', wheel, { passive: false })
+    return () => svg.removeEventListener('wheel', wheel)
+  }, [])
 
   const toLocal = (e: React.PointerEvent) => {
     const m = svgRef.current!.getScreenCTM()!.inverse()
@@ -343,10 +357,10 @@ function ShapeCanvas({ sym, onPatch }: { sym: CustomSymbolDef; onPatch: (label: 
       <aside aria-label="Elementeigenschaften" className="flex w-56 shrink-0 flex-col gap-3 overflow-y-auto rounded-md border border-line bg-panel p-3">
         <h3 className="text-[11px] font-semibold tracking-wide text-muted uppercase">{selPin ? 'Anschluss' : selShape ? { line: 'Linie', rect: 'Rechteck', circle: 'Kreis', text: 'Text', path: 'Bogen' }[selShape.t] : 'Kein Element'}</h3>
         {selShape && <>
-          <label className="flex items-center justify-between text-[12px]">{selShape.t === 'text' ? 'Textfarbe' : 'Außenlinienfarbe'}<input aria-label="Elementfarbe" type="color" value={selShape.color ?? '#ffffff'} onChange={(e) => updateShape({ color: e.target.value })} /></label>
+          <label className="flex items-center justify-between text-[12px]">{selShape.t === 'text' ? 'Textfarbe' : 'Außenlinienfarbe'}<ColorPicker label="Elementfarbe" value={selShape.color ?? '#ffffff'} onChange={(color) => updateShape({ color })} /></label>
           <button className="text-left text-[11px] text-muted" onClick={() => updateShape({ color: undefined })}>Standardfarbe verwenden</button>
           {selShape.t !== 'text' && <NumField label="Linienstärke (0,1 mm)" value={selShape.strokeWidth ?? 7} onCommit={(strokeWidth) => updateShape({ strokeWidth: Math.max(0.1, strokeWidth) })} />}
-          {(selShape.t === 'rect' || selShape.t === 'circle') && <label className="flex items-center justify-between text-[12px]">Füllfarbe<input aria-label="Füllfarbe" type="color" value={selShape.fillColor ?? '#ffffff'} onChange={(e) => updateShape({ fillColor: e.target.value, filled: true })} /></label>}
+          {(selShape.t === 'rect' || selShape.t === 'circle') && <label className="flex items-center justify-between text-[12px]">Füllfarbe<ColorPicker label="Füllfarbe" value={selShape.fillColor ?? '#ffffff'} onChange={(fillColor) => updateShape({ fillColor, filled: true })} /></label>}
         </>}
         {selPin && (
           <>

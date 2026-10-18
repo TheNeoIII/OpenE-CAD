@@ -416,7 +416,8 @@ function Properties() {
           </Field>
           <Field label="Farbe" htmlFor="i-col" className="col-span-2">
             <Select id="i-col" value={obj.color ?? 'auto'} onChange={(e) => updateObject(obj.id, { color: e.target.value as WireColor, preset: undefined })}>
-              {(Object.keys(WIRE_COLOR_LABELS) as WireColor[]).map((c) => (
+              {obj.color?.startsWith('#') && <option value={obj.color}>Benutzerdefiniert ({obj.color})</option>}
+                  {(Object.keys(WIRE_COLOR_LABELS) as WireColor[]).map((c) => (
                 <option key={c} value={c}>
                   {WIRE_COLOR_LABELS[c]}
                 </option>

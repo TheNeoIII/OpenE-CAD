@@ -35,6 +35,8 @@ export const WIRE_STROKE: Record<Exclude<WireColor, 'auto'>, string> = {
   violet: '#8a4fc7',
 }
 
+export const wireStroke = (color: WireColor) => /^#[0-9a-f]{6}$/i.test(color) ? color : color === 'auto' ? 'var(--w-main)' : WIRE_STROKE[color] ?? 'var(--w-main)'
+
 export const LINE_STYLE_LABELS: Record<LineStyle, string> = { solid: 'Durchgezogen', dashed: 'Gestrichelt', dashdot: 'Strichpunkt' }
 export const WIRE_WEIGHT_LABELS: Record<WireWeight, string> = { thin: 'Dünn', normal: 'Normal', thick: 'Dick' }
 
