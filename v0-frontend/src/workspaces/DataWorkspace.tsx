@@ -13,7 +13,7 @@ import { potentialDefsOf, presetsOf } from '@/features/schematic/models/wireStyl
 import { WireStylesEditor } from './WireStylesEditor'
 import { PotentialsEditor } from './PotentialsEditor'
 import { SymbolEditor } from './SymbolEditor'
-import { BUILTIN_SYMBOL_KINDS } from '@/features/schematic/models/symbolLibrary'
+import { symbolVariants } from '@/features/schematic/models/symbolLibrary'
 
 const VIEWS: { value: DataViewId; label: string }[] = [
   { value: 'devices', label: 'Betriebsmittel' },
@@ -127,7 +127,7 @@ export function DataWorkspace() {
           ...VIEWS.map((v) => ({ ...v, count: pane === 'table' && v.value === view ? table?.rows.length : undefined })),
           { value: 'potentials' as const, label: 'Potentiale', count: potentialDefsOf(doc).length },
           { value: 'wireStyles' as const, label: 'Leiterstile', count: presetsOf(doc).length },
-          { value: 'symbols' as const, label: 'Symbole', count: BUILTIN_SYMBOL_KINDS.length + (doc?.customSymbols?.length ?? 0) },
+          { value: 'symbols' as const, label: 'Symbole', count: symbolVariants().length },
         ]}
         className="bg-panel px-2"
       />

@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
-const server = await createServer({ configFile: false, root, server: { middlewareMode: true }, resolve: { alias: { '@': `${root}src` } } })
+const server = await createServer({ configFile: false, root, esbuild: { jsx: 'automatic' }, server: { middlewareMode: true }, resolve: { alias: { '@': `${root}src` } } })
 try {
   const lib = await server.ssrLoadModule('/src/features/schematic/models/symbolLibrary.ts')
   const { symbolLabelPosition, terminalLabelGroups } = await server.ssrLoadModule('/src/features/schematic/models/labels.ts')
@@ -53,7 +55,23 @@ try {
   const terminals = [0, 100].map((x, i) => ({ ...symbol, id: `t${i}`, kind: 'terminal', deviceId: 'strip', position: { x, y: 500 } }))
   assert.ok(terminalLabelGroups({ symbols: terminals }).has('t0'))
   assert.equal(terminalLabelGroups({ symbols: terminals.map((s) => ({ ...s, labelSide: 'custom' })) }).size, 0)
-  console.log('Passed: all 17 variants, exact duplicate primitives/pins, neutral poles, geometry overrides, snapshot/JSON round-trip, label anchors and terminal grouping.')
+  const { ShapeList } = await server.ssrLoadModule('/src/features/schematic/components/SymbolGlyph.tsx')
+  const styledShapes = [
+    { t: 'line', x1: 0, y1: 0, x2: 100, y2: 25, color: '#ff0000', strokeWidth: 12, dashed: true, dash: '24 10 2 10' },
+    { t: 'rect', x: 0, y: 0, w: 50, h: 30, color: '#0055aa', strokeWidth: 4, filled: true, fillColor: '#00ff00' },
+    { t: 'circle', cx: 0, cy: 0, r: 20, color: '#aabbcc', strokeWidth: 3, filled: true, fillColor: '#112233' },
+    { t: 'text', x: 0, y: 0, text: 'Styled', size: 30, color: '#abcdef' },
+  ]
+  const styled = { customSymbols: [{ id: 'styled', label: 'Styled', description: '', bmkPrefix: 'X', category: 'Klemme', mount: 'rail', pins: [], shapes: styledShapes }] }
+  lib.setProjectSymbols(JSON.parse(JSON.stringify(styled)))
+  assert.deepEqual(lib.symbolShapes('custom:styled', 1), styledShapes)
+  assert.equal(lib.symbolVariants().length, 18)
+  const markup = renderToStaticMarkup(createElement(ShapeList, { shapes: styledShapes }))
+  for (const attr of ['stroke="#ff0000"', 'stroke-width="12"', 'stroke-dasharray="24 10 2 10"', 'fill="#00ff00"', 'fill="#112233"', 'fill="#abcdef"']) assert.ok(markup.includes(attr), attr)
+  const hits = renderToStaticMarkup(createElement(ShapeList, { shapes: styledShapes, hitArea: true }))
+  assert.ok(!hits.includes('#'), 'hit targets must not overpaint styled geometry')
+  lib.setProjectSymbols(null)
+  console.log('Passed: style rendering and round-trip, dynamic variant count, all 17 variants, exact duplicate primitives/pins, neutral poles, geometry overrides, snapshot/JSON round-trip, label anchors and terminal grouping.')
 } finally {
   await server.close()
 }
