@@ -1,5 +1,5 @@
 import type { WirePreset } from '@/types/cad'
-import { LINE_DASH, WEIGHT_FACTOR, WIRE_STROKE } from '../models/wireStyles'
+import { LINE_DASH, WEIGHT_FACTOR, wireStroke } from '../models/wireStyles'
 
 export function WireSwatch({ preset, className }: { preset: Pick<WirePreset, 'color' | 'lineStyle' | 'weight'>; className?: string }) {
   const dash = LINE_DASH[preset.lineStyle]
@@ -10,7 +10,7 @@ export function WireSwatch({ preset, className }: { preset: Pick<WirePreset, 'co
         y1="4"
         x2="47"
         y2="4"
-        stroke={preset.color === 'auto' ? 'var(--w-main)' : WIRE_STROKE[preset.color]}
+        stroke={wireStroke(preset.color)}
         strokeWidth={2.2 * WEIGHT_FACTOR[preset.weight]}
         strokeDasharray={dash ? dash.split(' ').map((n) => Number(n) / 4).join(' ') : undefined}
         strokeLinecap="butt"

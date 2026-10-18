@@ -1,6 +1,7 @@
 import { Copy, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/primitives'
+import { ColorPicker } from '@/components/ui/ColorPicker'
 import { WireSwatch } from '@/features/schematic/components/WireSwatch'
 import { LINE_STYLE_LABELS, presetsOf, presetUsage, savePresets, WIRE_COLOR_LABELS, WIRE_PRESETS, WIRE_WEIGHT_LABELS } from '@/features/schematic/models/wireStyles'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -94,13 +95,13 @@ export function WireStylesEditor() {
             return (
               <div key={p.id} role="row" className={`${COLS} border-b border-line px-3 py-1.5 hover:bg-hover/50`}>
                 <span role="cell" className="flex items-center">
-                  <WireSwatch preset={p} className="h-3 w-12" />
+                  {p.color.startsWith('#') ? <ColorPicker label={`Farbe für ${p.label}`} value={p.color} onChange={(color) => patch(p.id, { color: color as WireColor })}><WireSwatch preset={p} className="h-3 w-10" /></ColorPicker> : <WireSwatch preset={p} className="h-3 w-12" />}
                 </span>
                 <span role="cell">
                   <TextCell label="Bezeichnung" value={p.label} onCommit={(v) => patch(p.id, { label: v })} />
                 </span>
                 <span role="cell">
-                  <SelectCell<WireColor> label="Farbe" value={p.color} options={WIRE_COLOR_LABELS} onChange={(v) => patch(p.id, { color: v })} />
+                  <SelectCell<string> label="Farbe" value={p.color.startsWith('#') ? 'custom' : p.color} options={{ ...WIRE_COLOR_LABELS, custom: 'Benutzerdefiniert' }} onChange={(v) => patch(p.id, { color: v === 'custom' ? '#ffffff' : v as WireColor })} />
                 </span>
                 <span role="cell">
                   <SelectCell<LineStyle> label="Linienart" value={p.lineStyle} options={LINE_STYLE_LABELS} onChange={(v) => patch(p.id, { lineStyle: v })} />

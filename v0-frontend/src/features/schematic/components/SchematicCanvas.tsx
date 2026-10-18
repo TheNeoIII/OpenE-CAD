@@ -19,7 +19,7 @@ import { symbolLabelPosition, terminalLabelGroups } from '../models/labels'
 import { normalizeRect, objectBounds, pageObjects, rectContains, routeOrthogonal, samePoint, simplifyPolyline, snapPoint, symbolBounds, symbolPins, TEXT_LINE } from '../models/geometry'
 import { ELECTRICAL_SNAP_KINDS, resolveSnap, type SnapResult } from '../models/snap'
 import { symbolDef } from '../models/symbolLibrary'
-import { LINE_DASH, WEIGHT_FACTOR, WIRE_STROKE, styleResolver } from '../models/wireStyles'
+import { LINE_DASH, WEIGHT_FACTOR, wireStroke, styleResolver } from '../models/wireStyles'
 import { fitPage, pageRect, panBy, scaleOf, screenToWorld, zoomAt } from '../viewport'
 import { SheetFrame, XREF_H, XREF_TIP, XREF_W, xrefTip } from './SheetFrame'
 import { SheetReport } from './SheetReport'
@@ -555,7 +555,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
  const ink = 'var(--sheet-ink)'
   const hitW = 10 / s
   const resolve: Resolve = useMemo(() => styleResolver(doc), [doc?.potentialDefs, doc?.wirePresets])
-  const strokeOf = (st: ReturnType<Resolve>) => (settings.mono ? ink : WIRE_STROKE[st.color])
+  const strokeOf = (st: ReturnType<Resolve>) => (settings.mono ? ink : wireStroke(st.color))
  return <>
           <g style={{ filter: 'drop-shadow(0 2px 10px rgb(0 0 0 / 0.18))' }}>
             <SheetFrame page={page} project={project} pageIndex={doc ? pageSequence(doc, page.id) : 1} pageCount={doc?.pages.length ?? 1} grid={settings.gridSize} showGrid={!clean && settings.showGrid} guides={!clean && settings.guides} />

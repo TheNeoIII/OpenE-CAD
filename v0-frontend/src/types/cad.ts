@@ -100,7 +100,7 @@ export interface CadSymbol {
   labelAnchor?: 'start' | 'end'
 }
 
-export type WireColor = 'auto' | 'black' | 'blue' | 'red' | 'green' | 'gray' | 'brown' | 'orange' | 'violet'
+export type WireColor = `#${string}` | 'auto' | 'black' | 'blue' | 'red' | 'green' | 'gray' | 'brown' | 'orange' | 'violet'
 
 export type LineStyle = 'solid' | 'dashed' | 'dashdot'
 
