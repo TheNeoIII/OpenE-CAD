@@ -13,6 +13,7 @@ import { CHARACTERISTICS, executionKind, executionType } from '../models/executi
 import { LINE_STYLE_LABELS, potentialDefsOf, presetPatch, presetsOf, WIRE_COLOR_LABELS, WIRE_WEIGHT_LABELS } from '../models/wireStyles'
 import { connectedConductors } from '../models/netTrace'
 import { WireSwatch } from './WireSwatch'
+import { MultiProperties } from './MultiProperties'
 import { symbolLabelPosition } from '../models/labels'
 import type { Device } from '@/types/device'
 import { cn } from '@/utils/cn'
@@ -293,11 +294,8 @@ function Properties() {
     )
   }
   if (ids.length > 1) {
-    return (
-      <Empty icon={MousePointerClick} title={`${ids.length} Objekte ausgewählt`}>
-        Gemeinsam verschieben (Pfeiltasten), drehen (R) oder löschen (Entf).
-      </Empty>
-    )
+    const selected = ids.map((id) => findObject(page, id)).filter((o): o is CadObject => !!o)
+    return <MultiProperties objects={selected} />
   }
 
   const obj = findObject(page, ids[0])
