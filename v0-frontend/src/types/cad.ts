@@ -98,6 +98,10 @@ export interface CadSymbol {
   poles: 1 | 3
   pinNames?: string[]
   terminalNo?: string
+  /** Reading direction of the terminal number above grouped terminals; defaults to 'rotated' (bottom to top). */
+  terminalNoOrientation?: 'normal' | 'rotated'
+  /** Hides the pin numbers (1, 2) when a terminal number is assigned. */
+  hidePinNumbers?: boolean
   /** Rotates only the device label (BMK/function text), never the symbol graphic. */
   labelRotation?: 0 | 90
   labelSide?: 'left' | 'right' | 'custom'

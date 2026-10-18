@@ -719,7 +719,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
                 <g transform={`translate(${sym.position.x} ${sym.position.y}) rotate(${sym.rotation})`} fill="none" stroke={color} color={color} strokeWidth={STROKE} strokeLinecap="round" strokeLinejoin="round">
                   <SymbolBody kind={sym.kind} poles={sym.poles} ways={sym.wayCount} />
                 </g>
-                {wp.map((p) => (
+                {!(sym.kind === 'terminal' && sym.hidePinNumbers && sym.terminalNo?.trim()) && wp.map((p) => (
                   <text key={p.pinId} x={p.x + 10} y={p.y + (p.y < sym.position.y ? 24 : -10)} fontSize={18} fill="var(--sheet-ink-2)" fontFamily="var(--font-mono)" pointerEvents="none">
                     {p.pinId}
                   </text>
@@ -730,7 +730,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
                   </text>
                 )}
                 {grouped.has(sym.id) && (
-                  <text transform={`translate(${sym.position.x + 22} ${sym.position.y - 14}) rotate(-90)`} fontSize={20} fill={color} fontFamily="var(--font-mono)" pointerEvents="none">
+                  <text transform={sym.terminalNoOrientation === 'normal' ? `translate(${sym.position.x + 14} ${sym.position.y - 14})` : `translate(${sym.position.x + 22} ${sym.position.y - 14}) rotate(-90)`} fontSize={20} fill={color} fontFamily="var(--font-mono)" pointerEvents="none">
                     {sym.terminalNo}
                   </text>
                 )}
