@@ -543,6 +543,21 @@ function CanvasInner({ page }: { page: CadPage }) {
   )
 }
 
+function longestSegment(points: { x: number; y: number }[]) {
+  let best: { x: number; y: number; vertical: boolean } | null = null
+  let bestLen = -1
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i]
+    const b = points[i + 1]
+    const len = Math.hypot(b.x - a.x, b.y - a.y)
+    if (len > bestLen) {
+      bestLen = len
+      best = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, vertical: Math.abs(b.x - a.x) < Math.abs(b.y - a.y) }
+    }
+  }
+  return best
+}
+
 export function SheetDrawing({ page, selected = new Set<string>(), issues = new Map<string, string>(), s = 1, tool = '', space = true, segDrag = null, activeSeg = null, junctionDrag = null, clean = false }: { page: CadPage; selected?: Set<string>; issues?: Map<string, string>; s?: number; tool?: string; space?: boolean; segDrag?: { wireId: string } | null; activeSeg?: { wireId: string; index: number } | null; junctionDrag?: unknown; clean?: boolean }) {
  const doc = useDocumentStore(state => state.document)
  const project = useProjectStore(state => state.current)
@@ -566,7 +581,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
             const sel = selected.has(p.id)
             const st = resolve(p, p.name)
             const col = strokeOf(st)
-            const label = p.label?.trim() || p.name
+            const label = p.label !== undefined ? p.label.trim() : p.name
             const tipL = p.xrefLeft ? xrefTip('left', p.x1, page.format) : p.x1
             const tipR = p.xrefRight ? xrefTip('right', p.x2, page.format) : p.x2
             return (
@@ -613,9 +628,25 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
             const sa = segIdx != null ? w.points[segIdx] : undefined
             const sb = segIdx != null ? w.points[segIdx + 1] : undefined
             const st = resolve(w, w.potential)
+            const wireLabel = w.label?.trim()
+            const labelSeg = wireLabel ? longestSegment(w.points) : null
             return (
               <g key={w.id} data-id={w.id}>
                 <path d={d} fill="none" stroke={sel ? selColor : strokeOf(st)} strokeWidth={(sel ? STROKE * 1.8 : STROKE) * WEIGHT_FACTOR[st.weight]} strokeDasharray={LINE_DASH[st.lineStyle]} strokeLinejoin="round" strokeOpacity={sel && sa ? 0.55 : 1} />
+                {wireLabel && labelSeg && (
+                  <text
+                    x={labelSeg.x}
+                    y={labelSeg.y}
+                    transform={labelSeg.vertical ? `rotate(-90 ${labelSeg.x} ${labelSeg.y}) translate(0 -10)` : `translate(0 -10)`}
+                    textAnchor="middle"
+                    fontSize={20}
+                    fontWeight={500}
+                    fill={sel ? selColor : strokeOf(st)}
+                    pointerEvents="none"
+                  >
+                    {wireLabel}
+                  </text>
+                )}
                 {sa && sb && <path d={`M${sa.x} ${sa.y} L${sb.x} ${sb.y}`} stroke={selColor} strokeWidth={STROKE * 3} strokeLinecap="round" pointerEvents="none" />}
                 {w.points.slice(0, -1).map((a, i) => {
                   const b = w.points[i + 1]

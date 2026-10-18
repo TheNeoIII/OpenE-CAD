@@ -407,7 +407,7 @@ function Properties() {
           </div>
           <PotentialSelect obj={obj} />
           <Field label="Beschriftung" htmlFor="i-lbl">
-            <CommitInput id="i-lbl" mono value={obj.label ?? ''} onCommit={(v) => updateObject(obj.id, { label: v.trim() || undefined }, 'Beschriftung geändert')} />
+            <CommitInput id="i-lbl" mono value={obj.label ?? (obj.type === 'potential' ? obj.name : '')} onCommit={(v) => updateObject(obj.id, { label: v.trim() }, 'Beschriftung geändert')} />
           </Field>
           <Field label="Querschnitt" htmlFor="i-cs">
             <CommitInput id="i-cs" mono value={obj.crossSection ?? ''} onCommit={(v) => updateObject(obj.id, { crossSection: v })} />

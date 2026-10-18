@@ -271,7 +271,7 @@ function ConductorFields({ conductors }: { conductors: (CadWire | CadPotential)[
         )}
       </Field>
       <Field label="Beschriftung" htmlFor="m-lbl">
-        <MultiInput id="m-lbl" mono value={common(conductors.map((c) => c.label ?? ''))} onCommit={(v) => updateObjects(ids, { label: v.trim() || undefined } as Partial<CadObject>, 'Beschriftung geändert')} />
+        <MultiInput id="m-lbl" mono value={common(conductors.map((c) => c.label ?? (c.type === 'potential' ? c.name : '')))} onCommit={(v) => updateObjects(ids, { label: v.trim() } as Partial<CadObject>, 'Beschriftung geändert')} />
       </Field>
       <Field label="Querschnitt" htmlFor="m-cs">
         <MultiInput id="m-cs" mono value={common(conductors.map((c) => c.crossSection ?? ''))} onCommit={(v) => updateObjects(ids, { crossSection: v } as Partial<CadObject>, 'Querschnitt geändert')} />
