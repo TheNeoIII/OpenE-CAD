@@ -347,7 +347,7 @@ function Properties() {
             </Select>
           </Field>
         </Section>
-        <Empty icon={MousePointerClick} title="Nichts ausgew��hlt">
+        <Empty icon={MousePointerClick} title="Nichts ausgewählt">
           Objekt im Plan anklicken oder mit gedrückter Maustaste einen Auswahlrahmen ziehen.
         </Empty>
       </div>
