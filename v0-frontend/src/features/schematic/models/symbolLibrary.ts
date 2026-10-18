@@ -10,8 +10,8 @@ export interface SymbolDef {
   category: DeviceCategory
   mount: MountType
   supportsPoles: boolean
-  pins: (s: Pick<CadSymbol, 'poles' | 'pinNames'>) => CadConnectionPoint[]
-  bbox: (s: Pick<CadSymbol, 'poles'>) => Rect
+  pins: (s: Pick<CadSymbol, 'poles' | 'pinNames' | 'wayCount' | 'wayNaming'>) => CadConnectionPoint[]
+  bbox: (s: Pick<CadSymbol, 'poles' | 'wayCount'>) => Rect
 }
 
 const POLE_SPACING = 100
@@ -39,6 +39,15 @@ function neutralPins(poles: number, names?: string[]): CadConnectionPoint[] {
 const poleBox = (poles: number, extraLeft = 0): Rect => {
   const half = ((poles - 1) * POLE_SPACING) / 2
   return { x: -half - 50 - extraLeft, y: -100, w: half * 2 + 100 + extraLeft, h: 200 }
+}
+
+/** Conductor names of an outlet; from 3 conductors the two rightmost are always N and PE. */
+export function outletPinNames(s: Pick<CadSymbol, 'poles' | 'pinNames' | 'wayCount' | 'wayNaming'>): string[] {
+  const count = Math.max(1, s.wayCount ?? s.poles)
+  if (s.wayCount == null && !s.wayNaming) return Array.from({ length: count }, (_, i) => s.pinNames?.[i] ?? String(i + 1))
+  const phases = count >= 3 ? count - 2 : count
+  const generated = Array.from({ length: count }, (_, i) => (i >= phases ? (i === phases ? 'N' : 'PE') : s.wayNaming === 'phases' ? (phases === 1 ? 'L' : `L${i + 1}`) : String(i + 1)))
+  return s.wayNaming === 'custom' ? generated.map((g, i) => (i < phases ? s.pinNames?.[i] || g : g)) : generated
 }
 
 const twoPin =
@@ -81,7 +90,40 @@ export const SYMBOLS: Record<BuiltinSymbolKind, SymbolDef> = {
     mount: 'rail',
     supportsPoles: true,
     pins: (s) => neutralPins(s.poles, s.pinNames),
-    bbox: (s) => poleBox(s.poles + 1, 130),
+    bbox: (s) => poleBox(s.poles + 1, 230),
+  },
+  rcbo: {
+    kind: 'rcbo',
+    label: 'FI-LS-Schalter',
+    description: 'FI/LS-Kombination (RCBO) 1+N oder 3+N',
+    bmkPrefix: 'F',
+    category: 'Schutzgerät',
+    mount: 'rail',
+    supportsPoles: true,
+    pins: (s) => neutralPins(s.poles, s.pinNames),
+    bbox: (s) => poleBox(s.poles + 1, 230),
+  },
+  fuseD02: {
+    kind: 'fuseD02',
+    label: 'Sicherungslasttrenner D02',
+    description: 'NEOZED D02, N durchgeführt',
+    bmkPrefix: 'F',
+    category: 'Schutzgerät',
+    mount: 'rail',
+    supportsPoles: true,
+    pins: (s) => neutralPins(s.poles, s.pinNames),
+    bbox: (s) => poleBox(s.poles + 1, 30),
+  },
+  fuseD02N: {
+    kind: 'fuseD02N',
+    label: 'Sicherungslasttrenner D02 mit N',
+    description: 'NEOZED D02, N mitschaltend',
+    bmkPrefix: 'F',
+    category: 'Schutzgerät',
+    mount: 'rail',
+    supportsPoles: true,
+    pins: (s) => neutralPins(s.poles, s.pinNames),
+    bbox: (s) => poleBox(s.poles + 1, 30),
   },
   contactor: {
     kind: 'contactor',
@@ -105,6 +147,17 @@ export const SYMBOLS: Record<BuiltinSymbolKind, SymbolDef> = {
     pins: twoPin('A1', 'A2'),
     bbox: () => ({ x: -50, y: -100, w: 100, h: 200 }),
   },
+  timer: {
+    kind: 'timer',
+    label: 'Zeitschaltuhr',
+    description: 'Schaltuhr mit Versorgung L/N, Kontakte separat',
+    bmkPrefix: 'K',
+    category: 'Relais',
+    mount: 'rail',
+    supportsPoles: false,
+    pins: twoPin('L', 'N'),
+    bbox: () => ({ x: -70, y: -100, w: 100, h: 200 }),
+  },
   contactNO: {
     kind: 'contactNO',
     label: 'Schließer',
@@ -126,6 +179,21 @@ export const SYMBOLS: Record<BuiltinSymbolKind, SymbolDef> = {
     supportsPoles: false,
     pins: twoPin('21', '22'),
     bbox: () => ({ x: -50, y: -100, w: 100, h: 200 }),
+  },
+  contactCO: {
+    kind: 'contactCO',
+    label: 'Wechsler',
+    description: 'Hilfskontakt, Umschalter',
+    bmkPrefix: 'K',
+    category: 'Relais',
+    mount: 'rail',
+    supportsPoles: false,
+    pins: (s) => [
+      { id: s.pinNames?.[0] ?? '11', x: 0, y: 100 },
+      { id: s.pinNames?.[1] ?? '12', x: -50, y: -100 },
+      { id: s.pinNames?.[2] ?? '14', x: 50, y: -100 },
+    ],
+    bbox: () => ({ x: -60, y: -100, w: 120, h: 200 }),
   },
   terminal: {
     kind: 'terminal',
@@ -187,15 +255,28 @@ export const SYMBOLS: Record<BuiltinSymbolKind, SymbolDef> = {
     category: 'Klemme',
     mount: 'field',
     supportsPoles: true,
-    pins: (s) =>
-      Array.from({ length: s.poles }, (_, i) => ({
-        id: s.pinNames?.[i] ?? String(i + 1),
-        x: (i - (s.poles - 1) / 2) * POLE_SPACING,
-        y: -100,
-      })),
+    pins: (s) => {
+      const names = outletPinNames(s)
+      return names.map((id, i) => ({ id, x: (i - (names.length - 1) / 2) * POLE_SPACING, y: -100 }))
+    },
     bbox: (s) => {
-      const half = ((s.poles - 1) * POLE_SPACING) / 2 + 40
+      const count = Math.max(1, s.wayCount ?? s.poles)
+      const half = ((count - 1) * POLE_SPACING) / 2 + 40
       return { x: -half, y: -100, w: half * 2, h: 170 }
+    },
+  },
+  crossMark: {
+    kind: 'crossMark',
+    label: 'Querschnittsangabe',
+    description: 'Querstrich über mehrere Leiter mit Querschnitts-/Schienentext',
+    bmkPrefix: 'W',
+    category: 'Klemme',
+    mount: 'field',
+    supportsPoles: false,
+    pins: () => [],
+    bbox: (s) => {
+      const half = ((Math.max(1, s.wayCount ?? 4) - 1) * POLE_SPACING) / 2 + 40
+      return { x: -half, y: -20, w: half * 2, h: 40 }
     },
   },
 }
@@ -272,8 +353,9 @@ export function symbolDef(kind: SymbolKind): SymbolDef {
 export const customSymbolOf = (kind: SymbolKind) => (isCustomKind(kind) ? customById.get(kind.slice(CUSTOM_PREFIX.length)) : undefined)
 export const symbolOverrideOf = (kind: BuiltinSymbolKind) => overrides[kind]
 
-export function symbolShapes(kind: SymbolKind, poles: 1 | 3): SymbolShape[] {
+export function symbolShapes(kind: SymbolKind, poles: 1 | 3, ways?: number): SymbolShape[] {
   if (isCustomKind(kind)) return customSymbolOf(kind)?.shapes ?? []
+  if (kind === 'crossMark' || (kind === 'outlet' && ways != null)) return builtinShapes(kind, poles, kind === 'crossMark' ? ways ?? 4 : ways)
   return overrides[kind]?.geometry?.[poles]?.shapes ?? builtinShapes(kind, poles)
 }
 
@@ -307,6 +389,9 @@ function variantsOf(kind: SymbolKind): SymbolVariant[] {
   const renamed = !isCustomKind(kind) && !!overrides[kind as BuiltinSymbolKind]?.label
   if (kind === 'breakerN' && !renamed) return [make(1, 'LS-Schalter 1+N'), make(3, 'LS-Schalter 3+N')]
   if (kind === 'rcd' && !renamed) return [make(1, 'FI-Schutzschalter 1+N (2-polig)'), make(3, 'FI-Schutzschalter 3+N (4-polig)')]
+  if (kind === 'rcbo' && !renamed) return [make(1, 'FI-LS 1+N'), make(3, 'FI-LS 3+N')]
+  if (kind === 'fuseD02' && !renamed) return [make(1, 'D02 1-polig, N durchgeführt'), make(3, 'D02 3-polig, N durchgeführt')]
+  if (kind === 'fuseD02N' && !renamed) return [make(1, 'D02 1+N, N geschaltet'), make(3, 'D02 3+N, N geschaltet')]
   if (def.supportsPoles) return [make(1, `${def.label} 1-polig`), make(3, `${def.label} 3-polig`)]
   return [make(1, def.label, kind === 'motor' ? '3' : '1')]
 }
@@ -326,7 +411,10 @@ export function articleVariant(a: { category: DeviceCategory; description: strin
   const four = /\b4p\b|3p\+n|3\+n|4-polig/.test(d)
   const three = /\b3p\b|3-polig/.test(d)
   const pick = (kind: SymbolKind, poles: 1 | 3) => variantByKey(variantKey(kind, poles)) ?? null
+  if (/fi-ls|fi\/ls|\brcbo\b/.test(d)) return pick('rcbo', four ? 3 : 1)
   if (/fi-|fehlerstrom|\brcd\b/.test(d)) return pick('rcd', four ? 3 : 1)
+  if (/\bd02\b|neozed/.test(d)) return pick('fuseD02', three ? 3 : 1)
+  if (/zeitschaltuhr|schaltuhr/.test(d)) return pick('timer', 1)
   if (/ls-schalter|leitungsschutz/.test(d)) return /\+n/.test(d) ? pick('breakerN', four ? 3 : 1) : pick('breaker', three ? 3 : 1)
   if (/motorschutz|hauptschalter|lasttrenn/.test(d)) return pick('breaker', 3)
   if (/sicherungseinsatz/.test(d)) return pick('breaker', 1)

@@ -9,7 +9,8 @@ import { useUiStore, type InspectorTab } from '@/stores/uiStore'
 import { issuesForTarget, useValidationStore } from '@/stores/validationStore'
 import type { CadObject, CadPage, CadPotential, CadWire, LineStyle, Rotation, SymbolKind, WireColor, WireWeight } from '@/types/cad'
 import { detachRailReferences } from '../actions'
-import { CHARACTERISTICS, executionKind, executionType } from '../models/execution'
+import { CHARACTERISTICS, executionKind, executionType, FUSE_CLASSES, RCD_TYPES, terminalCrossSection } from '../models/execution'
+import { outletPinNames } from '../models/symbolLibrary'
 import { LINE_STYLE_LABELS, potentialDefsOf, presetPatch, presetsOf, WIRE_COLOR_LABELS, WIRE_WEIGHT_LABELS } from '../models/wireStyles'
 import { connectedConductors } from '../models/netTrace'
 import { WireSwatch } from './WireSwatch'
@@ -168,7 +169,7 @@ function ExecutionFields({ device, kind, poles }: { device: Device; kind: Symbol
   const result = executionType(device, kind, poles)
   return (
     <Section title="Ausführung">
-      {ek === 'breaker' && (
+      {(ek === 'breaker' || ek === 'rcbo') && (
         <Field label="Charakteristik" htmlFor="i-char">
           <Select id="i-char" value={device.characteristic ?? ''} onChange={(e) => up({ characteristic: e.target.value || undefined })}>
             <option value="">—</option>
@@ -180,14 +181,47 @@ function ExecutionFields({ device, kind, poles }: { device: Device; kind: Symbol
           </Select>
         </Field>
       )}
-      {(ek === 'breaker' || ek === 'rcd') && (
+      {ek === 'fuse' && (
+        <Field label="Betriebsklasse" htmlFor="i-fcl">
+          <Select id="i-fcl" value={device.characteristic ?? 'gG'} onChange={(e) => up({ characteristic: e.target.value })}>
+            {FUSE_CLASSES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+      {(ek === 'breaker' || ek === 'rcd' || ek === 'rcbo' || ek === 'fuse') && (
         <Field label="Nennstrom (A)" htmlFor="i-in">
           <CommitInput id="i-in" mono value={current != null ? String(current) : ''} onCommit={(v) => up({ nominalCurrent: num(v) })} />
         </Field>
       )}
-      {ek === 'rcd' && (
-        <Field label="Fehlerstrom (mA)" htmlFor="i-idn">
-          <CommitInput id="i-idn" mono value={device.residualCurrent != null ? String(device.residualCurrent) : ''} onCommit={(v) => up({ residualCurrent: num(v) })} />
+      {(ek === 'rcd' || ek === 'rcbo') && (
+        <>
+          <Field label="Fehlerstrom (mA)" htmlFor="i-idn">
+            <CommitInput id="i-idn" mono value={device.residualCurrent != null ? String(device.residualCurrent) : ''} onCommit={(v) => up({ residualCurrent: num(v) })} />
+          </Field>
+          <Field label="Typ" htmlFor="i-rtype">
+            <Select id="i-rtype" value={device.rcdType ?? ''} onChange={(e) => up({ rcdType: e.target.value || undefined })}>
+              {RCD_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t || 'keine Angabe'}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </>
+      )}
+      {(ek === 'breaker' || ek === 'rcbo') && (
+        <Field label="Kurzschlussstrom (kA)" htmlFor="i-icn">
+          <CommitInput id="i-icn" mono value={device.breakingCapacity != null ? String(device.breakingCapacity).replace('.', ',') : ''} onCommit={(v) => up({ breakingCapacity: num(v) })} />
+        </Field>
+      )}
+      {ek === 'terminal' && (
+        <Field label="Querschnitt" htmlFor="i-tcs">
+          <CommitInput id="i-tcs" mono value={device.crossSection ?? ''} onCommit={(v) => up({ crossSection: v || undefined })} />
+          {!device.crossSection && terminalCrossSection(device) && <span className="text-[10.5px] text-muted">aus Artikel: {terminalCrossSection(device)}</span>}
         </Field>
       )}
       {ek === 'coil' && (
@@ -272,6 +306,7 @@ function Properties() {
   const ids = useSelectionStore((s) => s.ids)
   const page = useActivePage()
   const devices = useDocumentStore((s) => s.document?.devices)
+  const xrefMode = useDocumentStore((s) => s.document?.xrefMode ?? 'group')
   const presets = presetsOf(useDocumentStore((s) => s.document))
   const results = useValidationStore((s) => s.results)
 
@@ -294,6 +329,21 @@ function Properties() {
               Seiteneigenschaften…
             </Button>
           </div>
+        </Section>
+        <Section title="Querverweise">
+          <Field label="Verweis über" htmlFor="i-xref" className="col-span-2">
+            <Select
+              id="i-xref"
+              value={xrefMode}
+              onChange={(e) => {
+                const xrefMode = e.target.value as 'group' | 'page'
+                useDocumentStore.getState().commit('Verweismodus geändert', (d) => ({ ...d, xrefMode }))
+              }}
+            >
+              <option value="group">Gruppennummer + Koordinate</option>
+              <option value="page">Seitennummer + Koordinate</option>
+            </Select>
+          </Field>
         </Section>
         <Empty icon={MousePointerClick} title="Nichts ausgewählt">
           Objekt im Plan anklicken oder mit gedrückter Maustaste einen Auswahlrahmen ziehen.
@@ -346,6 +396,64 @@ function Properties() {
             <Field label="Position Y">
               <div className="font-mono text-[12px] text-fg-2">{(obj.position.y / 10).toFixed(1)} mm</div>
             </Field>
+            {obj.kind === 'outlet' && (() => {
+              const count = obj.wayCount ?? obj.poles
+              const naming = obj.wayNaming ?? 'numbered'
+              const names = outletPinNames({ ...obj, wayCount: count, wayNaming: naming })
+              const phases = count >= 3 ? count - 2 : count
+              return (
+                <>
+                  <Field label="Leiteranzahl" htmlFor="i-ways">
+                    <Select id="i-ways" value={count} onChange={(e) => updateObject(obj.id, { wayCount: Number(e.target.value) }, 'Leiteranzahl geändert')}>
+                      {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                        <option key={n} value={n}>
+                          {n}-polig
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Leiterbezeichnung" htmlFor="i-wname">
+                    <Select id="i-wname" value={naming} onChange={(e) => updateObject(obj.id, { wayCount: count, wayNaming: e.target.value as 'numbered' | 'phases' | 'custom', ...(e.target.value === 'custom' ? { pinNames: names } : {}) })}>
+                      <option value="numbered">Durchnummeriert</option>
+                      <option value="phases">L1, L2, L3</option>
+                      <option value="custom">Benutzerdefiniert</option>
+                    </Select>
+                  </Field>
+                  {naming === 'custom' &&
+                    Array.from({ length: phases }, (_, i) => (
+                      <Field key={i} label={`Leiter ${i + 1}`} htmlFor={`i-wn${i}`}>
+                        <CommitInput
+                          id={`i-wn${i}`}
+                          mono
+                          value={names[i]}
+                          onCommit={(v) => {
+                            const next = [...names]
+                            next[i] = v
+                            updateObject(obj.id, { pinNames: next }, 'Leiterbezeichnung geändert')
+                          }}
+                        />
+                      </Field>
+                    ))}
+                  <p className="col-span-2 font-mono text-[11px] text-muted">{names.join(' · ')}</p>
+                </>
+              )
+            })()}
+            {obj.kind === 'crossMark' && (
+              <>
+                <Field label="Leiteranzahl" htmlFor="i-cmw">
+                  <Select id="i-cmw" value={obj.wayCount ?? 4} onChange={(e) => updateObject(obj.id, { wayCount: Number(e.target.value) })}>
+                    {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Text" htmlFor="i-cmt">
+                  <CommitInput id="i-cmt" mono value={obj.markText ?? '10mm²'} onCommit={(v) => updateObject(obj.id, { markText: v })} />
+                </Field>
+              </>
+            )}
             {obj.kind === 'terminal' && (
               <Field label="Klemmennummer" htmlFor="i-tno">
           <CommitInput id="i-tno" mono value={obj.terminalNo ?? ''} onCommit={(v) => updateObject(obj.id, { terminalNo: v })} />

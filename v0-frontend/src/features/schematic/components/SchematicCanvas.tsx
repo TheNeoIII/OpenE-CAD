@@ -11,7 +11,9 @@ import { useValidationStore } from '@/stores/validationStore'
 import { useCursorStore, useViewportStore } from '@/stores/viewportStore'
 import type { CadPage, Point, Rect } from '@/types/cad'
 import { pageSequence } from '@/utils/pages'
-import { executionType } from '../models/execution'
+import { executionType, makerLines } from '../models/execution'
+import { COIL_KINDS, formatRef } from '../models/xref'
+import { ContactMirror } from './ContactMirror'
 import { extendRailEnd, relocateWireEnd } from '../actions'
 import { extendRailEndPage, relocateWireEndPage } from '../models/wireEdit'
 import { addLine, addSymbol, addText, addWire, moveJunction, moveObjects, moveWireSegment, relocateJunction, resizeRails, updateObject } from '../actions'
@@ -591,7 +593,12 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
  const settings = useSettingsStore()
  const devices = new Map(doc?.devices.map(d => [d.id, d]))
  const shownPage = page
- const numberOnly = terminalLabelGroups(page)
+ const { numberOnly, grouped } = terminalLabelGroups(page)
+ const xrefText = (t: CadPage['texts'][number]) => {
+   const target = doc && t.xref ? doc.pages.find((p) => p.id === t.xref?.targetPageId) : undefined
+   const peer = target?.texts.find((x) => x.id === t.xref?.peerId)
+   return doc && target && peer ? formatRef(doc, target, peer.position) : t.text
+ }
  const offset = (_id: string): string | undefined => undefined
  const selColor = 'var(--sheet-select)'
  const ink = 'var(--sheet-ink)'
@@ -710,23 +717,35 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
                 <rect x={b.x - 12} y={b.y - 12} width={b.w + 24} height={b.h + 24} fill="transparent" />
                 {sel && <rect x={b.x - 18} y={b.y - 18} width={b.w + 36} height={b.h + 36} fill="var(--sheet-select)" fillOpacity={0.07} stroke={selColor} strokeWidth={2 / (s > 1 ? 1 : s) * 0.8} strokeDasharray="10 8" />}
                 <g transform={`translate(${sym.position.x} ${sym.position.y}) rotate(${sym.rotation})`} fill="none" stroke={color} color={color} strokeWidth={STROKE} strokeLinecap="round" strokeLinejoin="round">
-                  <SymbolBody kind={sym.kind} poles={sym.poles} />
+                  <SymbolBody kind={sym.kind} poles={sym.poles} ways={sym.wayCount} />
                 </g>
                 {wp.map((p) => (
                   <text key={p.pinId} x={p.x + 10} y={p.y + (p.y < sym.position.y ? 24 : -10)} fontSize={18} fill="var(--sheet-ink-2)" fontFamily="var(--font-mono)" pointerEvents="none">
                     {p.pinId}
                   </text>
                 ))}
-                {!(sym.kind === 'outlet' && !dev) && <SymbolLabel
+                {sym.kind === 'crossMark' && (
+                  <text x={b.x + b.w + 12} y={sym.position.y + 7} fontSize={20} fill={color} fontFamily="var(--font-mono)" pointerEvents="none">
+                    {sym.markText ?? '10mm²'}
+                  </text>
+                )}
+                {grouped.has(sym.id) && (
+                  <text transform={`translate(${sym.position.x + 22} ${sym.position.y - 14}) rotate(-90)`} fontSize={20} fill={color} fontFamily="var(--font-mono)" pointerEvents="none">
+                    {sym.terminalNo}
+                  </text>
+                )}
+                {!(sym.kind === 'outlet' && !dev) && sym.kind !== 'crossMark' && !(numberOnly.has(sym.id) && grouped.has(sym.id)) && <SymbolLabel
                   rotated={sym.labelRotation === 90}
                   numberOnly={numberOnly.has(sym.id)}
                   {...label}
                   bmk={dev?.bmk ?? `-${symbolDef(sym.kind).bmkPrefix}?`}
-                  terminalNo={sym.kind === 'terminal' ? sym.terminalNo : undefined}
+                  terminalNo={sym.kind === 'terminal' && !grouped.has(sym.id) ? sym.terminalNo : undefined}
                   spec={executionType(dev, sym.kind, sym.poles)}
                   fn={dev?.function}
+                  maker={makerLines(dev, sym.kind)}
                   color={sel ? selColor : dev ? ink : 'var(--error)'}
                 />}
+                {doc && dev && COIL_KINDS.has(sym.kind) && <ContactMirror doc={doc} page={shownPage} deviceId={dev.id} symbolId={sym.id} x={sym.position.x} y={b.y + b.h + 8} />}
                 {sel && sym.labelSide === 'custom' && tool === 'select' && !(sym.kind === 'outlet' && !dev) && (
                   <g data-label-anchor={sym.id} style={{ cursor: 'move' }}>
                     <title>Beschriftungsanker ziehen</title>
@@ -765,7 +784,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
             if (t.style === 'xref') return (
               <g key={t.id} data-id={t.id} transform={offset(t.id)} style={{ cursor: 'move' }}>
                 <title>Querverweis – ziehen zum Verschieben, Rechtsklick für „Gehe zu“</title>
-                <XrefTag tip={t.position.x} y={t.position.y} text={t.text} side={t.xref?.side ?? 'right'} interactive selected={sel} />
+                <XrefTag tip={t.position.x} y={t.position.y} text={xrefText(t)} side={t.xref?.side ?? 'right'} interactive selected={sel} />
                 <circle cx={t.position.x} cy={t.position.y} r={sel ? 10 : 5} fill={sel ? selColor : 'var(--w-xref)'} />
               </g>
             )
