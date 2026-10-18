@@ -44,6 +44,7 @@ export function SchematicToolbar() {
     <div role="toolbar" aria-label="Stromlaufplan-Werkzeuge" className="flex h-9 shrink-0 items-center gap-0.5 border-b border-line bg-panel px-2">
       <IconButton icon={PanelLeft} label={tooltip('view.navigator')} active={panels.navigator} onClick={() => runCommand('view.navigator')} />
       <Sep />
+      <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
       {TOOLS.map((t) => (
         <IconButton key={t.tool} icon={t.icon} label={tooltip(t.cmd)} active={tool === t.tool} onClick={() => runCommand(t.cmd)} />
       ))}
@@ -84,6 +85,7 @@ export function SchematicToolbar() {
       </button>
       <IconButton icon={ZoomIn} label={tooltip('view.zoomIn')} onClick={() => runCommand('view.zoomIn')} />
       <IconButton icon={Maximize} label={tooltip('view.fitPage')} onClick={() => runCommand('view.fitPage')} />
+      </div>
       <Sep />
       <IconButton icon={PanelRight} label={tooltip('view.inspector')} active={panels.inspector} onClick={() => runCommand('view.inspector')} />
     </div>
