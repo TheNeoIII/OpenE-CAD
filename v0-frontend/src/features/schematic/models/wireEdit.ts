@@ -20,7 +20,7 @@ const strictlyBetween = (v: number, a: number, b: number) => v > Math.min(a, b) 
  */
 type Anchor = { kind: 'none' } | { kind: 'fixed' }
 
-function anchorAt(page: CadPage, p: Point, moving: Set<string>, selfId: string): Anchor {
+function anchorAt(page: CadPage, p: Point, moving: Set<string>, selfId: string, ignoreRails = false): Anchor {
   if (page.texts.some((t) => t.style === 'xref' && !moving.has(t.id) && samePoint(t.position, p))) return { kind: 'fixed' }
   for (const s of page.symbols) {
     if (moving.has(s.id)) continue
@@ -37,11 +37,21 @@ function anchorAt(page: CadPage, p: Point, moving: Set<string>, selfId: string):
       if ((a.y === b.y && a.y === p.y && strictlyBetween(p.x, a.x, b.x)) || (a.x === b.x && a.x === p.x && strictlyBetween(p.y, a.y, b.y))) return { kind: 'fixed' }
     }
   }
+  if (ignoreRails) return { kind: 'none' }
   for (const r of page.potentials) {
     if (moving.has(r.id) || r.y !== p.y) continue
     if (p.x >= Math.min(r.x1, r.x2) && p.x <= Math.max(r.x1, r.x2)) return { kind: 'fixed' }
   }
   return { kind: 'none' }
+}
+
+/** Whether a conductor actually terminates at p (wire end, rail end or device pin) – a plain crossing is no connection. */
+function terminatesAt(page: CadPage, p: Point): boolean {
+  return (
+    page.wires.some((w) => samePoint(w.points[0], p) || samePoint(w.points[w.points.length - 1], p)) ||
+    page.potentials.some((r) => r.y === p.y && (r.x1 === p.x || r.x2 === p.x)) ||
+    page.symbols.some((s) => symbolPins(s).some((pin) => samePoint(pin, p)))
+  )
 }
 
 /** The straight line a clamp point sits on and may slide along. */
@@ -311,7 +321,8 @@ function setEnd(pts: Point[], end: End, p: Point): Point[] {
 export function refreshJunctions(page: CadPage): CadPage {
   // Existing clamp points survive as long as a conductor still ends there (e.g. a wire landing on a rail end).
   const wireEndAt = (p: Point) => page.wires.some((w) => samePoint(w.points[0], p) || samePoint(w.points[w.points.length - 1], p))
-  const kept = page.junctions.filter((j) => needsJunction(page, j.position) || (wireEndAt(j.position) && armsAt(page, j.position) >= 2))
+  // A clamp point that ended up on a plain crossing (no conductor terminating there) would short two potentials – drop it.
+  const kept = page.junctions.filter((j) => terminatesAt(page, j.position) && (needsJunction(page, j.position) || (wireEndAt(j.position) && armsAt(page, j.position) >= 2)))
   const added: CadPage['junctions'] = []
   for (const w of page.wires) {
     for (const p of [w.points[0], w.points[w.points.length - 1]]) {
@@ -356,13 +367,48 @@ export function movePage(input: CadPage, ids: string[], dx: number, dy: number):
     const hi = Math.max(rail.x1, rail.x2) + dx
     return { x: Math.min(hi, Math.max(lo, p.x)), y: p.y + dy }
   }
+  /**
+   * A moved wire landing on an unmoved rail stays bound to it: its end (and clamp point)
+   * slides along the rail by dx. If the wire is the only conductor at a rail end, that rail
+   * end follows too, so no dangling rail stub is left behind.
+   */
+  const railEdits = new Map<string, { x1?: number; x2?: number }>()
+  const endTargets: { from: Point; to: Point }[] = []
+  const railTarget = (E: Point, selfId: string): Point | null => {
+    if (anchorAt(page, E, moving, selfId, true).kind === 'fixed') return null
+    const r = page.potentials.find((q) => !moving.has(q.id) && q.y === E.y && E.x >= Math.min(q.x1, q.x2) && E.x <= Math.max(q.x1, q.x2))
+    if (!r) return null
+    const lo = Math.min(r.x1, r.x2)
+    const hi = Math.max(r.x1, r.x2)
+    const nx = E.x + dx
+    const atEnd: 'x1' | 'x2' | null = r.x1 === E.x ? 'x1' : r.x2 === E.x ? 'x2' : null
+    if (atEnd && dx !== 0) {
+      const others = [...page.wires.filter((w) => w.id !== selfId && !moving.has(w.id)).flatMap((w) => [w.points[0], w.points[w.points.length - 1]]), ...page.symbols.filter((s) => !moving.has(s.id)).flatMap((s) => symbolPins(s))]
+        .filter((p) => p.y === r.y && p.x >= lo && p.x <= hi && p.x !== E.x)
+        .map((p) => p.x)
+      const otherEnd = atEnd === 'x1' ? r.x2 : r.x1
+      const isLow = E.x === lo
+      const ok = isLow ? nx <= otherEnd - MIN_RAIL && others.every((x) => x >= nx) : nx >= otherEnd + MIN_RAIL && others.every((x) => x <= nx)
+      if (ok) {
+        railEdits.set(r.id, { ...railEdits.get(r.id), [atEnd]: nx })
+        return { x: nx, y: E.y }
+      }
+      return null
+    }
+    if (atEnd) return null
+    return { x: Math.min(hi, Math.max(lo, nx)), y: E.y }
+  }
   const wires = page.wires.map((w) => {
     const orig = w.points
     if (moving.has(w.id)) {
       let pts = orig.map((p) => ({ x: p.x + dx, y: p.y + dy }))
       for (const end of ['start', 'end'] as End[]) {
         const E = endPoint(orig, end)
-        if (anchorAt(page, E, moving, w.id).kind === 'fixed') pts = rerouteEnd(pts, end, E)
+        const rt = railTarget(E, w.id)
+        if (rt) {
+          endTargets.push({ from: E, to: rt })
+          pts = rerouteEnd(pts, end, rt)
+        } else if (anchorAt(page, E, moving, w.id).kind === 'fixed') pts = rerouteEnd(pts, end, E)
       }
       return { ...w, points: simplifyPolyline(pts) }
     }
@@ -390,7 +436,19 @@ export function movePage(input: CadPage, ids: string[], dx: number, dy: number):
       wires.push({ id: `xref-lead-${t.id}`, type: 'wire', points: simplifyPolyline([t.position, { x: target.x, y: t.position.y }, target]), potential: rail.name, color: rail.color ?? 'auto', crossSection: rail.crossSection ?? '' })
     }
   }
-  const moved = mapIds({ ...page, wires: page.wires }, moving, (o) => (o.type === 'wire' ? o : translateObject(o, dx, dy)))
+  const translated = mapIds({ ...page, wires: page.wires }, moving, (o) => (o.type === 'wire' || o.type === 'junction' ? o : translateObject(o, dx, dy)))
+  // Clamp points follow the wire end they belong to; one sitting on an unmoved rail or wire stays bound to it.
+  const junctionsMoved = translated.junctions.map((j) => {
+    const t = endTargets.find((e) => samePoint(e.from, j.position))
+    if (t) return { ...j, position: { ...t.to } }
+    if (!moving.has(j.id) || anchorAt(page, j.position, moving, '').kind === 'fixed') return j
+    return translateObject(j, dx, dy)
+  })
+  const potentialsMoved = translated.potentials.map((r) => {
+    const e = railEdits.get(r.id)
+    return e ? { ...r, ...e } : r
+  })
+  const moved = { ...translated, junctions: junctionsMoved, potentials: potentialsMoved }
   const lines = moved.lines.map((line) => {
     if (moving.has(line.id)) return line
     let points = line.points
