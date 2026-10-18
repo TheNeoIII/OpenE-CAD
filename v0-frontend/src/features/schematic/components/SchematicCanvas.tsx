@@ -16,6 +16,7 @@ import { addLine, addSymbol, addText, addWire, moveJunction, moveObjects, moveWi
 import { detachJunction, junctionHost, movePage, moveSegmentPage, railEndLimits, relocateJunctionPage, routeModeAfter, routeModeForSnap } from '../models/wireEdit'
 import { CanvasScrollbars } from './CanvasScrollbars'
 import { symbolLabelPosition, terminalLabelGroups } from '../models/labels'
+import { conductorLabelPlacements, conductorLabelRef } from '../models/conductorLabels'
 import { normalizeRect, objectBounds, pageObjects, rectContains, routeOrthogonal, samePoint, simplifyPolyline, snapPoint, symbolBounds, symbolPins, TEXT_LINE } from '../models/geometry'
 import { ELECTRICAL_SNAP_KINDS, resolveSnap, type SnapResult } from '../models/snap'
 import { symbolDef } from '../models/symbolLibrary'
@@ -327,6 +328,13 @@ function CanvasInner({ page }: { page: CadPage }) {
       const at = symbolLabelPosition(labelSymbol)
       return setGesture({ kind: 'label', id: labelSymbol.id, origin: w, offset: { x: at.x - labelSymbol.position.x, y: at.y - labelSymbol.position.y }, delta: { x: 0, y: 0 } })
     }
+    const labelConductor = labelId && tool === 'select' ? [...page.wires, ...page.potentials].find((c) => c.id === labelId && c.labelPos === 'custom') : undefined
+    if (labelConductor) {
+      const tips = labelConductor.type === 'potential' ? { left: labelConductor.xrefLeft ? xrefTip('left', labelConductor.x1, page.format) : labelConductor.x1, right: labelConductor.xrefRight ? xrefTip('right', labelConductor.x2, page.format) : labelConductor.x2 } : undefined
+      const at = conductorLabelPlacements(labelConductor, tips)[0]
+      const ref = conductorLabelRef(labelConductor)
+      if (at) return setGesture({ kind: 'label', id: labelConductor.id, origin: w, offset: { x: at.x - ref.x, y: at.y - ref.y }, delta: { x: 0, y: 0 } })
+    }
     const railEnd = (e.target as Element).closest?.('[data-rail-end]')?.getAttribute('data-rail-end')
     const rail = id && (railEnd === 'x1' || railEnd === 'x2') ? page.potentials.find((r) => r.id === id) : undefined
     if (rail && (railEnd === 'x1' || railEnd === 'x2')) {
@@ -477,7 +485,10 @@ function CanvasInner({ page }: { page: CadPage }) {
       : junctionDrag
         ? relocateJunctionPage(basePage, junctionDrag.at, junctionDrag.snap)
         : gesture?.kind === 'label'
-          ? { ...basePage, symbols: basePage.symbols.map((symbol) => symbol.id === gesture.id ? { ...symbol, labelOffset: { x: gesture.offset.x + gesture.delta.x, y: gesture.offset.y + gesture.delta.y } } : symbol) }
+          ? (() => {
+              const o = { x: gesture.offset.x + gesture.delta.x, y: gesture.offset.y + gesture.delta.y }
+              return { ...basePage, symbols: withLabelOffset(basePage.symbols, gesture.id, o), wires: withLabelOffset(basePage.wires, gesture.id, o), potentials: withLabelOffset(basePage.potentials, gesture.id, o) }
+            })()
           : basePage
   const activeSeg = segDrag ? null : segment
   const draftPreview = tool === 'wire' && wireDraft.length && hover ? [...wireDraft, ...routeOrthogonal(wireDraft[wireDraft.length - 1], hover.point, routeMode)] : null
@@ -543,19 +554,18 @@ function CanvasInner({ page }: { page: CadPage }) {
   )
 }
 
-function longestSegment(points: { x: number; y: number }[]) {
-  let best: { x: number; y: number; vertical: boolean } | null = null
-  let bestLen = -1
-  for (let i = 0; i < points.length - 1; i++) {
-    const a = points[i]
-    const b = points[i + 1]
-    const len = Math.hypot(b.x - a.x, b.y - a.y)
-    if (len > bestLen) {
-      bestLen = len
-      best = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, vertical: Math.abs(b.x - a.x) < Math.abs(b.y - a.y) }
-    }
-  }
-  return best
+function LabelAnchorHandle({ id, x, y, s, color }: { id: string; x: number; y: number; s: number; color: string }) {
+  return (
+    <g data-label-anchor={id} style={{ cursor: 'move' }}>
+      <title>Beschriftungsanker ziehen</title>
+      <circle cx={x} cy={y} r={10 / s} fill="transparent" />
+      <circle cx={x} cy={y} r={5 / s} fill="var(--sheet-bg)" stroke={color} strokeWidth={1.5 / s} />
+    </g>
+  )
+}
+
+function withLabelOffset<T extends { id: string; labelOffset?: Point }>(items: T[], id: string, offset: Point) {
+  return items.map((item) => (item.id === id ? { ...item, labelOffset: offset } : item))
 }
 
 export function SheetDrawing({ page, selected = new Set<string>(), issues = new Map<string, string>(), s = 1, tool = '', space = true, segDrag = null, activeSeg = null, junctionDrag = null, clean = false }: { page: CadPage; selected?: Set<string>; issues?: Map<string, string>; s?: number; tool?: string; space?: boolean; segDrag?: { wireId: string } | null; activeSeg?: { wireId: string; index: number } | null; junctionDrag?: unknown; clean?: boolean }) {
@@ -588,12 +598,15 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
               <g key={p.id} data-id={p.id} transform={offset(p.id)}>
                 <path d={`M${p.x1} ${p.y} H${p.x2}`} stroke="transparent" strokeWidth={hitW * 2} />
                 <path d={`M${p.x1} ${p.y} H${p.x2}`} stroke={sel ? selColor : col} strokeWidth={(sel ? STROKE * 1.8 : STROKE * 1.3) * WEIGHT_FACTOR[st.weight]} strokeDasharray={LINE_DASH[st.lineStyle]} />
-                <text x={Math.max(p.x1, tipL) + 10} y={p.y - 10} fontSize={24} fontWeight={500} fill={sel ? selColor : col}>
-                  {label}
-                </text>
-                <text x={Math.min(p.x2, tipR) - 10} y={p.y - 10} textAnchor="end" fontSize={24} fontWeight={500} fill={sel ? selColor : col}>
-                  {label}
-                </text>
+                {label && conductorLabelPlacements(p, { left: tipL, right: tipR }).map((at, i) => (
+                  <text key={i} x={at.x} y={at.y} textAnchor={at.anchor} fontSize={24} fontWeight={500} fill={sel ? selColor : col} pointerEvents="none">
+                    {label}
+                  </text>
+                ))}
+                {sel && !clean && label && p.labelPos === 'custom' && tool === 'select' && (() => {
+                  const at = conductorLabelPlacements(p, { left: tipL, right: tipR })[0]
+                  return at ? <LabelAnchorHandle id={p.id} x={at.x} y={at.y} s={s} color={selColor} /> : null
+                })()}
                 {p.xrefLeft && <XrefTag tip={tipL} y={p.y} text={p.xrefLeft} side="left" />}
                 {p.xrefRight && <XrefTag tip={tipR} y={p.y} text={p.xrefRight} side="right" />}
                 {sel && !clean &&
@@ -629,16 +642,16 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
             const sb = segIdx != null ? w.points[segIdx + 1] : undefined
             const st = resolve(w, w.potential)
             const wireLabel = w.label?.trim()
-            const labelSeg = wireLabel ? longestSegment(w.points) : null
+            const labelAt = wireLabel ? conductorLabelPlacements(w)[0] : undefined
             return (
               <g key={w.id} data-id={w.id}>
                 <path d={d} fill="none" stroke={sel ? selColor : strokeOf(st)} strokeWidth={(sel ? STROKE * 1.8 : STROKE) * WEIGHT_FACTOR[st.weight]} strokeDasharray={LINE_DASH[st.lineStyle]} strokeLinejoin="round" strokeOpacity={sel && sa ? 0.55 : 1} />
-                {wireLabel && labelSeg && (
+                {wireLabel && labelAt && (
                   <text
-                    x={labelSeg.x}
-                    y={labelSeg.y}
-                    transform={labelSeg.vertical ? `rotate(-90 ${labelSeg.x} ${labelSeg.y}) translate(0 -10)` : `translate(0 -10)`}
-                    textAnchor="middle"
+                    x={labelAt.x}
+                    y={labelAt.y}
+                    transform={labelAt.vertical ? `rotate(-90 ${labelAt.x} ${labelAt.y})` : undefined}
+                    textAnchor={labelAt.anchor}
                     fontSize={20}
                     fontWeight={500}
                     fill={sel ? selColor : strokeOf(st)}
@@ -647,6 +660,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
                     {wireLabel}
                   </text>
                 )}
+                {sel && !clean && labelAt && w.labelPos === 'custom' && tool === 'select' && <LabelAnchorHandle id={w.id} x={labelAt.x} y={labelAt.y} s={s} color={selColor} />}
                 {sa && sb && <path d={`M${sa.x} ${sa.y} L${sb.x} ${sb.y}`} stroke={selColor} strokeWidth={STROKE * 3} strokeLinecap="round" pointerEvents="none" />}
                 {w.points.slice(0, -1).map((a, i) => {
                   const b = w.points[i + 1]
