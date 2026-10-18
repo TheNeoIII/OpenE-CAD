@@ -30,15 +30,21 @@ export type BuiltinSymbolKind =
   | 'breaker'
   | 'breakerN'
   | 'rcd'
+  | 'rcbo'
+  | 'fuseD02'
+  | 'fuseD02N'
   | 'contactor'
   | 'coil'
+  | 'timer'
   | 'contactNO'
   | 'contactNC'
+  | 'contactCO'
   | 'terminal'
   | 'motor'
   | 'lamp'
   | 'pushbutton'
   | 'outlet'
+  | 'crossMark'
 
 /** Built-in kinds are drawn in code; project symbols use `custom:<id>`. */
 export type SymbolKind = BuiltinSymbolKind | `custom:${string}`
@@ -98,6 +104,12 @@ export interface CadSymbol {
   /** World-axis offset from the symbol origin; follows translation, not rotation. */
   labelOffset?: Point
   labelAnchor?: 'start' | 'end'
+  /** Conductor count of outlets / cross-section marks (overrides `poles`). */
+  wayCount?: number
+  /** Conductor naming of outlets; from 3 conductors the two rightmost are always N and PE. */
+  wayNaming?: 'numbered' | 'phases' | 'custom'
+  /** Free text of a cross-section mark, e.g. "10mm²". */
+  markText?: string
 }
 
 export type WireColor = `#${string}` | 'auto' | 'black' | 'blue' | 'red' | 'green' | 'gray' | 'brown' | 'orange' | 'violet'
@@ -250,6 +262,8 @@ export interface WirePreset {
   potentialDefs?: PotentialDef[]
   customSymbols?: CustomSymbolDef[]
   symbolOverrides?: Partial<Record<BuiltinSymbolKind, SymbolOverride>>
+  /** Cross references use group/sheet numbers (default) or consecutive page numbers; both add grid coordinates. */
+  xrefMode?: 'group' | 'page'
   functionGroups: FunctionGroup[]
   pages: CadPage[]
   devices: Device[]

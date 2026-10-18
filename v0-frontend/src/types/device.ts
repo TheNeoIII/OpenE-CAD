@@ -42,6 +42,12 @@ export interface Device {
   nominalCurrent?: number | null
   /** Rated residual current of RCDs in mA. */
   residualCurrent?: number | null
+  /** RCD type / characteristic, e.g. G, XG, A, F, B; empty = no designation. */
+  rcdType?: string
+  /** Rated short-circuit breaking capacity Icn in kA (circuit breakers, RCBOs). */
+  breakingCapacity?: number | null
+  /** Conductor cross section, e.g. "2,5mm²" (terminals); falls back to the linked article. */
+  crossSection?: string
 }
 
 export interface Article {
