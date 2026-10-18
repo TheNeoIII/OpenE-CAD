@@ -1,6 +1,6 @@
 import type { CadObject, CadPage, CadWire, Point } from '@/types/cad'
 import { uid } from '@/utils/format'
-import { armsAt, inheritedPotential, needsJunction, splitWireAt } from './connectivity'
+import { armsAt, inheritedPotential, insertWire, needsJunction, splitWireAt } from './connectivity'
 import { routeOrthogonal, samePoint, simplifyPolyline, symbolPins, translateObject } from './geometry'
 import type { RouteMode } from './geometry'
 import type { SnapResult } from './snap'
@@ -365,7 +365,8 @@ export function movePage(input: CadPage, ids: string[], dx: number, dy: number):
     if (!rail) return null
     const lo = Math.min(rail.x1, rail.x2) + dx
     const hi = Math.max(rail.x1, rail.x2) + dx
-    return { x: Math.min(hi, Math.max(lo, p.x)), y: p.y + dy }
+    const atEnd = p.x === rail.x1 || p.x === rail.x2
+    return { x: atEnd ? p.x + dx : Math.min(hi, Math.max(lo, p.x)), y: p.y + dy }
   }
   /**
    * A moved wire landing on an unmoved rail stays bound to it: its end (and clamp point)
@@ -414,9 +415,16 @@ export function movePage(input: CadPage, ids: string[], dx: number, dy: number):
     }
     const first = orig[0]
     const last = orig[orig.length - 1]
-    const s = followTarget(first)
-    const e = followTarget(last)
+    let s = followTarget(first)
+    let e = followTarget(last)
     if (!s && !e) return w
+    if (s && !e) {
+      e = railTarget(last, w.id)
+      if (e) endTargets.push({ from: last, to: e })
+    } else if (e && !s) {
+      s = railTarget(first, w.id)
+      if (s) endTargets.push({ from: first, to: s })
+    }
     const shiftedBy = (t: Point, p: Point) => t.x - p.x === dx && t.y - p.y === dy
     if (s && e && shiftedBy(s, first) && shiftedBy(e, last)) return translateObject(w, dx, dy)
     // A stub hanging off a moved pin with nothing at its far end simply travels with the device.
@@ -459,6 +467,35 @@ export function movePage(input: CadPage, ids: string[], dx: number, dy: number):
     return { ...line, points }
   })
   return refreshJunctions({ ...moved, wires, lines })
+}
+
+export function relocateWireEndPage(page: CadPage, wireId: string, end: End, target: SnapResult): CadPage {
+  const wire = page.wires.find((w) => w.id === wireId)
+  if (!wire || samePoint(endPoint(wire.points, end), target.point)) return page
+  const ref = target.ref
+  if ((ref?.kind === 'wireSegment' || ref?.kind === 'endpoint') && ref.wireId === wireId) return page
+  const points = simplifyPolyline(reconnect(wire.points, end, target.point))
+  if (points.length < 2 || samePoint(points[0], points[points.length - 1])) return page
+  const rest = page.wires.filter((w) => w.id !== wireId)
+  const wires = ref?.kind === 'wireSegment' ? rest.flatMap((w) => w.id === ref.wireId ? splitWireAt(w, target.point) : [w]) : rest
+  const potential = inheritedPotential(page, target) ?? wire.potential
+  const next = { ...page, wires: [...wires, { ...wire, points, potential }] }
+  const oldEnd = endPoint(wire.points, end)
+  next.junctions = next.junctions.filter((j) => !samePoint(j.position, oldEnd) || needsJunction(next, oldEnd))
+  return refreshJunctions(next)
+}
+
+export function extendRailEndPage(page: CadPage, railId: string, end: 'x1' | 'x2', target: SnapResult): CadPage {
+  const rail = page.potentials.find((r) => r.id === railId)
+  if (!rail) return page
+  const start = { x: rail[end], y: rail.y }
+  if (samePoint(start, target.point)) return page
+  const points = simplifyPolyline([start, ...routeOrthogonal(start, target.point, 'vh')])
+  const result = insertWire(page, points, null, target)
+  return { ...result.page, wires: result.page.wires.map((w) => w.id === result.wire.id ? {
+    ...w, potential: rail.name, color: rail.color ?? 'auto', crossSection: rail.crossSection ?? '',
+    lineStyle: rail.lineStyle, weight: rail.weight,
+  } : w) }
 }
 
 const MIN_RAIL = 50
