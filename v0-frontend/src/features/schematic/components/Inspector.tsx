@@ -15,7 +15,15 @@ import { connectedConductors } from '../models/netTrace'
 import { WireSwatch } from './WireSwatch'
 import { MultiProperties } from './MultiProperties'
 import { symbolLabelPosition } from '../models/labels'
+import { CONDUCTOR_LABEL_POSITIONS, conductorLabelPosPatch } from '../models/conductorLabels'
+import type { ConductorLabelPos } from '@/types/cad'
+import { xrefTip } from './SheetFrame'
 import type { Device } from '@/types/device'
+
+function railTips(obj: CadWire | CadPotential, page: CadPage) {
+  if (obj.type !== 'potential') return undefined
+  return { left: obj.xrefLeft ? xrefTip('left', obj.x1, page.format) : obj.x1, right: obj.xrefRight ? xrefTip('right', obj.x2, page.format) : obj.x2 }
+}
 import { cn } from '@/utils/cn'
 import { fmtTime } from '@/utils/format'
 import { applyStyleToConnected, updateDevice, updateObject } from '../actions'
@@ -407,8 +415,18 @@ function Properties() {
           </div>
           <PotentialSelect obj={obj} />
           <Field label="Beschriftung" htmlFor="i-lbl">
-            <CommitInput id="i-lbl" mono value={obj.label ?? ''} onCommit={(v) => updateObject(obj.id, { label: v.trim() || undefined }, 'Beschriftung geändert')} />
+            <CommitInput id="i-lbl" mono value={obj.label ?? (obj.type === 'potential' ? obj.name : '')} onCommit={(v) => updateObject(obj.id, { label: v.trim() }, 'Beschriftung geändert')} />
           </Field>
+          <Field label="Beschriftungsposition" htmlFor="i-lpos" className="col-span-2">
+            <Select id="i-lpos" value={obj.labelPos ?? 'auto'} onChange={(e) => updateObject(obj.id, conductorLabelPosPatch(obj, e.target.value as ConductorLabelPos, page ? railTips(obj, page) : undefined), 'Beschriftungsposition geändert')}>
+              {CONDUCTOR_LABEL_POSITIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value === 'auto' && obj.type === 'potential' ? 'Beidseitig oben' : o.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {obj.labelPos === 'custom' && <p className="col-span-2 text-[11px] text-muted">Ankerpunkt der Beschriftung im Plan mit der Maus ziehen.</p>}
           <Field label="Querschnitt" htmlFor="i-cs">
             <CommitInput id="i-cs" mono value={obj.crossSection ?? ''} onCommit={(v) => updateObject(obj.id, { crossSection: v })} />
           </Field>

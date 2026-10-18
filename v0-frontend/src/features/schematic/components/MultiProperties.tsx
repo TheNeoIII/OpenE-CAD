@@ -8,6 +8,8 @@ import { cn } from '@/utils/cn'
 import { updateDevices, updateObjects, updateObjectsWith } from '../actions'
 import { CHARACTERISTICS, executionKind } from '../models/execution'
 import { symbolLabelPosition } from '../models/labels'
+import { CONDUCTOR_LABEL_POSITIONS, conductorLabelPosPatch } from '../models/conductorLabels'
+import type { ConductorLabelPos } from '@/types/cad'
 import { LINE_STYLE_LABELS, potentialDefsOf, presetPatch, presetsOf, WIRE_COLOR_LABELS, WIRE_WEIGHT_LABELS } from '../models/wireStyles'
 import { WireSwatch } from './WireSwatch'
 
@@ -271,7 +273,20 @@ function ConductorFields({ conductors }: { conductors: (CadWire | CadPotential)[
         )}
       </Field>
       <Field label="Beschriftung" htmlFor="m-lbl">
-        <MultiInput id="m-lbl" mono value={common(conductors.map((c) => c.label ?? ''))} onCommit={(v) => updateObjects(ids, { label: v.trim() || undefined } as Partial<CadObject>, 'Beschriftung geändert')} />
+        <MultiInput id="m-lbl" mono value={common(conductors.map((c) => c.label ?? (c.type === 'potential' ? c.name : '')))} onCommit={(v) => updateObjects(ids, { label: v.trim() } as Partial<CadObject>, 'Beschriftung geändert')} />
+      </Field>
+      <Field label="Beschriftungsposition" htmlFor="m-lpos" className="col-span-2">
+        <MultiSelect
+          id="m-lpos"
+          value={common(conductors.map((c) => c.labelPos ?? 'auto'))}
+          onChange={(v) => updateObjectsWith(ids, (o) => conductorLabelPosPatch(o as CadWire | CadPotential, v as ConductorLabelPos) as Partial<CadObject>, 'Beschriftungsposition geändert')}
+        >
+          {CONDUCTOR_LABEL_POSITIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </MultiSelect>
       </Field>
       <Field label="Querschnitt" htmlFor="m-cs">
         <MultiInput id="m-cs" mono value={common(conductors.map((c) => c.crossSection ?? ''))} onCommit={(v) => updateObjects(ids, { crossSection: v } as Partial<CadObject>, 'Querschnitt geändert')} />

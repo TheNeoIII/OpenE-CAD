@@ -120,7 +120,15 @@ export interface CadWire {
   preset?: string
   /** Free display text, independent of the electrical potential. */
   label?: string
+  labelPos?: ConductorLabelPos
+  /** Custom label position relative to the first wire point. */
+  labelOffset?: Point
+  labelAnchor?: TextAnchor
   }
+
+export type ConductorLabelPos = 'auto' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'custom'
+
+export type TextAnchor = 'start' | 'middle' | 'end'
 
 /**
  * Generic graphical line (frames, borders, mechanical linkages).
@@ -174,6 +182,10 @@ export interface CadPotential {
   preset?: string
   /** Display text on the rail; defaults to the potential name. */
   label?: string
+  labelPos?: ConductorLabelPos
+  /** Custom label position relative to (x1, y). */
+  labelOffset?: Point
+  labelAnchor?: TextAnchor
   xrefLeft?: string
   xrefRight?: string
 }
