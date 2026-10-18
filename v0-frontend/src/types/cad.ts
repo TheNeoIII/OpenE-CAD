@@ -51,12 +51,14 @@ export interface CadConnectionPoint {
 }
 
 /** Graphic primitive of a project symbol, in symbol-local world units (0.1 mm). */
-export type SymbolShape =
+export type SymbolShape = { color?: string; strokeWidth?: number; fillColor?: string } & (
   | { t: 'line'; x1: number; y1: number; x2: number; y2: number; dashed?: boolean; dash?: string }
   | { t: 'path'; x: number; y: number; w: number; h: number; d: string }
   | { t: 'rect'; x: number; y: number; w: number; h: number; filled?: boolean; rx?: number; noStroke?: boolean }
   | { t: 'circle'; cx: number; cy: number; r: number; filled?: boolean }
   | { t: 'text'; x: number; y: number; text: string; size: number; anchor?: 'start' | 'middle' | 'end'; weight?: number; font?: 'inherit' }
+
+)
 
 /** Project-specific symbol created in the symbol editor or imported from a library file. */
 export interface CustomSymbolDef {

@@ -2,16 +2,17 @@ import type { SymbolKind, SymbolShape } from '@/types/cad'
 import { customSymbolOf, isCustomKind, symbolDef, symbolShapes } from '../models/symbolLibrary'
 
 /** Renders editor shapes; shared by placed symbols and the symbol editor canvas. */
-export function ShapeList({ shapes }: { shapes: SymbolShape[] }) {
+export function ShapeList({ shapes, hitArea = false }: { shapes: SymbolShape[]; hitArea?: boolean }) {
   return (
     <g>
       {shapes.map((s, i) => {
-        if (s.t === 'line') return <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} strokeDasharray={s.dashed ? s.dash ?? '16 12' : undefined} />
-        if (s.t === 'path') return <path key={i} d={s.d} transform={`translate(${s.x} ${s.y})`} />
-        if (s.t === 'rect') return <rect key={i} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} stroke={s.noStroke ? 'none' : undefined} fill={s.filled ? 'currentColor' : 'none'} />
-        if (s.t === 'circle') return <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill={s.filled ? 'currentColor' : 'none'} />
+        const style = { stroke: hitArea ? 'transparent' : s.color, strokeWidth: hitArea ? 24 : s.strokeWidth }
+        if (s.t === 'line') return <line key={i} {...style} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} strokeDasharray={s.dashed ? s.dash ?? '16 12' : undefined} />
+        if (s.t === 'path') return <path key={i} {...style} d={s.d} transform={`translate(${s.x} ${s.y})`} />
+        if (s.t === 'rect') return <rect key={i} {...style} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} stroke={hitArea ? 'transparent' : s.noStroke ? 'none' : s.color} fill={hitArea ? 'transparent' : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
+        if (s.t === 'circle') return <circle key={i} {...style} cx={s.cx} cy={s.cy} r={s.r} fill={hitArea ? 'transparent' : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
         return (
-          <text key={i} x={s.x} y={s.y} fontSize={s.size} fontWeight={s.weight} textAnchor={s.anchor ?? 'start'} fill="currentColor" stroke="none" fontFamily={s.font === 'inherit' ? undefined : 'ui-monospace, monospace'}>
+          <text key={i} {...style} x={s.x} y={s.y} fontSize={s.size} fontWeight={s.weight} textAnchor={s.anchor ?? 'start'} fill={hitArea ? 'transparent' : s.color ?? 'currentColor'} stroke="none" fontFamily={s.font === 'inherit' ? undefined : 'ui-monospace, monospace'}>
             {s.text}
           </text>
         )

@@ -46,6 +46,9 @@ Prefer small, targeted changes over broad rewrites or refactors.
 - Resolve symbols through the project-aware registry; preserve stable `custom:<id>` instance references, pin identities and local 0.1 mm geometry. Main-editor rendering, bounds and electrical docking must agree.
 - Do not silently rewrite/delete placed instances when editing/importing/deleting definitions. See `docs/architecture.md` and `docs/editor-behavior.md` for the compact symbol contract.
 
+- Symbol-editor edits are session drafts until explicitly saved (one document undo step); discard leaves the document untouched. Drafts survive workspace/tab changes within the session, keyed by document. Project file saving remains separate.
+- Primitive colors, widths and fills use the shared shape renderer. Symbol-editor grid visibility, origin guides, grid snapping and zoom are independent; release coordinates determine committed geometry.
+
 ## Current UX decisions
 - Selection/control handles should remain approximately constant in apparent screen size across zoom levels.
 - Text must remain visible down to approximately 20% zoom. Do not hide ordinary drawing text already around 94% or 75% zoom.
