@@ -3,6 +3,7 @@ import type { DataTable, DataViewId } from '@/types/data'
 import type { Article } from '@/types/device'
 import type { NewProjectInput, Project, ProjectTemplate, ValidationResult } from '@/types/project'
 import type { AccountBackend, AccountSecurity, AuthSession, LoginResult } from './auth'
+import type { AdminActionResult, AdminBackend, AdminUser, AdminUserDetail, AuditPage, AuditQuery, DirectoryUser, SystemStatus } from './admin'
 import type { ExportOptions, OpenEcadBackend, OpenedProject } from './OpenEcadBackend'
 
 export class ApiError extends Error {
@@ -12,6 +13,12 @@ export class ApiError extends Error {
 }
 
 const id = encodeURIComponent
+
+export function auditParams(query: AuditQuery) {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') params.set(key, String(value))
+  return params.toString()
+}
 
 export class HttpOpenEcadBackend implements OpenEcadBackend {
   readonly kind = 'http' as const
@@ -33,7 +40,26 @@ export class HttpOpenEcadBackend implements OpenEcadBackend {
       logout: async () => { await this.request<void>('/auth/logout', 'POST'); this.csrfToken = null },
       security: () => this.request<AccountSecurity>('/account/security'),
     }
+    const user = (userId: string, suffix = '') => `/admin/users/${id(userId)}${suffix}`
+    this.admin = {
+      listUsers: () => this.request<AdminUser[]>('/admin/users'),
+      getUser: (userId) => this.request<AdminUserDetail>(user(userId)),
+      createUser: (input) => this.request<AdminUserDetail>('/admin/users', 'POST', input),
+      updateUser: (userId, update) => this.request<AdminUserDetail>(user(userId), 'PUT', update),
+      enableUser: (userId) => this.request<AdminActionResult>(user(userId, '/enable'), 'POST'),
+      disableUser: (userId) => this.request<AdminActionResult>(user(userId, '/disable'), 'POST'),
+      unlockUser: (userId) => this.request<AdminActionResult>(user(userId, '/unlock'), 'POST'),
+      requestPasswordReset: (userId, mustChangePassword) => this.request<AdminActionResult>(user(userId, '/password-reset'), 'POST', { mustChangePassword }),
+      revokeSessions: (userId) => this.request<AdminActionResult>(user(userId, '/revoke-sessions'), 'POST'),
+      resetTotp: (userId) => this.request<AdminActionResult>(user(userId, '/reset-totp'), 'POST'),
+      removePasskey: (userId, passkeyId) => this.request<AdminActionResult>(user(userId, `/passkeys/${id(passkeyId)}`), 'DELETE'),
+      listAudit: (query) => this.request<AuditPage>(`/admin/audit?${auditParams(query)}`),
+      systemStatus: () => this.request<SystemStatus>('/admin/system-status'),
+    }
   }
+
+  readonly admin: AdminBackend
+  listUserDirectory() { return this.request<DirectoryUser[]>('/users/directory') }
 
   private acceptLogin(result: LoginResult) {
     if (result.status === 'authenticated') this.csrfToken = result.session.csrfToken

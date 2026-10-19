@@ -1,7 +1,18 @@
+import type { Permission, Role } from './permissions'
+
+export type AccountStatus = 'active' | 'disabled' | 'locked'
+
+/** Safe projection of a server account. Never contains hashes, secrets or tokens. */
 export interface AccountUser {
   id: string
+  username: string
   displayName: string
-  roles: string[]
+  /** Only present when the UI needs it (own account, admin user list). */
+  email?: string
+  roles: Role[]
+  /** Effective permissions as computed by the server. */
+  permissions: Permission[]
+  status: AccountStatus
 }
 
 export interface AuthSession {
@@ -27,4 +38,14 @@ export interface AccountBackend {
   verifySecondFactor(method: 'totp' | 'recovery', code: string): Promise<LoginResult>
   logout(): Promise<void>
   security(): Promise<AccountSecurity>
+}
+
+/**
+ * Development-only identity switch of the mock backend. It is not authentication:
+ * it only selects which mock account the UI renders as. Absent in HTTP/production.
+ */
+export interface DevIdentityControl {
+  identities(): AccountUser[]
+  current(): AccountUser
+  switchTo(userId: string): AccountUser
 }

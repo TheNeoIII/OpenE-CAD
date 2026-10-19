@@ -17,6 +17,9 @@ export class TauriOpenEcadBackend implements OpenEcadBackend {
   listProjects() {
     return invoke<Project[]>('list_projects')
   }
+  async listUserDirectory() {
+    return []
+  }
   listTemplates() {
     return invoke<ProjectTemplate[]>('list_templates')
   }
