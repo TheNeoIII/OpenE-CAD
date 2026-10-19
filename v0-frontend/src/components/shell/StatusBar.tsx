@@ -147,7 +147,7 @@ export function StatusBar() {
             )}
           </Item>
         )}
-        <Item title="Aktive Backend-Implementierung">{backend.kind === 'mock' ? 'Mock-Backend' : 'Tauri-Kern'}</Item>
+        <Item title="Aktive Backend-Implementierung">{backend.label}</Item>
         <Item title="Automatisch erhöhte Quellcode-/Build-Version">v0.1.{buildVersion.revision}</Item>
       </div>
     </footer>

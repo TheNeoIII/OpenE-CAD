@@ -15,12 +15,20 @@ export interface ExportOptions {
   includeReports: boolean
 }
 
-/**
- * The only contract the UI talks to. Implemented by MockOpenEcadBackend for
- * development and TauriOpenEcadBackend (invoke) for the desktop runtime.
- */
+export interface BackendCapabilities {
+  nativeFilesystem: boolean
+  serverPersistence: boolean
+  offlinePersistence: boolean
+  authentication: boolean
+  collaboration: boolean
+}
+
+/** The only frontend boundary: HTTP/Rust in production, mock CAD data in development. */
 export interface OpenEcadBackend {
-  readonly kind: 'mock' | 'tauri'
+  readonly kind: 'mock' | 'http' | 'tauri'
+  readonly label: string
+  readonly capabilities: BackendCapabilities
+  readonly account?: import('./auth').AccountBackend
 
   listProjects(): Promise<Project[]>
   listTemplates(): Promise<ProjectTemplate[]>

@@ -5,6 +5,18 @@ This directory is the dedicated synchronization target for the frontend currentl
 Treat `v0-frontend/` as the frontend project root.
 Do not modify files outside `v0-frontend/` unless the user explicitly requests it.
 
+## Production architecture
+- Production target: self-hosted React/TypeScript/Vite web app, HTTP/Rust backend, MariaDB/MySQL, LiteSpeed. Preserve SVG editor behavior; no renderer replacement.
+- React communicates only through OpenEcadBackend; production uses HTTP, development mock CAD data. No direct UI fetch or frontend DB access/credentials/SQL.
+- All server SQL uses parameterized queries/prepared statements. Never concatenate untrusted values into SQL; dynamic identifiers require server allowlists.
+- No hardcoded public domains. Same-origin /api by default; APP_URL and WebAuthn origins are configuration.
+- Tauri is deferred / future offline desktop. No new Tauri dependencies or Tauri imports in the web entrypoint. Historical Rust/UI/render spikes remain research, not the active roadmap.
+- Authentication, sessions, roles, lockout, CSRF, TOTP, recovery and WebAuthn decisions are server authoritative. No local auth tokens, fake sessions, public registration or production default passwords. Development editor preview is explicitly unauthenticated.
+- EPLAN/ELCAD formats must not be guessed. No importer support claim without verified files/specifications.
+- Persistent server files live outside the public webroot, served only through authorized backend endpoints. .oecad remains the portable exchange format.
+- /srv/repos.sh owns Git checkout/update/locking/backups. deployment/sync-server-webroot.sh owns only build/publish/project hooks. Never duplicate central Git management or delete storage.
+- Contracts: ../docs/WEB_API.md, DATABASE_ARCHITECTURE.md, IMPORT_ARCHITECTURE.md; deployment: ../deployment/litespeed/README.md.
+
 ## Goal
 Develop the OpenE-CAD browser-based ECAD editor incrementally while preserving all already working behaviour.
 Prefer small, targeted changes over broad rewrites or refactors.

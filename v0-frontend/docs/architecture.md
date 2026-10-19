@@ -1,7 +1,9 @@
 # Architecture (v0-frontend)
 
 ## Stack
-- Vite 8 + React 19 + TypeScript 5.7 (strict), static SPA, intended Tauri 2 shell (`base: './'`).
+- Vite 8 + React 19 + TypeScript 5.7 (strict), self-hosted static SPA (`base: './'`), LiteSpeed → `/api` → Rust engineering core → MariaDB/MySQL and private storage outside the webroot. Tauri is deferred / future offline desktop, not an active target.
+- `AccountBoundary` gates the editor with server sessions via SWR; development exposes an explicitly unauthenticated editor preview, not mock user accounts. Login supports password and server-requested TOTP/recovery challenges; Passkey and security management controls are explicitly pending Rust implementation. No productive server exists yet.
+- Production HTTP contract: `../../docs/WEB_API.md`; persistence/import design: `DATABASE_ARCHITECTURE.md` / `IMPORT_ARCHITECTURE.md` alongside it. Root dev/build/preview/typecheck forwarding remains unchanged.
 - Tailwind CSS 4 via `@tailwindcss/vite`; theme tokens/CSS vars in `src/styles/index.css`.
 - State: zustand 5. Icons: lucide-react. Fonts: `@fontsource-variable/inter`, `@fontsource-variable/jetbrains-mono`.
 - pnpm. Scripts: `dev`, `typecheck` (`tsc --noEmit`), `build` (typecheck + vite build), `preview`. No lint config.
@@ -31,8 +33,7 @@
 - `src/components/shell/` – MenuBar, CommandPalette, StatusBar, ProjectTabs, Overlays.
 - `src/components/dialogs/` – dialogs; `SchematicDialogs.tsx` holds schematic ones (e.g. cross-reference).
 - `src/components/ui/` – local primitives (Dialog, MenuList, primitives). No shadcn.
-- `src/backend/` – `OpenEcadBackend` interface; `MockOpenEcadBackend` (default, sample data in `mock/`);
-  `TauriOpenEcadBackend` only if `VITE_OPENECAD_BACKEND=tauri` and running inside Tauri.
+- `src/backend/` – `OpenEcadBackend` interface with capabilities and optional account boundary; `HttpOpenEcadBackend` always in production (same-origin `/api`, credentials/CSRF/error handling). `MockOpenEcadBackend` only in development, sample CAD data in `mock/`; set `VITE_OPENECAD_BACKEND=http` to develop against Rust. `TauriOpenEcadBackend` retained but never imported by the web entrypoint.
 - `src/utils/` – page naming/organization (`pages.ts`, `pageOrganization.ts`, `docPages.ts`), `format.ts`, `cn.ts`.
 
 ## State management

@@ -112,6 +112,8 @@ function seedProjects(): { projects: Project[]; docs: Map<string, CadDocument> }
 
 export class MockOpenEcadBackend implements OpenEcadBackend {
   readonly kind = 'mock' as const
+  readonly label = 'Mock-Backend (Development-only)'
+  readonly capabilities = { nativeFilesystem: false, serverPersistence: false, offlinePersistence: false, authentication: false, collaboration: false }
   private projects: Project[]
   private docs: Map<string, CadDocument>
 

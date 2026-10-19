@@ -127,9 +127,13 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     loadProjects: async () => {
       set({ listLoading: true })
-      const [projects, templates] = await Promise.all([backend.listProjects(), backend.listTemplates()])
-      set({ projects, templates, listLoading: false })
-      if (!useUiStore.getState().projectFocusId && projects[0]) useUiStore.getState().set({ projectFocusId: projects[0].id })
+      try {
+        const [projects, templates] = await Promise.all([backend.listProjects(), backend.listTemplates()])
+        set({ projects, templates })
+        if (!useUiStore.getState().projectFocusId && projects[0]) useUiStore.getState().set({ projectFocusId: projects[0].id })
+      } finally {
+        set({ listLoading: false })
+      }
     },
 
     openProject: async (id) => {
