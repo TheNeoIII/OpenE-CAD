@@ -39,7 +39,7 @@ export function App() {
     }
   }, [])
 
-  const ws = hasProject ? workspace : 'project'
+  const ws = hasProject || workspace === 'data' ? workspace : 'project'
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-app text-fg">

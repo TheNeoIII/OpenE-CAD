@@ -83,8 +83,13 @@ const inSchematic = () => hasProject() && useUiStore.getState().workspace === 's
 const ui = () => useUiStore.getState()
 const SCH: Workspace[] = ['schematic']
 
+function tableAvailable() {
+  const s = ui()
+  return hasProject() || (s.workspace === 'data' && s.dataPane === 'table' && s.dataView === 'articles')
+}
+
 function goWorkspace(w: Workspace) {
-  if (w !== 'project' && !hasProject()) {
+  if (w !== 'project' && w !== 'data' && !hasProject()) {
     toast('Zuerst ein Projekt öffnen')
     return
   }
@@ -382,12 +387,12 @@ const commands: Command[] = [
   { id: 'check.prev', label: 'Vorheriger Befund', category: 'Prüfen', shortcut: 'Shift+F4', isEnabled: () => hasProject() && useValidationStore.getState().results.length > 0, run: () => { stepResult(-1) } },
 
   /* -------- Daten -------- */
-  { id: 'data.export', label: 'Tabelle exportieren …', category: 'Daten', icon: FileSpreadsheet, isEnabled: hasProject, run: () => ui().openDialog({ type: 'dataExport' }) },
-  { id: 'data.import', label: 'Tabelle importieren …', category: 'Daten', icon: FileUp, isEnabled: hasProject, run: () => ui().openDialog({ type: 'dataImport' }) },
-  { id: 'data.bulkEdit', label: 'Mehrfachbearbeitung …', category: 'Daten', isEnabled: hasProject, run: () => ui().openDialog({ type: 'bulkEdit' }) },
+  { id: 'data.export', label: 'Tabelle exportieren …', category: 'Daten', icon: FileSpreadsheet, isEnabled: tableAvailable, run: () => ui().openDialog({ type: 'dataExport' }) },
+  { id: 'data.import', label: 'Tabelle importieren …', category: 'Daten', icon: FileUp, isEnabled: tableAvailable, run: () => ui().openDialog({ type: 'dataImport' }) },
+  { id: 'data.bulkEdit', label: 'Mehrfachbearbeitung …', category: 'Daten', isEnabled: tableAvailable, run: () => ui().openDialog({ type: 'bulkEdit' }) },
   { id: 'data.plcImport', label: 'SPS-Hardware importieren', category: 'Daten', icon: Cpu, future: true, run: () => {} },
   { id: 'data.cableAuto', label: 'Kabel automatisch bilden', category: 'Daten', icon: Cable, future: true, run: () => {} },
-  { id: 'data.parts', label: 'Artikelverwaltung', category: 'Daten', icon: Boxes, isEnabled: hasProject, run: () => { ui().set({ dataView: 'articles' }); goWorkspace('data') } },
+  { id: 'data.parts', label: 'Artikelverwaltung', category: 'Daten', icon: Boxes, run: () => { ui().set({ dataView: 'articles', dataPane: 'table' }); goWorkspace('data') } },
 
   /* -------- Hilfe -------- */
   { id: 'help.palette', label: 'Befehlspalette', category: 'Hilfe', icon: Search, shortcut: 'Ctrl+K', allowInInput: true, run: () => ui().set({ paletteOpen: !ui().paletteOpen }) },

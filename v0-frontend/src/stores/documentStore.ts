@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { setProjectSymbols } from '@/features/schematic/models/symbolLibrary'
+import { syncPresets } from '@/features/schematic/models/wireStyles'
+import { useLibraryStore } from './libraryStore'
 import { normalizePages, synchronizePage } from '@/utils/pageOrganization'
 import type { CadDocument, CadPage } from '@/types/cad'
 import { useHistoryStore } from './historyStore'
@@ -25,14 +26,18 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   document: null,
   activePageId: null,
   load: (doc) => {
-    if (doc) doc = normalizePages(doc)
-    setProjectSymbols(doc)
+    if (doc) {
+      const library = useLibraryStore.getState()
+      library.adopt(doc)
+      const { wirePresets, potentialDefs, customSymbols, symbolOverrides, ...rest } = normalizePages(doc)
+      const presets = useLibraryStore.getState().wirePresets
+      doc = syncPresets(rest as CadDocument, presets, presets)
+    }
     useHistoryStore.getState().clear()
     set({ document: doc, activePageId: doc ? defaultPage(doc) : null })
   },
   replace: (doc) => {
     doc = normalizePages(doc)
-    if (doc.customSymbols !== get().document?.customSymbols || doc.symbolOverrides !== get().document?.symbolOverrides) setProjectSymbols(doc)
     const active = get().activePageId
     set({ document: doc, activePageId: doc.pages.some((p) => p.id === active) ? active : (doc.pages[0]?.id ?? null) })
   },

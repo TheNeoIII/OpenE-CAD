@@ -165,7 +165,7 @@ export function WorkspaceTabs() {
   return (
     <nav aria-label="Arbeitsbereiche" className="flex h-9 shrink-0 items-stretch gap-0.5 border-b border-line bg-panel px-2">
       {WORKSPACES.map((w) => {
-        const disabled = w.id !== 'project' && !hasProject
+        const disabled = w.id !== 'project' && w.id !== 'data' && !hasProject
         return (
           <button
             key={w.id}

@@ -2,8 +2,9 @@ import { Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/primitives'
 import { WireSwatch } from '@/features/schematic/components/WireSwatch'
-import { DEFAULT_POTENTIALS, potentialDefsOf, potentialUsage, presetsOf, savePotentialDefs } from '@/features/schematic/models/wireStyles'
+import { DEFAULT_POTENTIALS, potentialRenames, potentialUsage, renamePotentials } from '@/features/schematic/models/wireStyles'
 import { useDocumentStore } from '@/stores/documentStore'
+import { useLibraryStore } from '@/stores/libraryStore'
 import type { PotentialDef } from '@/types/cad'
 
 const fieldCls = 'h-7 w-full rounded-md border border-line bg-app px-2 text-[12px] text-fg outline-none focus:border-accent'
@@ -36,13 +37,16 @@ const COLS = 'grid grid-cols-[minmax(90px,0.7fr)_minmax(180px,1.4fr)_56px_minmax
 
 export function PotentialsEditor() {
   const doc = useDocumentStore((s) => s.document)
-  const defs = potentialDefsOf(doc)
-  const presets = presetsOf(doc)
+  const defs = useLibraryStore((s) => s.potentialDefs)
+  const presets = useLibraryStore((s) => s.wirePresets)
   const usage = useMemo(() => (doc ? potentialUsage(doc) : new Map<string, number>()), [doc])
-  if (!doc) return null
 
   const undefinedInUse = [...usage.keys()].filter((n) => !defs.some((d) => d.name === n)).sort()
-  const save = (label: string, next: PotentialDef[]) => useDocumentStore.getState().commit(label, (d) => savePotentialDefs(d, next))
+  const save = (label: string, next: PotentialDef[]) => {
+    const renames = potentialRenames(defs, next)
+    useLibraryStore.getState().setPotentialDefs(next)
+    if (doc && renames.size) useDocumentStore.getState().commit(label, (d) => renamePotentials(d, renames))
+  }
   const patch = (id: string, p: Partial<PotentialDef>) => save('Potential geändert', defs.map((x) => (x.id === id ? { ...x, ...p } : x)))
   const uniqueName = (base: string) => {
     let n = base
@@ -55,7 +59,7 @@ export function PotentialsEditor() {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-panel px-3">
         <p className="truncate text-[12px] text-fg-2">
-          Projektweite Potentiale mit Standard-Leiterstil. Leiter mit Farbe „Automatisch (nach Potential)“ übernehmen diese Vorlage.
+          Systemweite Potentiale (für alle Projekte) mit Standard-Leiterstil. Leiter mit Farbe „Automatisch (nach Potential)“ übernehmen diese Vorlage.
         </p>
         <div className="flex-1" />
         <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => save('Potentiale zurückgesetzt', DEFAULT_POTENTIALS)}>
@@ -143,7 +147,7 @@ export function PotentialsEditor() {
       </div>
       <div className="flex h-7 shrink-0 items-center gap-3 border-t border-line bg-panel px-3 text-[11px] text-muted tabular-nums">
         <span>{defs.length} Potentiale</span>
-        <span>Umbenennen ändert das Potential auf allen Leitern und Schienen im Projekt</span>
+        <span>{doc ? 'Verwendung bezieht sich auf das geöffnete Projekt · Umbenennen ändert dort alle Leiter und Schienen' : 'Kein Projekt geöffnet – Verwendung wird nicht gezählt'}</span>
       </div>
     </div>
   )

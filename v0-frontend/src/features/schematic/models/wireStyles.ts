@@ -49,9 +49,9 @@ export function presetPatch(p: WirePreset): Partial<CadWire> {
   return { preset: p.id, color: p.color, lineStyle: p.lineStyle, weight: p.weight, crossSection: p.crossSection }
 }
 
-/** Stores the preset list and re-applies edited presets to every wire and rail that uses them. */
-export function savePresets(doc: CadDocument, next: WirePreset[]): CadDocument {
-  const old = new Map(presetsOf(doc).map((p) => [p.id, p]))
+/** Re-applies (edited) library presets to every wire and rail of a document that uses them. */
+export function syncPresets(doc: CadDocument, prevList: WirePreset[], next: WirePreset[]): CadDocument {
+  const old = new Map(prevList.map((p) => [p.id, p]))
   const byId = new Map(next.map((p) => [p.id, p]))
   const sync = <T extends CadWire | CadPotential>(o: T): T => {
     if (!o.preset) return o
@@ -63,7 +63,6 @@ export function savePresets(doc: CadDocument, next: WirePreset[]): CadDocument {
   }
   return {
     ...doc,
-    wirePresets: next,
     pages: doc.pages.map((pg) => ({ ...pg, wires: pg.wires.map(sync), potentials: pg.potentials.map(sync) })),
   }
 }
@@ -115,18 +114,22 @@ export function styleResolver(doc: Pick<CadDocument, 'potentialDefs' | 'wirePres
   }
 }
 
-/** Renames a potential everywhere and keeps definitions in sync. */
-export function savePotentialDefs(doc: CadDocument, next: PotentialDef[]): CadDocument {
-  const prev = new Map(potentialDefsOf(doc).map((d) => [d.id, d.name]))
+/** Potential renames between two definition lists (old name → new name). */
+export function potentialRenames(prevList: PotentialDef[], next: PotentialDef[]) {
+  const prev = new Map(prevList.map((d) => [d.id, d.name]))
   const renames = new Map<string, string>()
   for (const d of next) {
     const old = prev.get(d.id)
     if (old && old !== d.name) renames.set(old, d.name)
   }
-  if (!renames.size) return { ...doc, potentialDefs: next }
+  return renames
+}
+
+/** Applies potential renames to every wire and rail of a document. */
+export function renamePotentials(doc: CadDocument, renames: Map<string, string>): CadDocument {
+  if (!renames.size) return doc
   return {
     ...doc,
-    potentialDefs: next,
     pages: doc.pages.map((pg) => ({
       ...pg,
       wires: pg.wires.map((w) => (w.potential && renames.has(w.potential) ? { ...w, potential: renames.get(w.potential)! } : w)),

@@ -3,8 +3,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/primitives'
 import { ColorPicker } from '@/components/ui/ColorPicker'
 import { WireSwatch } from '@/features/schematic/components/WireSwatch'
-import { LINE_STYLE_LABELS, presetsOf, presetUsage, savePresets, WIRE_COLOR_LABELS, WIRE_PRESETS, WIRE_WEIGHT_LABELS } from '@/features/schematic/models/wireStyles'
+import { LINE_STYLE_LABELS, presetUsage, syncPresets, WIRE_COLOR_LABELS, WIRE_PRESETS, WIRE_WEIGHT_LABELS } from '@/features/schematic/models/wireStyles'
 import { useDocumentStore } from '@/stores/documentStore'
+import { useLibraryStore } from '@/stores/libraryStore'
 import type { LineStyle, WireColor, WirePreset, WireWeight } from '@/types/cad'
 
 const fieldCls = 'h-7 w-full rounded-md border border-line bg-app px-2 text-[12px] text-fg outline-none focus:border-accent'
@@ -49,11 +50,14 @@ const COLS = 'grid grid-cols-[56px_minmax(160px,1.6fr)_minmax(130px,1fr)_minmax(
 
 export function WireStylesEditor() {
   const doc = useDocumentStore((s) => s.document)
-  const presets = presetsOf(doc)
+  const presets = useLibraryStore((s) => s.wirePresets)
   const usage = useMemo(() => (doc ? presetUsage(doc) : new Map<string, number>()), [doc])
-  if (!doc) return null
 
-  const save = (label: string, next: WirePreset[]) => useDocumentStore.getState().commit(label, (d) => savePresets(d, next))
+  const save = (label: string, next: WirePreset[]) => {
+    const prev = presets
+    useLibraryStore.getState().setPresets(next)
+    if (doc) useDocumentStore.getState().commit(label, (d) => syncPresets(d, prev, next))
+  }
   const patch = (id: string, p: Partial<WirePreset>) => save('Leiterstil geändert', presets.map((x) => (x.id === id ? { ...x, ...p } : x)))
   const add = (base?: WirePreset) =>
     save('Leiterstil angelegt', [
@@ -64,7 +68,7 @@ export function WireStylesEditor() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-panel px-3">
-        <p className="text-[12px] text-fg-2">Vorlagen für Farbe, Linienart, Stärke und Querschnitt. Änderungen gelten sofort für alle zugewiesenen Leitungen und Schienen.</p>
+        <p className="text-[12px] text-fg-2">Vorlagen für Farbe, Linienart, Stärke und Querschnitt. Systemweit für alle Projekte; zugewiesene Leitungen werden beim Öffnen eines Projekts aktualisiert.</p>
         <div className="flex-1" />
         <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => save('Leiterstile zurückgesetzt', WIRE_PRESETS)}>
           Standard wiederherstellen

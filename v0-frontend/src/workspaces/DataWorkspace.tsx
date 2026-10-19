@@ -15,9 +15,10 @@ import { PotentialsEditor } from './PotentialsEditor'
 import { SymbolEditor } from './SymbolEditor'
 import { symbolVariants } from '@/features/schematic/models/symbolLibrary'
 
-const VIEWS: { value: DataViewId; label: string }[] = [
+type Pane = DataViewId | 'wireStyles' | 'potentials' | 'symbols'
+
+const PROJECT_VIEWS: { value: DataViewId; label: string }[] = [
   { value: 'devices', label: 'Betriebsmittel' },
-  { value: 'articles', label: 'Artikel' },
   { value: 'terminals', label: 'Klemmen' },
   { value: 'connections', label: 'Verbindungen' },
   { value: 'cables', label: 'Kabel' },
@@ -72,8 +73,18 @@ export function DataWorkspace() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (doc) void useDataStore.getState().load(view)
+    if (doc || view === 'articles') void useDataStore.getState().load(view)
   }, [view, doc])
+
+  const needsProject = !doc && view !== 'articles'
+  const selectPane = (v: Pane) => {
+    setEditing(null)
+    useDataStore.getState().setSelected([], null)
+    if (v === 'wireStyles' || v === 'potentials' || v === 'symbols') useUiStore.getState().set({ dataPane: v })
+    else useUiStore.getState().set({ dataPane: 'table', dataView: v })
+  }
+  const activePane: Pane = pane === 'table' ? view : pane
+  const tableCount = (v: DataViewId) => (pane === 'table' && v === view ? table?.rows.length : undefined)
 
   const columns = useMemo(() => (table?.columns ?? []).filter((c) => !hidden[view]?.includes(c.key)), [table, hidden, view])
   const rows = useMemo(() => {
@@ -114,29 +125,54 @@ export function DataWorkspace() {
 
   return (
     <main aria-label="Datenmanager" className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <Tabs<DataViewId | 'wireStyles' | 'potentials' | 'symbols'>
-        label="Datenansicht"
-        value={pane === 'table' ? view : pane}
-        onChange={(v) => {
-          setEditing(null)
-          useDataStore.getState().setSelected([], null)
-          if (v === 'wireStyles' || v === 'potentials' || v === 'symbols') useUiStore.getState().set({ dataPane: v })
-          else useUiStore.getState().set({ dataPane: 'table', dataView: v })
-        }}
-        tabs={[
-          ...VIEWS.map((v) => ({ ...v, count: pane === 'table' && v.value === view ? table?.rows.length : undefined })),
-          { value: 'potentials' as const, label: 'Potentiale', count: potentialDefsOf(doc).length },
-          { value: 'wireStyles' as const, label: 'Leiterstile', count: presetsOf(doc).length },
-          { value: 'symbols' as const, label: 'Symbole', count: symbolVariants().length },
-        ]}
-        className="bg-panel px-2"
-      />
+      <div className="flex shrink-0 items-stretch border-b border-line bg-panel">
+        <div className="flex min-w-0 items-stretch">
+          <span className="flex items-center pr-1 pl-3 text-[10.5px] font-semibold tracking-wide text-muted uppercase" title="Gilt für alle Projekte, auch ohne geöffnetes Projekt bearbeitbar">
+            Bibliothek
+          </span>
+          <Tabs<Pane>
+            label="Systemweite Daten"
+            value={activePane}
+            onChange={selectPane}
+            tabs={[
+              { value: 'articles' as const, label: 'Artikel', count: tableCount('articles') },
+              { value: 'potentials' as const, label: 'Potentiale', count: potentialDefsOf(doc).length },
+              { value: 'wireStyles' as const, label: 'Leiterstile', count: presetsOf(doc).length },
+              { value: 'symbols' as const, label: 'Symbole', count: symbolVariants().length },
+            ]}
+            className="border-b-0 px-1"
+          />
+        </div>
+        <div className="my-2 w-px bg-line" aria-hidden />
+        <div className="flex min-w-0 items-stretch">
+          <span className="flex items-center pr-1 pl-3 text-[10.5px] font-semibold tracking-wide text-muted uppercase" title="Daten des geöffneten Projekts">
+            Projekt
+          </span>
+          <Tabs<Pane>
+            label="Projektdaten"
+            value={activePane}
+            onChange={selectPane}
+            tabs={PROJECT_VIEWS.map((v) => ({ ...v, count: doc ? tableCount(v.value) : undefined }))}
+            className="border-b-0 px-1"
+          />
+        </div>
+      </div>
       {pane === 'symbols' ? (
         <SymbolEditor />
       ) : pane === 'wireStyles' ? (
         <WireStylesEditor />
       ) : pane === 'potentials' ? (
         <PotentialsEditor />
+      ) : needsProject ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-app p-6 text-center">
+          <p className="text-[13px] font-medium text-fg">Kein Projekt geöffnet</p>
+          <p className="max-w-sm text-[12px] text-muted">
+            {PROJECT_VIEWS.find((v) => v.value === view)?.label} sind Projektdaten. Öffne ein Projekt, um sie anzuzeigen. Artikel, Potentiale, Leiterstile und Symbole sind auch ohne Projekt bearbeitbar.
+          </p>
+          <Button size="sm" onClick={() => runCommand('file.open')}>
+            Projekt öffnen …
+          </Button>
+        </div>
       ) : (
       <>
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-panel px-3">
@@ -180,7 +216,7 @@ export function DataWorkspace() {
         </Button>
       </div>
 
-      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto bg-app" role="grid" aria-rowcount={rows.length} aria-label={VIEWS.find((v) => v.value === view)?.label}>
+      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto bg-app" role="grid" aria-rowcount={rows.length} aria-label={view === 'articles' ? 'Artikel' : PROJECT_VIEWS.find((v) => v.value === view)?.label}>
         <div style={{ width: totalW }} className="sticky top-0 z-10 flex h-8 border-b border-line bg-panel-2" role="row">
           <div className="flex w-10 shrink-0 items-center justify-center" role="columnheader">
             <input

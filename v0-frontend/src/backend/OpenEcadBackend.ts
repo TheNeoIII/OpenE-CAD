@@ -37,6 +37,7 @@ export interface OpenEcadBackend {
 
   listArticles(query?: string): Promise<Article[]>
   validateProject(document: CadDocument): Promise<ValidationResult[]>
-  getDataTable(view: DataViewId, document: CadDocument): Promise<DataTable>
+  /** `articles` is system-wide and loads without a document; all other views are project data. */
+  getDataTable(view: DataViewId, document: CadDocument | null): Promise<DataTable>
   exportDocuments(document: CadDocument, options: ExportOptions): Promise<{ fileName: string }>
 }
