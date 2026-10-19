@@ -1,5 +1,6 @@
 import { Circle, Crosshair, FlipHorizontal2, FlipVertical2, Group, Minus, MousePointer2, MoveRight, RotateCcw, RotateCw, Square, Trash2, Type, Ungroup } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { SelectionAppearance } from './SelectionAppearance'
 import { IconButton } from '@/components/ui/primitives'
 import { ColorPicker } from '@/components/ui/ColorPicker'
 import { ShapeList } from '@/features/schematic/components/SymbolGlyph'
@@ -73,6 +74,29 @@ export function ShapeCanvas({ sym, onPatch }: { sym: CustomSymbolDef; onPatch: (
   const [rotateBy, setRotateBy] = useState('90')
   const drag = useRef<Drag | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [viewport, setViewport] = useState({ width: 600, height: 400 })
+  const previousSize = useRef({ width: 0, height: 0, id: sym.id })
+  const canvasWidth = viewport.width * Math.max(1, zoom)
+  const canvasHeight = viewport.height * Math.max(1, zoom)
+
+  useLayoutEffect(() => {
+    const node = scrollRef.current
+    if (!node) return
+    const observer = new ResizeObserver(() => setViewport({ width: node.clientWidth, height: node.clientHeight }))
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  useLayoutEffect(() => {
+    const node = scrollRef.current
+    if (!node) return
+    const previous = previousSize.current
+    const reset = previous.id !== sym.id || !previous.width
+    node.scrollLeft = (reset ? 0.5 : (node.scrollLeft + viewport.width / 2) / previous.width) * canvasWidth - viewport.width / 2
+    node.scrollTop = (reset ? 0.5 : (node.scrollTop + viewport.height / 2) / previous.height) * canvasHeight - viewport.height / 2
+    previousSize.current = { width: canvasWidth, height: canvasHeight, id: sym.id }
+  }, [canvasWidth, canvasHeight, viewport.width, viewport.height, sym.id])
   const shapes = draft?.shapes ?? sym.shapes
   const pins = draft?.pins ?? sym.pins
   const bounds = shapesBounds(sym.shapes, sym.pins)
@@ -383,12 +407,14 @@ export function ShapeCanvas({ sym, onPatch }: { sym: CustomSymbolDef; onPatch: (
           <label className="flex items-center gap-2">Zoom <input aria-label="Symbolzoom" type="range" min="0.25" max="4" step="0.25" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} /> {Math.round(zoom * 100)}%</label>
           <button type="button" onClick={() => setZoom(1)}>Einpassen</button>
         </div>
+        <div ref={scrollRef} role="region" aria-label="Zeichenfläche scrollen" className="min-h-0 flex-1 overflow-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-width:auto] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted [&::-webkit-scrollbar-track]:bg-panel [&::-webkit-scrollbar-corner]:bg-panel">
         <svg
           ref={svgRef}
           tabIndex={0}
           aria-label="Symbolzeichenfläche"
-          viewBox={`${-extent / zoom} ${-extent / zoom} ${extent * 2 / zoom} ${extent * 2 / zoom}`}
-          className={cn('min-h-0 w-full flex-1 touch-none text-fg outline-none', tool === 'select' ? 'cursor-default' : 'cursor-crosshair')}
+          viewBox={`${-extent / Math.min(1, zoom)} ${-extent / Math.min(1, zoom)} ${extent * 2 / Math.min(1, zoom)} ${extent * 2 / Math.min(1, zoom)}`}
+          style={{ width: canvasWidth, height: canvasHeight }}
+          className={cn('block max-w-none touch-none text-fg outline-none', tool === 'select' ? 'cursor-default' : 'cursor-crosshair')}
           onPointerDown={(e) => onDown(e)}
           onPointerMove={onMove}
           onPointerUp={onUp}
@@ -550,6 +576,7 @@ export function ShapeCanvas({ sym, onPatch }: { sym: CustomSymbolDef; onPatch: (
             <rect x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} className="fill-accent/10 stroke-accent" strokeWidth={1.5 * hs} strokeDasharray={`${6 * hs} ${4 * hs}`} pointerEvents="none" />
           )}
         </svg>
+        </div>
       </div>
 
       <aside aria-label="Elementeigenschaften" className="flex w-56 shrink-0 flex-col gap-3 overflow-y-auto rounded-md border border-line bg-panel p-3">
@@ -596,6 +623,8 @@ export function ShapeCanvas({ sym, onPatch }: { sym: CustomSymbolDef; onPatch: (
             )}
           </div>
         )}
+
+        {count > 1 && selShapes.length > 0 && <SelectionAppearance shapes={selShapes} onChange={(change) => transformSelection('Darstellung der Auswahl geändert', change, (p) => p)} />}
 
         {single && <>
           <label className="flex items-center justify-between text-[12px]">{single.t === 'text' ? 'Textfarbe' : 'Außenlinienfarbe'}<ColorPicker label="Elementfarbe" value={single.color ?? '#ffffff'} onChange={(color) => updateShape({ color })} /></label>
