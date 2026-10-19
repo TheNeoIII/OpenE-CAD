@@ -6,7 +6,10 @@ import { arrowHead, shapeRotationPivot } from '../models/shapeTransform'
 export function ShapeList({ shapes, hitArea = false, hitWidth = 24, strokeScale = 1 }: { shapes: SymbolShape[]; hitArea?: boolean; hitWidth?: number; strokeScale?: number }) {
   return (
     <g>
-      {shapes.map((s, i) => {
+      {shapes.map((shape, i) => {
+        // Pure black and white represent drawing ink, not fixed theme colors.
+        const inkColor = (color: string | undefined) => color && /^(#000(?:000)?|#fff(?:fff)?|black|white)$/i.test(color) ? 'currentColor' : color
+        const s = { ...shape, color: inkColor(shape.color), ...('fillColor' in shape ? { fillColor: inkColor(shape.fillColor) } : {}) }
         const style = { stroke: hitArea ? 'transparent' : s.color, strokeWidth: hitArea ? Math.max(hitWidth, s.strokeWidth ?? 7) : s.strokeWidth != null ? s.strokeWidth * strokeScale : undefined }
         // Unfilled outlines must only be hit on their stroke, otherwise they swallow clicks on shapes inside them.
         const areaFill = (filled: boolean) => (hitArea ? (filled ? 'transparent' : 'none') : undefined)
