@@ -20,6 +20,8 @@ export interface ProjectStats {
   warnings: number
 }
 
+export type ProjectStatus = 'active' | 'archived' | 'deleted'
+
 export interface Project {
   id: string
   name: string
@@ -39,7 +41,16 @@ export interface Project {
   revision: string
   standard: string
   template: string
-  status: 'active' | 'archived'
+  /** Lifecycle. `deleted` is the trash; only an admin can restore or purge it. */
+  status: ProjectStatus
+  /** Set when moved to the trash. */
+  deletedAt?: string | null
+  /**
+   * Technical optimistic-concurrency counter, incremented by the server on every
+   * successful save. Not the drawing revision index (`revision`) and not undo history.
+   * Absent on legacy records, which are treated as 0.
+   */
+  stateRevision?: number
   createdAt: string
   updatedAt: string
   stats: ProjectStats

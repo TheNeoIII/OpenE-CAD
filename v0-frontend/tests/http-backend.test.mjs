@@ -4,10 +4,15 @@ import { readFileSync } from 'node:fs'
 import ts from 'typescript'
 
 // Exercise the actual adapter without adding a second bundler/test dependency.
-const source = readFileSync(new URL('../src/backend/HttpOpenEcadBackend.ts', import.meta.url), 'utf8')
-const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
-const exports = {}
-new Function('exports', compiled)(exports)
+const loadModule = (path, requireShim = () => ({})) => {
+  const source = readFileSync(new URL(path, import.meta.url), 'utf8')
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+  const moduleExports = {}
+  new Function('exports', 'require', compiled)(moduleExports, requireShim)
+  return moduleExports
+}
+const errorsModule = loadModule('../src/backend/errors.ts')
+const exports = loadModule('../src/backend/HttpOpenEcadBackend.ts', (id) => (id === './errors' ? errorsModule : {}))
 const { HttpOpenEcadBackend, ApiError } = exports
 const originalFetch = globalThis.fetch
 const originalWindow = globalThis.window
@@ -29,7 +34,7 @@ test('obtains CSRF before mutations and rotates token after login', async () => 
   }
   const api = new HttpOpenEcadBackend()
   await api.account.login('test', 'test-fixture-only')
-  await api.deleteProject('id/with slash')
+  await api.purgeProject('id/with slash')
   assert.equal(calls[0].url, '/api/auth/session')
   assert.equal(calls[1].options.headers['X-CSRF-Token'], 'pre-auth')
   assert.equal(calls[2].options.headers['X-CSRF-Token'], 'rotated')

@@ -8,6 +8,12 @@ export interface OpenedProject {
   document: CadDocument
 }
 
+export interface SaveResult {
+  savedAt: string
+  /** New server revision; the client sends it as `expectedRevision` on the next save. */
+  stateRevision: number
+}
+
 export interface ExportOptions {
   kind: 'pdf' | 'csv' | 'xlsx' | 'dxf'
   pageIds: string[]
@@ -42,9 +48,20 @@ export interface OpenEcadBackend {
   createProject(input: NewProjectInput): Promise<Project>
   updateProject(project: Project): Promise<Project>
   duplicateProject(id: string, name: string): Promise<Project>
+  /** active ↔ archived. Allowed for regular users. */
   archiveProject(id: string, archived: boolean): Promise<Project>
-  deleteProject(id: string): Promise<void>
-  saveProject(project: Project, document: CadDocument): Promise<{ savedAt: string }>
+  /** Soft delete: moves the project to the trash (`status: 'deleted'`). Allowed for regular users. */
+  trashProject(id: string): Promise<Project>
+  /** Admin only: restores a trashed project to `active`. */
+  restoreProject(id: string): Promise<Project>
+  /** Admin only: irreversibly removes a project that is already in the trash. */
+  purgeProject(id: string): Promise<void>
+  /**
+   * Saves with optimistic concurrency. `expectedRevision` is the `stateRevision`
+   * the client loaded; the server rejects with HTTP 409 (`ProjectConflictError`)
+   * if it already holds a newer one. Never overwrites automatically.
+   */
+  saveProject(project: Project, document: CadDocument, expectedRevision: number): Promise<SaveResult>
 
   getPage(documentId: string, pageId: string): Promise<CadPage>
   updateObjects(documentId: string, pageId: string, objects: CadObject[]): Promise<void>

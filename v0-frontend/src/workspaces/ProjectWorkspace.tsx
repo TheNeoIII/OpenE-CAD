@@ -1,7 +1,9 @@
-import { Archive, ArchiveRestore, Copy, FolderOpen, FolderPlus, Pencil, Search, Trash2, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Copy, FolderOpen, FolderPlus, GitMerge, Pencil, RotateCcw, Search, Trash2, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { backend } from '@/backend'
 import { runCommand } from '@/commands/registry'
 import { Badge, Button, Empty, Input, Segmented, Spinner } from '@/components/ui/primitives'
+import { useCan } from '@/stores/accountStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useProjectEditor } from '@/stores/userDirectoryStore'
@@ -9,7 +11,7 @@ import type { Project } from '@/types/project'
 import { cn } from '@/utils/cn'
 import { fmtDate, fmtDateTime } from '@/utils/format'
 
-type Filter = 'active' | 'archived' | 'all'
+type Filter = 'active' | 'archived' | 'deleted' | 'all'
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: 'error' | 'warn' }) {
   return (
@@ -36,7 +38,12 @@ function Details({ project }: { project: Project }) {
   const opening = useProjectStore((s) => s.opening)
   const isCurrent = useProjectStore((s) => s.openIds.includes(project.id))
   const ui = useUiStore.getState()
+  const canEdit = useCan('project.edit')
+  const canArchive = useCan('project.archive')
+  const isAdmin = useCan('project.delete')
   const archived = project.status === 'archived'
+  const trashed = project.status === 'deleted'
+  const store = useProjectStore.getState()
   return (
     <section aria-label="Projektdetails" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <header className="flex flex-wrap items-start gap-3 border-b border-line px-6 py-5">
@@ -44,6 +51,7 @@ function Details({ project }: { project: Project }) {
           <div className="flex items-center gap-2">
             <h1 className="truncate text-[18px] font-semibold text-fg text-balance">{project.name}</h1>
             {archived && <Badge>Archiviert</Badge>}
+            {trashed && <Badge tone="warn">Papierkorb</Badge>}
             {isCurrent && <Badge tone="accent">Geöffnet</Badge>}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted">
@@ -53,42 +61,87 @@ function Details({ project }: { project: Project }) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Button variant="ghost" icon={Pencil} onClick={() => ui.openDialog({ type: 'projectSettings', projectId: project.id })}>
-            Bearbeiten
-          </Button>
-          <Button variant="ghost" icon={Copy} onClick={() => ui.openDialog({ type: 'duplicateProject', projectId: project.id, title: project.name })}>
-            Duplizieren
-          </Button>
-          <Button variant="ghost" icon={archived ? ArchiveRestore : Archive} onClick={() => void useProjectStore.getState().archive(project.id, !archived)}>
-            {archived ? 'Wiederherstellen' : 'Archivieren'}
-          </Button>
-          <Button
-            variant="ghost"
-            icon={Trash2}
-            onClick={() =>
-              ui.openDialog({
-                type: 'confirm',
-                title: 'Projekt löschen',
-                message: `„${project.name}“ wird endgültig gelöscht. Dieser Schritt kann nicht rückgängig gemacht werden.`,
-                confirmLabel: 'Löschen',
-                danger: true,
-                onConfirm: () => void useProjectStore.getState().remove(project.id),
-              })
-            }
-          >
-            Löschen
-          </Button>
+          {!trashed && canEdit && !archived && (
+            <Button variant="ghost" icon={Pencil} onClick={() => ui.openDialog({ type: 'projectSettings', projectId: project.id })}>
+              Bearbeiten
+            </Button>
+          )}
+          {!trashed && (
+            <Button variant="ghost" icon={Copy} onClick={() => ui.openDialog({ type: 'duplicateProject', projectId: project.id, title: project.name })}>
+              Duplizieren
+            </Button>
+          )}
+          {!trashed && canArchive && (
+            <Button variant="ghost" icon={archived ? ArchiveRestore : Archive} onClick={() => void store.archive(project.id, !archived)}>
+              {archived ? 'Reaktivieren' : 'Archivieren'}
+            </Button>
+          )}
+          {!trashed && canArchive && (
+            <Button
+              variant="ghost"
+              icon={Trash2}
+              onClick={() =>
+                ui.openDialog({
+                  type: 'confirm',
+                  title: 'In den Papierkorb verschieben',
+                  message: `„${project.name}“ wird in den Papierkorb verschoben. Nur Administratoren können es wiederherstellen oder endgültig löschen.`,
+                  confirmLabel: 'In den Papierkorb',
+                  danger: true,
+                  onConfirm: () => void store.trash(project.id),
+                })
+              }
+            >
+              Löschen
+            </Button>
+          )}
+          {trashed && isAdmin && (
+            <>
+              <Button variant="ghost" icon={RotateCcw} onClick={() => void store.restore(project.id)}>
+                Wiederherstellen
+              </Button>
+              <Button
+                variant="danger"
+                icon={Trash2}
+                onClick={() =>
+                  ui.openDialog({
+                    type: 'confirm',
+                    title: 'Endgültig löschen',
+                    message: `„${project.name}“ wird mit allen Seiten und Daten unwiderruflich gelöscht. Dieser Schritt kann nicht rückgängig gemacht werden.`,
+                    confirmLabel: 'Endgültig löschen',
+                    danger: true,
+                    onConfirm: () => void store.purge(project.id),
+                  })
+                }
+              >
+                Endgültig löschen
+              </Button>
+            </>
+          )}
+          {isCurrent && backend.dev && (
+            <Button variant="ghost" icon={GitMerge} title="Development-only: simuliert einen Speichervorgang eines anderen Benutzers" onClick={() => backend.dev?.simulateConcurrentEdit(project.id)}>
+              Konflikt simulieren
+            </Button>
+          )}
           {isCurrent && (
-            <Button variant="ghost" icon={X} onClick={() => useProjectStore.getState().requestClose(project.id)}>
+            <Button variant="ghost" icon={X} onClick={() => store.requestClose(project.id)}>
               Schließen
             </Button>
           )}
-          <Button variant="primary" icon={FolderOpen} disabled={opening === project.id} onClick={() => void useProjectStore.getState().openProject(project.id)}>
-            {opening === project.id ? <Spinner /> : null}
-            {isCurrent ? 'Zum Plan' : 'Öffnen'}
-          </Button>
+          {!trashed && !archived && (
+            <Button variant="primary" icon={FolderOpen} disabled={opening === project.id} onClick={() => void store.openProject(project.id)}>
+              {opening === project.id ? <Spinner /> : null}
+              {isCurrent ? 'Zum Plan' : 'Öffnen'}
+            </Button>
+          )}
         </div>
       </header>
+      {(archived || trashed) && (
+        <p className="mx-6 mt-4 rounded-md border border-line bg-panel px-3 py-2 text-[12px] text-fg-2">
+          {trashed
+            ? `Im Papierkorb seit ${project.deletedAt ? fmtDateTime(project.deletedAt) : 'unbekannt'}. ${isAdmin ? 'Wiederherstellen macht das Projekt wieder aktiv.' : 'Nur Administratoren können das Projekt wiederherstellen.'}`
+            : 'Archivierte Projekte sind schreibgeschützt. Reaktivieren, um sie wieder zu bearbeiten.'}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-2 px-6 py-4 md:grid-cols-5">
         <Stat label="Seiten" value={project.stats.pages} />
@@ -146,16 +199,18 @@ export function ProjectWorkspace() {
   const focusId = useUiStore((s) => s.projectFocusId)
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<Filter>('active')
+  const isAdmin = useCan('project.delete')
+  const effective: Filter = filter === 'deleted' && !isAdmin ? 'active' : filter
 
   const list = useMemo(() => {
     const n = q.trim().toLowerCase()
     return projects
-      .filter((p) => filter === 'all' || p.status === filter)
+      .filter((p) => (effective === 'all' ? p.status !== 'deleted' : p.status === effective))
       .filter((p) => !n || [p.name, p.number, p.customer, p.location].some((s) => s.toLowerCase().includes(n)))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-  }, [projects, q, filter])
+  }, [projects, q, effective])
 
-  const focused = projects.find((p) => p.id === focusId) ?? list[0]
+  const focused = list.find((p) => p.id === focusId) ?? list[0]
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -174,11 +229,12 @@ export function ProjectWorkspace() {
           <Segmented<Filter>
             label="Status"
             size="sm"
-            value={filter}
+            value={effective}
             onChange={setFilter}
             options={[
               { value: 'active', label: 'Aktiv' },
               { value: 'archived', label: 'Archiv' },
+              ...(isAdmin ? [{ value: 'deleted' as const, label: 'Papierkorb' }] : []),
               { value: 'all', label: 'Alle' },
             ]}
           />

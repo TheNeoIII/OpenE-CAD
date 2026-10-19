@@ -12,6 +12,8 @@ import { MockAuditLog, seedAudit } from './mock/audit'
 import { MockAdmin } from './mock/MockAdmin'
 import type { AccountUser, DevIdentityControl } from './auth'
 import { MOCK_ADMIN_ID, MOCK_USER_ID, seedUsers } from './mock/users'
+import { can, type Permission } from './permissions'
+import { ForbiddenError, ProjectConflictError } from './errors'
 
 const LATENCY = 120
 
@@ -56,6 +58,8 @@ function seedProjects(): { projects: Project[]; docs: Map<string, CadDocument> }
       standard: 'IEC 81346 / DIN EN 61082',
       template: 'tpl-uv',
       status,
+      deletedAt: status === 'deleted' ? updatedAt : null,
+      stateRevision: 1,
       createdAt: '2026-03-02T08:10:00.000Z',
       updatedAt,
       stats: stats(doc),
@@ -125,6 +129,7 @@ function seedProjects(): { projects: Project[]; docs: Map<string, CadDocument> }
       schule,
       press,
       base('p-pv', 'PV-Anlage Halle 2', 'P-2025-096', 'Agrar Nord eG', 'Husum', '2026-05-30T15:00:00.000Z', 'archived'),
+      base('p-alt', 'Werkstatt Altbau (verworfen)', 'P-2025-071', 'Privat', 'Fulda', '2026-04-18T10:00:00.000Z', 'deleted'),
     ],
   }
 }
@@ -146,6 +151,15 @@ export class MockOpenEcadBackend implements OpenEcadBackend {
       this.actorId = userId
       return toAccountUser(this.actor())
     },
+    simulateConcurrentEdit: (projectId) => {
+      const p = this.find(projectId)
+      const other = this.users.find((u) => u.id !== this.actorId && u.status === 'active') ?? this.actor()
+      const at = new Date().toISOString()
+      p.stateRevision = (p.stateRevision ?? 0) + 1
+      p.updatedAt = at
+      p.recentEdits = [{ at, user: other.displayName, text: 'Gleichzeitige Änderung (simuliert)' }, ...p.recentEdits].slice(0, 20)
+      this.audit.record(other, { category: 'project', action: 'project.saved', resourceType: 'project', resourceId: p.id, resourceLabel: p.name, projectId: p.id, metadata: { stateRevision: p.stateRevision, simulated: true } })
+    },
   }
 
   readonly audit = new MockAuditLog()
@@ -165,6 +179,15 @@ export class MockOpenEcadBackend implements OpenEcadBackend {
 
   private actor() {
     return this.users.find((u) => u.id === this.actorId) ?? this.users[0]
+  }
+
+  /** Mirrors the server: every mutation is authorized here, not only hidden in the UI. */
+  private require(permission: Permission) {
+    if (!can(toAccountUser(this.actor()), permission)) throw new ForbiddenError()
+  }
+
+  private recordProject(action: string, p: Project, metadata: Record<string, string | number | boolean | null> = {}) {
+    this.audit.record(this.actor(), { category: 'project', action, resourceType: 'project', resourceId: p.id, resourceLabel: p.name, projectId: p.id, metadata: { ...metadata, simulated: true } })
   }
 
   private find(id: string) {
@@ -210,6 +233,8 @@ export class MockOpenEcadBackend implements OpenEcadBackend {
       standard: 'IEC 81346 / DIN EN 61082',
       template: tpl.id,
       status: 'active',
+      deletedAt: null,
+      stateRevision: 0,
       createdAt: now,
       updatedAt: now,
       stats: stats(doc),
@@ -235,31 +260,67 @@ export class MockOpenEcadBackend implements OpenEcadBackend {
     doc.projectId = newId
     this.docs.set(newId, doc)
     const now = new Date().toISOString()
-    const copy: Project = { ...structuredClone(src), id: newId, name, status: 'active', createdAt: now, updatedAt: now, recentEdits: [{ at: now, user: 'M. Krüger', text: `Kopie von „${src.name}“` }] }
+    const copy: Project = { ...structuredClone(src), id: newId, name, status: 'active', deletedAt: null, stateRevision: 0, createdAt: now, updatedAt: now, recentEdits: [{ at: now, user: 'M. Krüger', text: `Kopie von „${src.name}“` }] }
     this.projects.unshift(copy)
     return structuredClone(copy)
   }
 
   async archiveProject(id: string, archived: boolean) {
     await delay(LATENCY / 2)
+    this.require('project.archive')
     const p = this.find(id)
+    if (p.status === 'deleted') throw new Error('Projekte im Papierkorb können nur von Administratoren wiederhergestellt werden.')
     p.status = archived ? 'archived' : 'active'
+    this.recordProject(archived ? 'project.archived' : 'project.restored', p, { from: archived ? 'active' : 'archived' })
     return structuredClone(p)
   }
 
-  async deleteProject(id: string) {
+  async trashProject(id: string) {
     await delay(LATENCY / 2)
-    this.projects = this.projects.filter((p) => p.id !== id)
+    this.require('project.archive')
+    const p = this.find(id)
+    const from = p.status
+    p.status = 'deleted'
+    p.deletedAt = new Date().toISOString()
+    this.recordProject('project.trashed', p, { from })
+    return structuredClone(p)
+  }
+
+  async restoreProject(id: string) {
+    await delay(LATENCY / 2)
+    this.require('project.delete')
+    const p = this.find(id)
+    if (p.status !== 'deleted') throw new Error('Nur Projekte im Papierkorb können wiederhergestellt werden.')
+    p.status = 'active'
+    p.deletedAt = null
+    this.recordProject('project.restored', p, { from: 'deleted' })
+    return structuredClone(p)
+  }
+
+  async purgeProject(id: string) {
+    await delay(LATENCY / 2)
+    this.require('project.delete')
+    const p = this.find(id)
+    if (p.status !== 'deleted') throw new Error('Endgültig löschen ist nur aus dem Papierkorb möglich.')
+    this.recordProject('project.deleted', p, { permanent: true })
+    this.projects = this.projects.filter((x) => x.id !== id)
     this.docs.delete(id)
   }
 
-  async saveProject(project: Project, document: CadDocument) {
+  async saveProject(project: Project, document: CadDocument, expectedRevision: number) {
     await delay(LATENCY * 2)
+    this.require('project.edit')
+    const stored = this.find(project.id)
+    if (stored.status !== 'active') throw new Error('Nur aktive Projekte können gespeichert werden.')
+    const current = stored.stateRevision ?? 0
+    if (expectedRevision !== current) throw new ProjectConflictError(current)
     const savedAt = new Date().toISOString()
+    const stateRevision = current + 1
     this.docs.set(project.id, structuredClone(document))
-    const next = { ...structuredClone(project), updatedAt: savedAt, stats: stats(document) }
+    const next: Project = { ...structuredClone(project), status: stored.status, deletedAt: stored.deletedAt, stateRevision, updatedAt: savedAt, stats: stats(document) }
     this.projects = this.projects.map((p) => (p.id === project.id ? next : p))
-    return { savedAt }
+    this.recordProject('project.saved', next, { stateRevision })
+    return { savedAt, stateRevision }
   }
 
   async getPage(documentId: string, pageId: string) {

@@ -38,11 +38,17 @@ export class TauriOpenEcadBackend implements OpenEcadBackend {
   archiveProject(id: string, archived: boolean) {
     return invoke<Project>('archive_project', { id, archived })
   }
-  deleteProject(id: string) {
-    return invoke<void>('delete_project', { id })
+  trashProject(id: string) {
+    return invoke<Project>('trash_project', { id })
   }
-  saveProject(project: Project, document: CadDocument) {
-    return invoke<{ savedAt: string }>('save_project', { project, document })
+  restoreProject(id: string) {
+    return invoke<Project>('restore_project', { id })
+  }
+  purgeProject(id: string) {
+    return invoke<void>('purge_project', { id })
+  }
+  saveProject(project: Project, document: CadDocument, expectedRevision: number) {
+    return invoke<{ savedAt: string; stateRevision: number }>('save_project', { project, document, expectedRevision })
   }
   getPage(documentId: string, pageId: string) {
     return invoke<CadPage>('get_page', { documentId, pageId })

@@ -21,10 +21,12 @@ Alle Pfade relativ zu `/api`:
 | POST /projects | NewProjectInput | Project / createProject |
 | GET /projects/:id | — | {project, document} / openProject |
 | PUT /projects/:id | {project} | Project / updateProject |
-| PUT /projects/:id/document | {project, document} | {savedAt: ISO8601} / saveProject, atomar |
-| DELETE /projects/:id | — | 204 / deleteProject |
+| PUT /projects/:id/document | {project, document, expectedRevision} | {savedAt, stateRevision} / saveProject, atomar; 409 `PROJECT_REVISION_CONFLICT` bei veralteter Revision |
 | POST /projects/:id/duplicate | {name} | Project / duplicateProject |
-| POST /projects/:id/archive | {archived: boolean} | Project / archiveProject |
+| POST /projects/:id/archive | {archived: boolean} | Project / archiveProject (nur active ↔ archived) |
+| POST /projects/:id/trash | — | Project / trashProject (Status `deleted`, `deletedAt` gesetzt) |
+| POST /projects/:id/restore | — | Project / restoreProject (nur Admin, nur aus Papierkorb) |
+| DELETE /projects/:id | — | 204 / purgeProject (nur Admin, nur aus Papierkorb) |
 | GET /documents/:id/pages/:pageId | — | CadPage / getPage |
 | PUT /documents/:id/pages/:pageId/objects | {objects: CadObject[]} | 204 / updateObjects |
 | GET /articles?query=... | optional query | Article[] / listArticles |
@@ -32,7 +34,7 @@ Alle Pfade relativ zu `/api`:
 | POST /data-tables | {view, document: CadDocument \| null} | DataTable / getDataTable |
 | POST /export | {document, options: ExportOptions} | {fileName} / exportDocuments |
 
-Document-ID und Project-ID sind nicht stillschweigend identisch: Validierung folgt deshalb dem bestehenden dokumentbasierten Interface. Entwürfe werden mitgegeben, damit Prüfungen/Tabellen/Export ungespeicherte Änderungen abbilden. Server prüft Projektbezug des Dokuments. `articles` benötigt kein Dokument, alle anderen Datenansichten eines. Export liefert nach aktuellem Interface nur einen Dateinamen, noch keinen Download; später kontrollierter Downloadvertrag nötig. Kein Dateipfad darf hier als öffentlich verfügbare URL interpretiert werden. Save ersetzt Projekt und Dokument in einer Transaktion; Konfliktkontrolle vor Mehrbenutzerbetrieb ergänzen, Collaboration derzeit false.
+Document-ID und Project-ID sind nicht stillschweigend identisch: Validierung folgt deshalb dem bestehenden dokumentbasierten Interface. Entwürfe werden mitgegeben, damit Prüfungen/Tabellen/Export ungespeicherte Änderungen abbilden. Server prüft Projektbezug des Dokuments. `articles` benötigt kein Dokument, alle anderen Datenansichten eines. Export liefert nach aktuellem Interface nur einen Dateinamen, noch keinen Download; später kontrollierter Downloadvertrag nötig. Kein Dateipfad darf hier als öffentlich verfügbare URL interpretiert werden. Save ersetzt Projekt und Dokument in einer Transaktion und prüft `expectedRevision` gegen die gespeicherte `stateRevision` (optimistische Sperre). Lebenszyklus, Konfliktverhalten und Audit-Ereignisse: siehe [PROJECT_LIFECYCLE.md](PROJECT_LIFECYCLE.md). Collaboration (Echtzeit) bleibt false.
 
 ## Authentifizierung
 

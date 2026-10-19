@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { backend } from '@/backend'
+import { ProjectConflictError } from '@/backend/errors'
 import type { CadDocument, CadViewportState } from '@/types/cad'
 import type { DataViewId } from '@/types/data'
 import type { NewProjectInput, Project, ProjectTemplate } from '@/types/project'
@@ -57,7 +58,14 @@ interface ProjectState {
   create: (input: NewProjectInput) => Promise<void>
   duplicate: (id: string, name: string) => Promise<void>
   archive: (id: string, archived: boolean) => Promise<void>
-  remove: (id: string) => Promise<void>
+  /** Soft delete into the trash. */
+  trash: (id: string) => Promise<void>
+  /** Admin only: trash → active. */
+  restore: (id: string) => Promise<void>
+  /** Admin only: irreversible removal from the trash. */
+  purge: (id: string) => Promise<void>
+  /** Discards local changes of the current project and reloads the server state. */
+  reloadCurrent: () => Promise<void>
   updateCurrent: (patch: Partial<Project>) => void
   updateProject: (id: string, patch: Partial<Project>) => Promise<void>
   isDirty: (id: string) => boolean
@@ -211,10 +219,39 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       const doc = useDocumentStore.getState().document
       if (!current || !doc || get().saving) return
       set({ saving: true })
-      const { savedAt } = await backend.saveProject(current, doc)
-      const projects = (await backend.listProjects()).map(normalizeProjectEditor)
-      set({ saving: false, dirty: false, lastSavedAt: savedAt, projects, current: projects.find((p) => p.id === current.id) ?? current })
-      toast('Projekt gespeichert', 'success')
+      try {
+        const { savedAt, stateRevision } = await backend.saveProject(current, doc, current.stateRevision ?? 0)
+        const projects = (await backend.listProjects()).map(normalizeProjectEditor)
+        const fresh = projects.find((p) => p.id === current.id)
+        set({ dirty: false, lastSavedAt: savedAt, projects, current: fresh ? { ...fresh, stateRevision } : { ...current, stateRevision, updatedAt: savedAt } })
+        toast('Projekt gespeichert', 'success')
+      } catch (e) {
+        if (e instanceof ProjectConflictError) {
+          // Never overwrite automatically; local changes stay in the editor until the user decides.
+          useUiStore.getState().openDialog({
+            type: 'confirm',
+            title: 'Speicherkonflikt',
+            message: `„${current.name}“ wurde zwischenzeitlich von einem anderen Benutzer gespeichert (Serverstand ${e.currentRevision ?? 'unbekannt'}, geladen ${current.stateRevision ?? 0}). Ihre Änderungen wurden nicht gespeichert. Sie können den Serverstand neu laden – Ihre lokalen Änderungen gehen dabei verloren – oder abbrechen und weiterarbeiten, z. B. um Inhalte zu sichern.`,
+            confirmLabel: 'Serverstand laden (lokale Änderungen verwerfen)',
+            danger: true,
+            onConfirm: () => void get().reloadCurrent(),
+          })
+        } else {
+          toast((e as Error).message, 'error')
+        }
+      } finally {
+        set({ saving: false })
+      }
+    },
+
+    reloadCurrent: async () => {
+      const { current } = get()
+      if (!current) return
+      const id = current.id
+      set({ dirty: false })
+      get().closeProject(id)
+      await get().openProject(id)
+      await get().loadProjects()
     },
 
     create: async (input) => {
@@ -231,17 +268,46 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     },
 
     archive: async (id, archived) => {
-      await backend.archiveProject(id, archived)
-      await get().loadProjects()
-      toast(archived ? 'Projekt archiviert' : 'Projekt reaktiviert')
+      try {
+        if (archived && get().openIds.includes(id)) get().closeProject(id)
+        await backend.archiveProject(id, archived)
+        await get().loadProjects()
+        toast(archived ? 'Projekt archiviert' : 'Projekt reaktiviert')
+      } catch (e) {
+        toast((e as Error).message, 'error')
+      }
     },
 
-    remove: async (id) => {
-      if (get().openIds.includes(id)) get().closeProject(id)
-      await backend.deleteProject(id)
-      await get().loadProjects()
-      useUiStore.getState().set({ projectFocusId: get().projects[0]?.id ?? null })
-      toast('Projekt gelöscht')
+    trash: async (id) => {
+      try {
+        if (get().openIds.includes(id)) get().closeProject(id)
+        await backend.trashProject(id)
+        await get().loadProjects()
+        toast('Projekt in den Papierkorb verschoben')
+      } catch (e) {
+        toast((e as Error).message, 'error')
+      }
+    },
+
+    restore: async (id) => {
+      try {
+        await backend.restoreProject(id)
+        await get().loadProjects()
+        toast('Projekt wiederhergestellt', 'success')
+      } catch (e) {
+        toast((e as Error).message, 'error')
+      }
+    },
+
+    purge: async (id) => {
+      try {
+        await backend.purgeProject(id)
+        await get().loadProjects()
+        useUiStore.getState().set({ projectFocusId: get().projects.find((p) => p.status !== 'deleted')?.id ?? null })
+        toast('Projekt endgültig gelöscht')
+      } catch (e) {
+        toast((e as Error).message, 'error')
+      }
     },
 
     updateCurrent: (patch) => {
