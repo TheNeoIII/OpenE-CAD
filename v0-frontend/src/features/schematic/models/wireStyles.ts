@@ -107,10 +107,11 @@ export function styleResolver(doc: Pick<CadDocument, 'potentialDefs' | 'wirePres
   const presets = new Map(presetsOf(doc).map((p) => [p.id, p]))
   const byName = new Map(potentialDefsOf(doc).map((d) => [d.name, d.presetId ? presets.get(d.presetId) : undefined]))
   return (o: { color?: WireColor; lineStyle?: LineStyle; weight?: WireWeight }, potential: string | null): ResolvedStyle => {
-    if (o.color && o.color !== 'auto') return { color: o.color, lineStyle: o.lineStyle ?? 'solid', weight: o.weight ?? 'normal' }
     const preset = potential ? byName.get(potential) : undefined
-    if (preset) return { color: preset.color === 'auto' ? heuristicColor(potential) : preset.color, lineStyle: o.lineStyle ?? preset.lineStyle, weight: o.weight ?? preset.weight }
-    return { color: heuristicColor(potential), lineStyle: o.lineStyle ?? 'solid', weight: o.weight ?? 'normal' }
+    const weight = o.weight ?? preset?.weight ?? 'normal'
+    if (o.color && o.color !== 'auto') return { color: o.color, lineStyle: o.lineStyle ?? 'solid', weight }
+    if (preset) return { color: preset.color === 'auto' ? heuristicColor(potential) : preset.color, lineStyle: o.lineStyle ?? preset.lineStyle, weight }
+    return { color: heuristicColor(potential), lineStyle: o.lineStyle ?? 'solid', weight }
   }
 }
 

@@ -327,7 +327,8 @@ function ConductorFields({ conductors }: { conductors: (CadWire | CadPotential)[
         </MultiSelect>
       </Field>
       <Field label="Stärke" htmlFor="m-lw">
-        <MultiSelect id="m-lw" value={common(conductors.map((c) => c.weight ?? 'normal'))} onChange={(v) => updateObjects(ids, { weight: v as WireWeight, preset: undefined } as Partial<CadObject>, 'Linienstärke geändert')}>
+        <MultiSelect id="m-lw" value={common(conductors.map((c) => c.weight ?? ''))} onChange={(v) => updateObjects(ids, { weight: (v || undefined) as WireWeight | undefined, preset: undefined } as Partial<CadObject>, 'Linienstärke geändert')}>
+          <option value="">Automatisch (nach Potential)</option>
           {(Object.keys(WIRE_WEIGHT_LABELS) as WireWeight[]).map((s) => (
             <option key={s} value={s}>
               {WIRE_WEIGHT_LABELS[s]}

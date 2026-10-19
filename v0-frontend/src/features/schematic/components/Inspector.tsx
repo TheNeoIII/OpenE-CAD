@@ -11,7 +11,7 @@ import type { CadObject, CadPage, CadPotential, CadWire, LineStyle, Rotation, Sy
 import { detachRailReferences } from '../actions'
 import { CHARACTERISTICS, executionKind, executionType, FUSE_CLASSES, RCD_TYPES, terminalCrossSection } from '../models/execution'
 import { outletPinNames } from '../models/symbolLibrary'
-import { LINE_STYLE_LABELS, potentialDefsOf, presetPatch, presetsOf, WIRE_COLOR_LABELS, WIRE_WEIGHT_LABELS } from '../models/wireStyles'
+import { LINE_STYLE_LABELS, potentialDefsOf, presetPatch, presetsOf, styleResolver, WIRE_COLOR_LABELS, WIRE_WEIGHT_LABELS } from '../models/wireStyles'
 import { connectedConductors } from '../models/netTrace'
 import { WireSwatch } from './WireSwatch'
 import { MultiProperties } from './MultiProperties'
@@ -576,7 +576,10 @@ function Properties() {
             </Select>
           </Field>
           <Field label="Stärke" htmlFor="i-lw">
-            <Select id="i-lw" value={obj.weight ?? 'normal'} onChange={(e) => updateObject(obj.id, { weight: e.target.value as WireWeight, preset: undefined })}>
+            <Select id="i-lw" value={obj.weight ?? ''} onChange={(e) => updateObject(obj.id, { weight: (e.target.value || undefined) as WireWeight | undefined, preset: undefined })}>
+              <option value="">
+                {`Automatisch (${WIRE_WEIGHT_LABELS[styleResolver(doc)({ ...obj, weight: undefined }, obj.type === 'potential' ? obj.name : obj.potential).weight]})`}
+              </option>
               {(Object.keys(WIRE_WEIGHT_LABELS) as WireWeight[]).map((s) => (
                 <option key={s} value={s}>
                   {WIRE_WEIGHT_LABELS[s]}

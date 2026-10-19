@@ -618,7 +618,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
             return (
               <g key={p.id} data-id={p.id} transform={offset(p.id)}>
                 <path d={`M${p.x1} ${p.y} H${p.x2}`} stroke="transparent" strokeWidth={hitW * 2} />
-                <path d={`M${p.x1} ${p.y} H${p.x2}`} stroke={sel ? selColor : col} strokeWidth={(sel ? STROKE * 1.8 : STROKE * 1.3) * WEIGHT_FACTOR[st.weight]} strokeDasharray={LINE_DASH[st.lineStyle]} />
+                <path d={`M${p.x1} ${p.y} H${p.x2}`} stroke={sel ? selColor : col} strokeWidth={(sel ? STROKE * 1.8 : STROKE) * WEIGHT_FACTOR[st.weight]} strokeDasharray={LINE_DASH[st.lineStyle]} />
                 {label && conductorLabelPlacements(p, { left: tipL, right: tipR }).map((at, i) => (
                   <text key={i} x={at.x} y={at.y} textAnchor={at.anchor} fontSize={24} fontWeight={500} fill={sel ? selColor : col} pointerEvents="none">
                     {label}
