@@ -1,14 +1,15 @@
-import { Copy, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Copy, Lock, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/primitives'
 import { ColorPicker } from '@/components/ui/ColorPicker'
 import { WireSwatch } from '@/features/schematic/components/WireSwatch'
 import { LINE_STYLE_LABELS, presetUsage, syncPresets, WIRE_COLOR_LABELS, WIRE_PRESETS, WIRE_WEIGHT_LABELS } from '@/features/schematic/models/wireStyles'
 import { useDocumentStore } from '@/stores/documentStore'
+import { useCan } from '@/stores/accountStore'
 import { useLibraryStore } from '@/stores/libraryStore'
 import type { LineStyle, WireColor, WirePreset, WireWeight } from '@/types/cad'
 
-const fieldCls = 'h-7 w-full rounded-md border border-line bg-app px-2 text-[12px] text-fg outline-none focus:border-accent'
+const fieldCls = 'h-7 w-full rounded-md border border-line bg-app px-2 text-[12px] text-fg outline-none focus:border-accent disabled:cursor-default disabled:border-transparent disabled:bg-transparent disabled:opacity-100'
 
 function TextCell({ label, value, mono, onCommit }: { label: string; value: string; mono?: boolean; onCommit: (v: string) => void }) {
   const [draft, setDraft] = useState(value)
@@ -53,7 +54,10 @@ export function WireStylesEditor() {
   const presets = useLibraryStore((s) => s.wirePresets)
   const usage = useMemo(() => (doc ? presetUsage(doc) : new Map<string, number>()), [doc])
 
+  /** UX guard only; the Rust server enforces `library.manageSystem` on every system library write. */
+  const readOnly = !useCan('library.manageSystem')
   const save = (label: string, next: WirePreset[]) => {
+    if (readOnly) return
     const prev = presets
     useLibraryStore.getState().setPresets(next)
     if (doc) useDocumentStore.getState().commit(label, (d) => syncPresets(d, prev, next))
@@ -70,14 +74,20 @@ export function WireStylesEditor() {
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-panel px-3">
         <p className="text-[12px] text-fg-2">Vorlagen für Farbe, Linienart, Stärke und Querschnitt. Systemweit für alle Projekte; zugewiesene Leitungen werden beim Öffnen eines Projekts aktualisiert.</p>
         <div className="flex-1" />
-        <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => save('Leiterstile zurückgesetzt', WIRE_PRESETS)}>
+        {readOnly && (
+          <span className="flex shrink-0 items-center gap-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-muted" title="Bearbeiten erfordert die Berechtigung „Systembibliothek verwalten“">
+            <Lock className="size-3" aria-hidden /> Nur lesen
+          </span>
+        )}
+        <Button size="sm" variant="ghost" icon={RotateCcw} disabled={readOnly} onClick={() => save('Leiterstile zurückgesetzt', WIRE_PRESETS)}>
           Standard wiederherstellen
         </Button>
-        <Button size="sm" icon={Plus} onClick={() => add()}>
+        <Button size="sm" icon={Plus} disabled={readOnly} onClick={() => add()}>
           Neue Vorlage
         </Button>
       </div>
 
+      <fieldset disabled={readOnly} className="contents">
       <div className="min-h-0 flex-1 overflow-auto bg-app" role="table" aria-label="Leiterstil-Vorlagen">
         <div className="min-w-[860px]">
           <div role="row" className={`${COLS} sticky top-0 z-10 h-8 border-b border-line bg-panel-2 px-3 text-[11px] font-semibold text-fg-2`}>
@@ -120,7 +130,7 @@ export function WireStylesEditor() {
                   {used}×
                 </span>
                 <span role="cell" className="flex justify-end gap-0.5">
-                  <button type="button" aria-label={`${p.label} duplizieren`} title="Duplizieren" onClick={() => add(p)} className="grid size-7 place-items-center rounded-md text-muted hover:bg-hover hover:text-fg">
+                  <button type="button" aria-label={`${p.label} duplizieren`} title="Duplizieren" onClick={() => add(p)} className="grid size-7 place-items-center rounded-md text-muted hover:bg-hover hover:text-fg disabled:hidden">
                     <Copy className="size-3.5" aria-hidden />
                   </button>
                   <button
@@ -128,7 +138,7 @@ export function WireStylesEditor() {
                     aria-label={`${p.label} löschen`}
                     title={used ? `Löschen – ${used} Objekte behalten ihren Stil, verlieren aber die Zuordnung` : 'Löschen'}
                     onClick={() => save('Leiterstil gelöscht', presets.filter((x) => x.id !== p.id))}
-                    className="grid size-7 place-items-center rounded-md text-muted hover:bg-error-soft hover:text-error"
+                    className="grid size-7 place-items-center rounded-md text-muted hover:bg-error-soft hover:text-error disabled:hidden"
                   >
                     <Trash2 className="size-3.5" aria-hidden />
                   </button>
@@ -138,6 +148,7 @@ export function WireStylesEditor() {
           })}
         </div>
       </div>
+      </fieldset>
       <div className="flex h-7 shrink-0 items-center gap-3 border-t border-line bg-panel px-3 text-[11px] text-muted tabular-nums">
         <span>{presets.length} Vorlagen</span>
         <span>Zuweisen: Leitung oder Schiene im Stromlaufplan auswählen und im Eigenschaften-Panel eine Vorlage anklicken</span>

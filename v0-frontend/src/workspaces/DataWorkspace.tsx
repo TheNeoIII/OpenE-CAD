@@ -1,8 +1,9 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { ArrowDown, ArrowUp, Columns3, Download, PencilLine, Search, Trash2, Upload } from 'lucide-react'
+import { ArrowDown, ArrowUp, Columns3, Download, Lock, PencilLine, Search, Trash2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { runCommand } from '@/commands/registry'
 import { Button, Checkbox, Input, Spinner, Tabs } from '@/components/ui/primitives'
+import { useCan } from '@/stores/accountStore'
 import { useDataStore } from '@/stores/dataStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useUiStore } from '@/stores/uiStore'
@@ -76,6 +77,8 @@ export function DataWorkspace() {
     if (doc || view === 'articles') void useDataStore.getState().load(view)
   }, [view, doc])
 
+  const canManageArticles = useCan('article.manage')
+  const readOnly = view === 'articles' && !canManageArticles
   const needsProject = !doc && view !== 'articles'
   const selectPane = (v: Pane) => {
     setEditing(null)
@@ -202,13 +205,18 @@ export function DataWorkspace() {
         </div>
         <div className="flex-1" />
         {selected.length > 0 && <span className="text-[11.5px] text-fg-2 tabular-nums">{selected.length} ausgewählt</span>}
-        <Button size="sm" icon={PencilLine} disabled={!selected.length} onClick={() => runCommand('data.bulkEdit')}>
+        {readOnly && (
+          <span className="flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-muted" title="Artikel bearbeiten erfordert die Berechtigung „Artikel verwalten“">
+            <Lock className="size-3" aria-hidden /> Nur lesen
+          </span>
+        )}
+        <Button size="sm" icon={PencilLine} disabled={!selected.length || readOnly} onClick={() => runCommand('data.bulkEdit')}>
           Sammeländerung
         </Button>
         <Button size="sm" variant="ghost" icon={Trash2} disabled={!selected.length || view === 'articles'} onClick={() => useDataStore.getState().deleteRows(view, selected)}>
           Löschen
         </Button>
-        <Button size="sm" variant="ghost" icon={Upload} onClick={() => runCommand('data.import')}>
+        <Button size="sm" variant="ghost" icon={Upload} disabled={readOnly} onClick={() => runCommand('data.import')}>
           Import
         </Button>
         <Button size="sm" variant="ghost" icon={Download} onClick={() => runCommand('data.export')}>
@@ -273,8 +281,8 @@ export function DataWorkspace() {
                         key={c.key}
                         role="gridcell"
                         style={{ width: c.width }}
-                        onDoubleClick={() => c.editable && setEditing({ row: r.id, key: c.key })}
-                        className={cn('flex shrink-0 items-center border-l border-line px-2', c.editable && 'cursor-text')}
+                        onDoubleClick={() => c.editable && !readOnly && setEditing({ row: r.id, key: c.key })}
+                        className={cn('flex shrink-0 items-center border-l border-line px-2', c.editable && !readOnly && 'cursor-text')}
                       >
                         <Cell
                           key={isEditing ? 'e' : 'v'}
@@ -300,7 +308,7 @@ export function DataWorkspace() {
         <span>
           {fmtNumber(rows.length)} von {fmtNumber(table?.rows.length ?? 0)} Zeilen
         </span>
-        <span>Doppelklick bearbeitet · Shift/Ctrl für Mehrfachauswahl</span>
+        <span>{readOnly ? 'Nur Lesezugriff auf Artikel · Shift/Ctrl für Mehrfachauswahl' : 'Doppelklick bearbeitet · Shift/Ctrl für Mehrfachauswahl'}</span>
       </div>
       </>
       )}

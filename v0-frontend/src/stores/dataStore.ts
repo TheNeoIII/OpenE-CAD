@@ -1,7 +1,14 @@
 import { create } from 'zustand'
 import { backend } from '@/backend'
 import type { CellValue, DataTable, DataViewId } from '@/types/data'
+import { can } from '@/backend/permissions'
+import { useAccountStore } from './accountStore'
 import { useDocumentStore } from './documentStore'
+
+/** UX guard only; the Rust server enforces `article.manage` on every library write. */
+export function canWriteView(view: DataViewId) {
+  return view !== 'articles' || can(useAccountStore.getState().user, 'article.manage')
+}
 
 export interface SortState {
   key: string
@@ -58,7 +65,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   updateCells: (view, rowIds, key, value) => {
     const table = get().tables[view]
-    if (!table) return
+    if (!table || !canWriteView(view)) return
     const ids = new Set(rowIds)
     const deviceIds = table.rows.filter((r) => ids.has(r.id) && r.deviceId).map((r) => r.deviceId!)
     set((s) => ({ tables: { ...s.tables, [view]: { ...table, rows: table.rows.map((r) => (ids.has(r.id) ? { ...r, cells: { ...r.cells, [key]: value } } : r)) } } }))
@@ -73,7 +80,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   deleteRows: (view, rowIds) => {
     const table = get().tables[view]
-    if (!table) return
+    if (!table || !canWriteView(view)) return
     const ids = new Set(rowIds)
     set((s) => ({ tables: { ...s.tables, [view]: { ...table, rows: table.rows.filter((r) => !ids.has(r.id) || r.deviceId) } }, selected: [] }))
   },
