@@ -177,13 +177,19 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
     select('breaker:1')
   }
 
-  const exportLib = () => {
-    const blob = new Blob([JSON.stringify({ format: 'symbol-library', version: 1, symbols: doc.customSymbols ?? [] }, null, 2)], { type: 'application/json' })
+  const exportLib = (all = false) => {
+    const symbols = all ? (doc.customSymbols ?? []).map((symbol) => symbol.id === editing.id ? editing : symbol) : [editing]
+    const blob = new Blob([JSON.stringify({ format: 'symbol-library', version: 1, symbols }, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = 'symbolbibliothek.json'
+    a.href = url
+    a.download = all ? 'symbolbibliothek.json' : `${editing.label.replace(/[^\p{L}\p{N}_-]+/gu, '_') || 'symbol'}.json`
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(a.href)
+    a.remove()
+    // Keep the URL alive until the browser has consumed the download.
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    setNotice('JSON-Download gestartet; aktuelle ungespeicherte Änderungen sind enthalten.')
   }
 
   const importLib = async (file: File) => {
@@ -193,9 +199,16 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
       if (!Array.isArray(list)) throw new Error('format')
       const valid = list.filter((s) => s && typeof s.id === 'string' && typeof s.label === 'string' && Array.isArray(s.pins) && Array.isArray(s.shapes))
       commitCustom('Symbole importiert', (cur) => {
-        const byId = new Map(cur.map((s) => [s.id, s]))
-        for (const s of valid) byId.set(s.id, { ...s, description: s.description ?? '', bmkPrefix: s.bmkPrefix || 'X', category: s.category ?? 'Klemme', mount: s.mount ?? 'rail' })
-        return [...byId.values()]
+        const names = new Set([...symbolVariants().map((v) => v.label), ...cur.map((s) => s.label), editing.label].map((label) => label.trim().toLocaleLowerCase()))
+        const imported = valid.map((s) => {
+          const base = s.label.trim() || 'Symbol'
+          let label = base
+          let copy = 1
+          while (names.has(label.toLocaleLowerCase())) label = `${base} (Kopie ${copy++})`
+          names.add(label.toLocaleLowerCase())
+          return { ...s, id: crypto.randomUUID(), label, description: s.description ?? '', bmkPrefix: s.bmkPrefix || 'X', category: s.category ?? 'Klemme', mount: s.mount ?? 'rail' }
+        })
+        return [...cur, ...imported]
       })
       setNotice(`${valid.length} Symbol(e) importiert${valid.length < list.length ? `, ${list.length - valid.length} ungültig übersprungen` : ''}.`)
     } catch {
@@ -215,7 +228,8 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
               Neu
             </Button>
             <IconButton icon={Upload} label="Bibliothek importieren" size="sm" onClick={() => fileRef.current?.click()} />
-            <IconButton icon={Download} label="Eigene Symbole exportieren" size="sm" disabled={!doc.customSymbols?.length} onClick={exportLib} />
+            <IconButton icon={Download} label="Ausgewähltes Symbol exportieren (inklusive Entwurf)" size="sm" onClick={() => exportLib()} />
+            <IconButton icon={Download} label="Alle eigenen Symbole exportieren" size="sm" disabled={!doc.customSymbols?.length} onClick={() => exportLib(true)} />
             <input
               ref={fileRef}
               type="file"

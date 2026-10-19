@@ -28,7 +28,7 @@ const sessionExtents = new Map<string, number>()
 let copiedGeometry: Geometry | null = null
 const GRID = 50
 const VIEW = 300
-const snap = (v: number) => Math.round(v / GRID) * GRID
+const VIEW_GRID_PX = 5 * 96 / 25.4
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 type Tool = 'select' | 'line' | 'arrow' | 'rect' | 'circle' | 'text' | 'pin'
@@ -177,7 +177,7 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
       const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? svg.clientHeight : 1)
       const rect = scrollRef.current!.getBoundingClientRect()
       zoomAnchor.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-      setZoom((current) => Math.min(4, Math.max(0.25, current * Math.exp(-delta * 0.0015))))
+      setZoom((current) => Math.min(6, Math.max(0.25, current * Math.exp(-delta * 0.0015))))
     }
     svg.addEventListener('wheel', wheel, { passive: false })
     return () => svg.removeEventListener('wheel', wheel)
@@ -188,6 +188,9 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m)
     return { x: p.x, y: p.y }
   }
+  const gridStep = VIEW_GRID_PX * extent * 2 / (Math.max(1, Math.min(viewport.width, viewport.height)) * zoom)
+  const snap = (value: number) => Math.round(value / gridStep) * gridStep
+
   const toLocal = (e: React.PointerEvent): Pt => {
     const p = rawPoint(e)
     return snapping ? { x: snap(p.x), y: snap(p.y) } : p
@@ -475,7 +478,7 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
           <label><input type="checkbox" checked={grid} onChange={(e) => setGrid(e.target.checked)} /> Raster</label>
           <label><input type="checkbox" checked={guides} onChange={(e) => setGuides(e.target.checked)} /> Hilfslinien</label>
           <label><input type="checkbox" checked={snapping} onChange={(e) => setSnapping(e.target.checked)} /> Rasterfang</label>
-          <label className="flex items-center gap-2">Zoom <input aria-label="Symbolzoom" type="range" min="0.25" max="4" step="0.25" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} /> {Math.round(zoom * 100)}%</label>
+          <label className="flex items-center gap-2">Zoom <input aria-label="Symbolzoom" type="range" min="0.25" max="6" step="0.25" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} /> {Math.round(zoom * 100)}%</label>
           <button type="button" onClick={() => setZoom(1)}>Einpassen</button>
         </div>
         <div ref={scrollRef} onScroll={(e) => viewSessions.set(sessionKey, { zoom: zoomRef.current, left: e.currentTarget.scrollLeft, top: e.currentTarget.scrollTop })} role="region" aria-label="Zeichenfläche scrollen" className="min-h-0 flex-1 overflow-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-width:auto] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted [&::-webkit-scrollbar-track]:bg-panel [&::-webkit-scrollbar-corner]:bg-panel">
@@ -503,7 +506,7 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
               else if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) redo()
               else if (mod && key === 'z') undo()
               else {
-                const step = e.shiftKey ? 1 : GRID
+                const step = e.shiftKey ? gridStep / 10 : gridStep
                 const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
                 const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
                 transformSelection('Auswahl verschoben', (s) => translateShape(s, dx, dy), (p) => ({ ...p, x: p.x + dx, y: p.y + dy }))
@@ -536,7 +539,7 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
           }}
         >
           <defs>
-            <pattern id="sym-grid" width={GRID} height={GRID} patternUnits="userSpaceOnUse" x={-VIEW} y={-VIEW}>
+            <pattern id="sym-grid" width={gridStep} height={gridStep} patternUnits="userSpaceOnUse" x={0} y={0}>
               <circle cx={0} cy={0} r={1.6} className="fill-muted/40" />
             </pattern>
           </defs>
