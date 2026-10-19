@@ -602,6 +602,16 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
   const hitW = 10 / s
   const resolve: Resolve = useMemo(() => styleResolver(doc), [doc?.potentialDefs, doc?.wirePresets])
   const strokeOf = (st: ReturnType<Resolve>) => (settings.mono ? ink : wireStroke(st.color))
+  const symbolWeight = useMemo(() => {
+    const ends = page.wires.map((w) => ({ a: w.points[0], b: w.points[w.points.length - 1], f: WEIGHT_FACTOR[resolve(w, w.potential).weight] }))
+    const map = new Map<string, number>()
+    for (const sym of page.symbols) {
+      let f = 0
+      for (const pin of symbolPins(sym)) for (const e of ends) if (e.f > f && (samePoint(e.a, pin) || samePoint(e.b, pin))) f = e.f
+      map.set(sym.id, f || 1)
+    }
+    return map
+  }, [page.wires, page.symbols, resolve])
  return <>
           <g style={{ filter: 'drop-shadow(0 2px 10px rgb(0 0 0 / 0.18))' }}>
             <SheetFrame page={page} project={project} pageIndex={doc ? pageSequence(doc, page.id) : 1} pageCount={doc?.pages.length ?? 1} grid={settings.gridSize} showGrid={!clean && settings.showGrid} guides={!clean && settings.guides} />
@@ -713,8 +723,8 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
               <g key={sym.id} data-id={sym.id} transform={offset(sym.id)}>
                 <rect x={b.x - 12} y={b.y - 12} width={b.w + 24} height={b.h + 24} fill="transparent" />
                 {sel && <rect x={b.x - 18} y={b.y - 18} width={b.w + 36} height={b.h + 36} fill="var(--sheet-select)" fillOpacity={0.07} stroke={selColor} strokeWidth={2 / (s > 1 ? 1 : s) * 0.8} strokeDasharray="10 8" />}
-                <g transform={`translate(${sym.position.x} ${sym.position.y}) rotate(${sym.rotation})`} fill="none" stroke={color} color={color} strokeWidth={STROKE} strokeLinecap="round" strokeLinejoin="round">
-                  <SymbolBody kind={sym.kind} poles={sym.poles} ways={sym.wayCount} />
+                <g transform={`translate(${sym.position.x} ${sym.position.y}) rotate(${sym.rotation})`} fill="none" stroke={color} color={color} strokeWidth={STROKE * (symbolWeight.get(sym.id) ?? 1)} strokeLinecap="round" strokeLinejoin="round">
+                  <SymbolBody kind={sym.kind} poles={sym.poles} ways={sym.wayCount} strokeScale={symbolWeight.get(sym.id) ?? 1} />
                 </g>
                 {!(sym.kind === 'terminal' && sym.hidePinNumbers && sym.terminalNo?.trim()) && wp.map((p) => (
                   <text key={p.pinId} x={p.x + 10} y={p.y + (p.y < sym.position.y ? 24 : -10)} fontSize={18} fill="var(--sheet-ink-2)" fontFamily="var(--font-mono)" pointerEvents="none">

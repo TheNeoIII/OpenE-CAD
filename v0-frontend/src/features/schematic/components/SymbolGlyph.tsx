@@ -3,11 +3,11 @@ import { customSymbolOf, isCustomKind, symbolDef, symbolShapes } from '../models
 import { arrowHead, shapeRotationPivot } from '../models/shapeTransform'
 
 /** Renders editor shapes; shared by placed symbols and the symbol editor canvas. */
-export function ShapeList({ shapes, hitArea = false }: { shapes: SymbolShape[]; hitArea?: boolean }) {
+export function ShapeList({ shapes, hitArea = false, strokeScale = 1 }: { shapes: SymbolShape[]; hitArea?: boolean; strokeScale?: number }) {
   return (
     <g>
       {shapes.map((s, i) => {
-        const style = { stroke: hitArea ? 'transparent' : s.color, strokeWidth: hitArea ? 24 : s.strokeWidth }
+        const style = { stroke: hitArea ? 'transparent' : s.color, strokeWidth: hitArea ? 24 : s.strokeWidth != null ? s.strokeWidth * strokeScale : undefined }
         if (s.t === 'line') {
           if (!s.arrow) return <line key={i} {...style} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} strokeDasharray={s.dashed ? s.dash ?? '16 12' : undefined} />
           const a = { x: s.x1, y: s.y1 }
@@ -45,9 +45,9 @@ export function ShapeList({ shapes, hitArea = false }: { shapes: SymbolShape[]; 
 }
 
 /** Symbol body in local world units (0.1 mm). Stroke/fill inherit from the parent group. */
-export function SymbolBody({ kind, poles, ways }: { kind: SymbolKind; poles: 1 | 3; ways?: number }) {
+export function SymbolBody({ kind, poles, ways, strokeScale = 1 }: { kind: SymbolKind; poles: 1 | 3; ways?: number; strokeScale?: number }) {
   if (isCustomKind(kind) && !customSymbolOf(kind)) return <path d="M-50 -50 H50 V50 H-50 Z M-50 -50 L50 50 M50 -50 L-50 50" strokeDasharray="10 8" />
-  return <ShapeList shapes={symbolShapes(kind, poles, ways)} />
+  return <ShapeList shapes={symbolShapes(kind, poles, ways)} strokeScale={strokeScale} />
 }
 
 export function SymbolGlyph({ kind, poles, className }: { kind: SymbolKind; poles: 1 | 3; className?: string }) {
