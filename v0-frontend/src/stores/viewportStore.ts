@@ -3,9 +3,7 @@ import type { SnapResult } from '@/features/schematic/models/snap'
 import type { CadViewportState, Point } from '@/types/cad'
 
 /** Pixels per world unit at 100 % (1 unit = 0.1 mm at 96 dpi). */
-export const BASE_SCALE = 96 / 25.4 / 10
-export const MIN_ZOOM = 0.08
-export const MAX_ZOOM = 8
+export { BASE_SCALE, MAX_ZOOM, MIN_ZOOM } from '@/features/drawing/viewport'
 
 interface ViewportStore {
   byPage: Record<string, CadViewportState>

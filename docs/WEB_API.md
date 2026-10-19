@@ -67,7 +67,7 @@ Diese Pfade sind reservierte Zielverträge, werden vom Adapter noch nicht aufger
 
 ## Audit (Admin)
 
-`GET /admin/audit?…` (Berechtigung `audit.read`) liefert serverseitig paginiert `{items: AuditEntry[], total, page, pageSize}`. Optionale Filter: `from`, `to`, `actorUserId`, `category`, `action`, `projectId`, `result`, `clientIp`, `clientHostname`, `q` (Freitext auf Benutzer, Aktion, Ressource, IP-Adresse, Hostname), `page`, `pageSize`.
+`GET /admin/audit?…` (Berechtigung `audit.read`) liefert serverseitig paginiert `{events: AuditEvent[], page, pageSize, total}` (Feldname `events`, identisch zu Frontend-Typ `AuditPage` und Mock). Optionale Filter: `from`, `to`, `actorUserId`, `category`, `action`, `projectId`, `result`, `clientIp`, `clientHostname`, `q` (Freitext auf Benutzer, Aktion, Ressource, IP-Adresse, Hostname), `page`, `pageSize`.
 
 ```json
 {
@@ -78,11 +78,12 @@ Diese Pfade sind reservierte Zielverträge, werden vom Adapter noch nicht aufger
   "projectId": "...",
   "clientIp": "192.168.1.25", "clientHostname": "PC-BUERO",
   "userAgent": "...", "requestId": "...",
+  "source": "web",
   "metadata": { "stateRevision": 42 }
 }
 ```
 
-`clientHostname`, `userAgent`, `requestId` sind optional/nullable. Keine Secrets, Passwörter, Tokens, Faktor-Codes oder Dokumentinhalte ins Audit.
+`source` (`web` | `api` | `system`) ist Pflicht und wird vom Rust-Server bestimmt, nie vom Browser übernommen. `clientIp`, `clientHostname`, `userAgent`, `requestId` sind nullable (z. B. `null` bei Systemereignissen). Keine Secrets, Passwörter, Tokens, Faktor-Codes oder Dokumentinhalte ins Audit.
 
 **Client-IP hinter LiteSpeed (Browser → LiteSpeed → Rust):** Primär die Socket-Peer-IP verwenden. `X-Forwarded-For`, `X-Real-IP` oder `Forwarded` nur auswerten, wenn die direkte Verbindung aus einem konfigurierten vertrauenswürdigen Proxy stammt (z. B. `TRUSTED_PROXY_CIDRS=…`, `TRUST_PROXY_HEADERS=true`); niemals ungeprüfte Header aus dem Internet übernehmen. Konkrete Rust-Konfiguration folgt mit dem Server.
 

@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/primitives'
 
 const AREAS = [
-  ['Standardsymbole', 'scope = system, ownerUserId = null. Bearbeiten erzeugt eine neue Symbolversion; bestehende Platzierungen bleiben auf ihrer Version.', 'symbol.editSystem'],
+  ['Standardsymbole', 'scope = system, ownerUserId = null. Symbolversionierung ist vorbereitet. Historische Versionen und versionsgebundene Platzierungen werden mit der serverseitigen Bibliothek umgesetzt.', 'symbol.editSystem'],
   ['Artikel', 'Artikelstammdaten für alle Projekte. Benutzer lesen und verwenden, nur Administratoren erstellen, bearbeiten, löschen und importieren.', 'article.manage'],
   ['System-Potentiale', 'Projektübergreifende Potentialvorlagen (z. B. L1–L3, N, PE, 24V DC).', 'library.manageSystem'],
   ['System-Leiterstile', 'Farben, Querschnitte und Linienstile für neue Projekte.', 'library.manageSystem'],

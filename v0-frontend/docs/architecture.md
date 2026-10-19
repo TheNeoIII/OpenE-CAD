@@ -56,7 +56,7 @@ Mutations are immutable: build a new document (via `actions.ts` / `updatePage`),
 | Saved per project (`PUT /projects/:id/document`, `stateRevision`) | Production source of truth: Rust API + MariaDB, shared by all users |
 
 - Development: mock backend and local/transitional state (Zustand persist, document-embedded definitions). This is not the production contract.
-- Permissions (UX guard only, server authoritative): `article.manage` for articles, `library.manageSystem` for system symbols/potentials/wire styles; user symbols are editable by owner/admin, usable and duplicable by everyone.
+- Permissions (UX guard only, server authoritative): `article.manage` for articles, `library.manageSystem` for system symbols/potentials/wire styles; user symbols are editable by owner/admin, usable and duplicable by everyone. Helpers live in `src/features/library/libraryPermissions.ts`. Article deletion is disabled until the backend offers a delete contract (no client-only fake delete). Audit pages are `{events, page, pageSize, total}`; `source` is set by the server.
 - Symbol versioning target: `symbols` + `symbol_versions`; placements store `symbolId` + `symbolVersion`, existing placements keep their version, new placements use the current version. Not implemented yet; only the fields exist.
 - Wiring/Visio-style diagrams share the same library and ownership rules; see `../../docs/WIRING_DIAGRAM_ARCHITECTURE.md`.
 
