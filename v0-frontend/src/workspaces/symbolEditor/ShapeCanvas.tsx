@@ -132,6 +132,8 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
   const drag = useRef<Drag | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const panRef = useRef<{ id: number; x: number; y: number; left: number; top: number } | null>(null)
+  const [panning, setPanning] = useState(false)
   const [viewport, setViewport] = useState(() => {
     const saved = viewSessions.get(sessionKey)
     return saved ? { width: saved.vw, height: saved.vh } : { width: 600, height: 400 }
@@ -533,7 +535,38 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
           const node = e.currentTarget
           if (!node.clientWidth || !node.clientHeight) return
           viewSessions.set(sessionKey, { zoom: zoomRef.current, left: node.scrollLeft, top: node.scrollTop, vw: viewport.width, vh: viewport.height })
-        }} role="region" aria-label="Zeichenfläche scrollen" className="min-h-0 flex-1 overflow-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-width:auto] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted [&::-webkit-scrollbar-track]:bg-panel [&::-webkit-scrollbar-corner]:bg-panel">
+        }}
+          onMouseDownCapture={(e) => { if (e.button === 1) e.preventDefault() }}
+          onAuxClick={(e) => { if (e.button === 1) e.preventDefault() }}
+          onPointerDownCapture={(e) => {
+            if (e.button !== 1) return
+            e.preventDefault()
+            e.stopPropagation()
+            const node = e.currentTarget
+            try { node.setPointerCapture(e.pointerId) } catch { /* pointer already released */ }
+            panRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY, left: node.scrollLeft, top: node.scrollTop }
+            setPanning(true)
+          }}
+          onPointerMoveCapture={(e) => {
+            const pan = panRef.current
+            if (!pan || pan.id !== e.pointerId) return
+            e.stopPropagation()
+            const node = e.currentTarget
+            node.scrollLeft = pan.left - (e.clientX - pan.x)
+            node.scrollTop = pan.top - (e.clientY - pan.y)
+          }}
+          onPointerUpCapture={(e) => {
+            if (panRef.current?.id !== e.pointerId) return
+            e.stopPropagation()
+            panRef.current = null
+            setPanning(false)
+          }}
+          onPointerCancelCapture={(e) => {
+            if (panRef.current?.id !== e.pointerId) return
+            panRef.current = null
+            setPanning(false)
+          }}
+          role="region" aria-label="Zeichenfläche scrollen" className={cn(panning && '[&_*]:!cursor-grabbing cursor-grabbing', 'min-h-0 flex-1 overflow-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-width:auto] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted [&::-webkit-scrollbar-track]:bg-panel [&::-webkit-scrollbar-corner]:bg-panel')}>
         <svg
           ref={svgRef}
           tabIndex={0}
