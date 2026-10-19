@@ -209,6 +209,50 @@ export interface CadLine {
   type: 'line'
   points: Point[]
   style: LineStyle
+  stroke?: string
+  /** Stroke width in world units (0.1 mm). */
+  strokeWidth?: number
+}
+
+/** Shared graphic styling of wiring-diagram shapes. Purely visual, never electrical. */
+export interface CadShapeStyle {
+  stroke: string
+  strokeWidth: number
+  lineStyle: LineStyle
+  /** CSS colour or 'none'. */
+  fill: string
+}
+
+export interface CadRectangle extends CadShapeStyle {
+  id: string
+  type: 'rectangle'
+  x: number
+  y: number
+  width: number
+  height: number
+  cornerRadius?: number
+}
+
+export interface CadEllipse extends CadShapeStyle {
+  id: string
+  type: 'ellipse'
+  cx: number
+  cy: number
+  rx: number
+  ry: number
+}
+
+export interface CadImage {
+  id: string
+  type: 'image'
+  x: number
+  y: number
+  width: number
+  height: number
+  /** Data URL of the embedded raster/SVG image. */
+  src: string
+  alt?: string
+  lockAspect?: boolean
 }
 
 export interface CadWireSegment {
@@ -260,8 +304,9 @@ export interface CadPotential {
   xrefRight?: string
 }
 
-export type CadObject = CadSymbol | CadWire | CadJunction | CadText | CadPotential | CadLine
+export type CadObject = CadSymbol | CadWire | CadJunction | CadText | CadPotential | CadLine | CadRectangle | CadEllipse | CadImage
 export type CadObjectType = CadObject['type']
+export type CadGraphic = CadLine | CadRectangle | CadEllipse | CadImage | CadText
 
 export type PageKind = 'schematic' | 'wiring' | 'cover' | 'report'
 
@@ -285,6 +330,15 @@ export interface CadPage {
   texts: CadText[]
   potentials: CadPotential[]
   lines: CadLine[]
+  /** Wiring-diagram graphics. Optional for older documents; read through `pageShapes`. */
+  rectangles?: CadRectangle[]
+  ellipses?: CadEllipse[]
+  images?: CadImage[]
+}
+
+/** Legacy-safe access to the optional wiring graphic lists. */
+export function pageShapes(page: Pick<CadPage, 'rectangles' | 'ellipses' | 'images'>) {
+  return { rectangles: page.rectangles ?? [], ellipses: page.ellipses ?? [], images: page.images ?? [] }
 }
 
 export interface FunctionGroup {

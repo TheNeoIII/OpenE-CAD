@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { getActivePage, updatePage, useDocumentStore } from '@/stores/documentStore'
 import { useSelectionStore } from '@/stores/selectionStore'
-import type { CadDocument, CadLine, CadObject, CadPage, FunctionGroup, CadSymbol, CadText, LineStyle, Point, Rotation, SymbolKind, TextStyle } from '@/types/cad'
+import { pageShapes, type CadDocument, type CadLine, type CadObject, type CadPage, type FunctionGroup, type CadSymbol, type CadText, type LineStyle, type Point, type Rotation, type SymbolKind, type TextStyle } from '@/types/cad'
 import type { Article, Device, Placement } from '@/types/device'
 import { uid } from '@/utils/format'
 import { useProjectStore } from '@/stores/projectStore'
@@ -173,7 +173,8 @@ export function addPotential(name: string, y: number) {
 
 function mapObjects(p: CadPage, ids: Set<string>, fn: (o: CadObject) => CadObject): CadPage {
   const m = <T extends CadObject>(arr: T[]) => arr.map((o) => (ids.has(o.id) ? (fn(o) as T) : o))
-  return { ...p, symbols: m(p.symbols), wires: m(p.wires), junctions: m(p.junctions), texts: m(p.texts), potentials: m(p.potentials), lines: m(p.lines) }
+  const s = pageShapes(p)
+  return { ...p, symbols: m(p.symbols), wires: m(p.wires), junctions: m(p.junctions), texts: m(p.texts), potentials: m(p.potentials), lines: m(p.lines), rectangles: m(s.rectangles), ellipses: m(s.ellipses), images: m(s.images) }
 }
 
 export function moveObjects(ids: string[], dx: number, dy: number) {
@@ -261,6 +262,9 @@ export function deleteObjects(ids: string[]) {
       texts: p.texts.filter((o) => !set.has(o.id)),
       potentials: p.potentials.filter((o) => !set.has(o.id)),
       lines: p.lines.filter((o) => !set.has(o.id)),
+      rectangles: pageShapes(p).rectangles.filter((o) => !set.has(o.id)),
+      ellipses: pageShapes(p).ellipses.filter((o) => !set.has(o.id)),
+      images: pageShapes(p).images.filter((o) => !set.has(o.id)),
     }),
   )
   useSelectionStore.getState().clear()
@@ -370,6 +374,9 @@ export function pastePages() {
         texts: re(src.texts, 'text'),
         potentials: re(src.potentials, 'pot'),
         lines: re(src.lines, 'ln'),
+        rectangles: re(pageShapes(src).rectangles, 'rect'),
+        ellipses: re(pageShapes(src).ellipses, 'ell'),
+        images: re(pageShapes(src).images, 'img'),
       }
       newIds.push(page.id)
       working = { ...working, pages: [...working.pages, page] }
@@ -411,6 +418,9 @@ export function pasteClipboard(offset?: number) {
       junctions: [...p.junctions, ...clones.filter((o) => o.type === 'junction')],
       texts: [...p.texts, ...clones.filter((o): o is CadText => o.type === 'text')],
       lines: [...p.lines, ...clones.filter((o): o is CadLine => o.type === 'line')],
+      rectangles: [...pageShapes(p).rectangles, ...clones.filter((o) => o.type === 'rectangle')],
+      ellipses: [...pageShapes(p).ellipses, ...clones.filter((o) => o.type === 'ellipse')],
+      images: [...pageShapes(p).images, ...clones.filter((o) => o.type === 'image')],
     }))
   })
   useSelectionStore.getState().set(newIds)
@@ -494,7 +504,7 @@ export function duplicatePage(pageId: string) {
   if (!doc || !src) return
   const id = uid('pg')
   const re = <T extends { id: string }>(arr: T[]) => arr.map((o) => ({ ...o, id: uid('o') }))
-  const copy: CadPage = { ...structuredClone(src), id, number: `${src.number}a`, title: `${src.title} (Kopie)`, symbols: re(src.symbols), wires: re(src.wires), junctions: re(src.junctions), texts: re(src.texts), potentials: re(src.potentials), lines: re(src.lines) }
+  const copy: CadPage = { ...structuredClone(src), id, number: `${src.number}a`, title: `${src.title} (Kopie)`, symbols: re(src.symbols), wires: re(src.wires), junctions: re(src.junctions), texts: re(src.texts), potentials: re(src.potentials), lines: re(src.lines), rectangles: re(pageShapes(src).rectangles), ellipses: re(pageShapes(src).ellipses), images: re(pageShapes(src).images) }
   commit('Seite dupliziert', (d) => {
     const idx = d.pages.findIndex((p) => p.id === pageId)
     const pages = [...d.pages]

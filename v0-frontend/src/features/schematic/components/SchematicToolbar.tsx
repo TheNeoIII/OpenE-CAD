@@ -1,4 +1,4 @@
-import { Grid3x3, Hand, Magnet, Maximize, MousePointer2, MoveVertical as MouseScroll, ScanSearch as MouseZoom, PanelLeft, PanelRight, PenLine, Plus, RotateCw, Spline, Trash2, Type, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react'
+import { Circle, Square, Grid3x3, Hand, Magnet, Maximize, MousePointer2, MoveVertical as MouseScroll, ScanSearch as MouseZoom, PanelLeft, PanelRight, PenLine, Plus, RotateCw, Spline, Trash2, Type, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react'
 import { runCommand, tooltip } from '@/commands/registry'
 import { IconButton } from '@/components/ui/primitives'
 import { useSelectionStore } from '@/stores/selectionStore'
@@ -9,6 +9,11 @@ import { variantByKey, type SymbolVariant } from '../models/symbolLibrary'
 import { useActivePage } from '@/stores/documentStore'
 import { useViewportStore } from '@/stores/viewportStore'
 import { SymbolGlyph } from './SymbolGlyph'
+
+const SHAPE_TOOLS: { tool: CadTool; cmd: string; icon: LucideIcon }[] = [
+  { tool: 'rect', cmd: 'tool.rect', icon: Square },
+  { tool: 'ellipse', cmd: 'tool.ellipse', icon: Circle },
+]
 
 const TOOLS: { tool: CadTool; cmd: string; icon: LucideIcon }[] = [
   { tool: 'select', cmd: 'tool.select', icon: MousePointer2 },
@@ -48,6 +53,8 @@ export function SchematicToolbar() {
       {TOOLS.map((t) => (
         <IconButton key={t.tool} icon={t.icon} label={tooltip(t.cmd)} active={tool === t.tool} onClick={() => runCommand(t.cmd)} />
       ))}
+      {page?.kind === 'wiring' &&
+        SHAPE_TOOLS.map((t) => <IconButton key={t.tool} icon={t.icon} label={tooltip(t.cmd)} active={tool === t.tool} onClick={() => runCommand(t.cmd)} />)}
       <Sep />
       {favorites.map((v) => (
         <button

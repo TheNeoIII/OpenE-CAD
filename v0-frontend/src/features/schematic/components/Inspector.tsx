@@ -9,6 +9,8 @@ import { useUiStore, type InspectorTab } from '@/stores/uiStore'
 import { issuesForTarget, useValidationStore } from '@/stores/validationStore'
 import type { CadObject, CadPage, CadPotential, CadWire, LineStyle, Rotation, SymbolKind, WireColor, WireWeight } from '@/types/cad'
 import { detachRailReferences } from '../actions'
+import { findObject as findPageObject } from '../models/geometry'
+import { WiringProperties } from '@/features/wiring/components/WiringProperties'
 import { CHARACTERISTICS, executionKind, executionType, FUSE_CLASSES, terminalCrossSection } from '../models/execution'
 import { outletPinNames } from '../models/symbolLibrary'
 import { LINE_STYLE_LABELS, potentialDefsOf, presetPatch, presetsOf, styleResolver, WIRE_COLOR_LABELS, WIRE_WEIGHT_LABELS } from '../models/wireStyles'
@@ -98,7 +100,7 @@ function ApplyConnected({ id }: { id: string }) {
 }
 
 function findObject(page: CadPage, id: string): CadObject | undefined {
-  return page.symbols.find((o) => o.id === id) ?? page.wires.find((o) => o.id === id) ?? page.texts.find((o) => o.id === id) ?? page.potentials.find((o) => o.id === id) ?? page.junctions.find((o) => o.id === id)
+  return findPageObject(page, id)
 }
 
 /** Text field that commits on blur/Enter so history gets one entry per edit. */
@@ -371,6 +373,8 @@ function Properties() {
           ))}
         </ul>
       )}
+
+      {(obj.type === 'rectangle' || obj.type === 'ellipse' || obj.type === 'image') && <WiringProperties obj={obj} />}
 
       {obj.type === 'symbol' && (
         <>
