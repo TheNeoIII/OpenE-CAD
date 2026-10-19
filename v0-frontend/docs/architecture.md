@@ -49,10 +49,21 @@
 
 Mutations are immutable: build a new document (via `actions.ts` / `updatePage`), push history, set document.
 
+## Project data vs. shared library
+| Project data | Shared library |
+|---|---|
+| `CadDocument`, pages, devices, connections, project-specific objects | articles, system symbols, user symbols, system potentials, system wire styles |
+| Saved per project (`PUT /projects/:id/document`, `stateRevision`) | Production source of truth: Rust API + MariaDB, shared by all users |
+
+- Development: mock backend and local/transitional state (Zustand persist, document-embedded definitions). This is not the production contract.
+- Permissions (UX guard only, server authoritative): `article.manage` for articles, `library.manageSystem` for system symbols/potentials/wire styles; user symbols are editable by owner/admin, usable and duplicable by everyone.
+- Symbol versioning target: `symbols` + `symbol_versions`; placements store `symbolId` + `symbolVersion`, existing placements keep their version, new placements use the current version. Not implemented yet; only the fields exist.
+- Wiring/Visio-style diagrams share the same library and ownership rules; see `../../docs/WIRING_DIAGRAM_ARCHITECTURE.md`.
+
 ## Symbol library and editor
 - Entry: `DataWorkspace` → `Daten / Symbole` → `SymbolEditor.tsx`; resolution in `models/symbolLibrary.ts`, rendering through `SymbolBody` / `ShapeList`.
 - `CadDocument.customSymbols` holds `CustomSymbolDef`: stable id, label/description, BMK prefix, category/mount, local pins `{id,x,y}`, and line/rect/circle/text primitives. Coordinates are local 0.1 mm units. Instances reference `kind: custom:<id>`; built-in metadata overrides and per-pole `{shapes,pins}` geometry overrides live in `symbolOverrides`. Both pickers use `symbolVariants`; favorites are references, not additional definitions. `builtinShapes.ts` supplies the editable primitives shared by rendering and duplication, including bounded SVG arc paths. Editing a standard variant keeps its kind and other pole variants unchanged. Reset restores the built-in definition.
-- Definitions use the document's existing save/backend path and snapshot undo/redo, not a separate library database. `documentStore.load/replace` synchronizes the derived registry through `setProjectSymbols`; consumers use `symbolDef`, `symbolVariants` and `variantByKey` rather than indexing built-ins directly.
+- Transitional: definitions currently use the document's save/backend path and snapshot undo/redo; production moves them to the server-backed shared library (see above). `documentStore.load/replace` synchronizes the derived registry through `setProjectSymbols`; consumers use `symbolDef`, `symbolVariants` and `variantByKey` rather than indexing built-ins directly.
 - JSON export contains custom definitions only: `{format: 'symbol-library', version: 1, symbols: [...]}`. Import accepts that wrapper or an array and merges by id (incoming definitions replace matching ids). Current validation checks top-level fields/arrays only, not the full shape schema. Built-in overrides are saved with the project but not exported in the library.
 - Main-editor placement, bounds, graphics and docking pins resolve through the same registry. Editing a definition affects all its instances; missing definitions render an unknown-symbol fallback.
 

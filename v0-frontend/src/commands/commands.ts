@@ -66,6 +66,7 @@ import { symbolDef } from '@/features/schematic/models/symbolLibrary'
 import { fitPage, fitSelection, fitWidth, setZoom, zoomAt } from '@/features/schematic/viewport'
 import { stepResult } from '@/features/validation/navigate'
 import { getActivePage, useDocumentStore } from '@/stores/documentStore'
+import { canWriteView } from '@/stores/dataStore'
 import { useHistoryStore } from '@/stores/historyStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useSelectionStore } from '@/stores/selectionStore'
@@ -86,6 +87,10 @@ const SCH: Workspace[] = ['schematic']
 function tableAvailable() {
   const s = ui()
   return hasProject() || (s.workspace === 'data' && s.dataPane === 'table' && s.dataView === 'articles')
+}
+
+function tableWritable() {
+  return tableAvailable() && (ui().dataPane !== 'table' || canWriteView(ui().dataView))
 }
 
 function goWorkspace(w: Workspace) {
@@ -388,8 +393,8 @@ const commands: Command[] = [
 
   /* -------- Daten -------- */
   { id: 'data.export', label: 'Tabelle exportieren …', category: 'Daten', icon: FileSpreadsheet, isEnabled: tableAvailable, run: () => ui().openDialog({ type: 'dataExport' }) },
-  { id: 'data.import', label: 'Tabelle importieren …', category: 'Daten', icon: FileUp, isEnabled: tableAvailable, run: () => ui().openDialog({ type: 'dataImport' }) },
-  { id: 'data.bulkEdit', label: 'Mehrfachbearbeitung …', category: 'Daten', isEnabled: tableAvailable, run: () => ui().openDialog({ type: 'bulkEdit' }) },
+  { id: 'data.import', label: 'Tabelle importieren …', category: 'Daten', icon: FileUp, isEnabled: tableWritable, run: () => ui().openDialog({ type: 'dataImport' }) },
+  { id: 'data.bulkEdit', label: 'Mehrfachbearbeitung …', category: 'Daten', isEnabled: tableWritable, run: () => ui().openDialog({ type: 'bulkEdit' }) },
   { id: 'data.plcImport', label: 'SPS-Hardware importieren', category: 'Daten', icon: Cpu, future: true, run: () => {} },
   { id: 'data.cableAuto', label: 'Kabel automatisch bilden', category: 'Daten', icon: Cable, future: true, run: () => {} },
   { id: 'data.parts', label: 'Artikelverwaltung', category: 'Daten', icon: Boxes, run: () => { ui().set({ dataView: 'articles', dataPane: 'table' }); goWorkspace('data') } },

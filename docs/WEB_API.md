@@ -65,6 +65,29 @@ Passkey-Schaltfläche erklärt den fehlenden Server, keine vorgetäuschte Authen
 
 Diese Pfade sind reservierte Zielverträge, werden vom Adapter noch nicht aufgerufen. Binärdaten später einheitlich Base64URL; Challenge-ID, TTL, Counter-/Backup-Policy und unterstützte Browser festlegen. Passwortänderung, TOTP-Setup (QR/Secret + Bestätigung), Deaktivierung, Recovery-Code-Neuausstellung und aktive Sessions benötigen eigene überprüfte Reauth-Verträge; hier keine spekulativen Endpunkte.
 
+## Audit (Admin)
+
+`GET /admin/audit?…` (Berechtigung `audit.read`) liefert serverseitig paginiert `{items: AuditEntry[], total, page, pageSize}`. Optionale Filter: `from`, `to`, `actorUserId`, `category`, `action`, `projectId`, `result`, `clientIp`, `clientHostname`, `q` (Freitext auf Benutzer, Aktion, Ressource, IP-Adresse, Hostname), `page`, `pageSize`.
+
+```json
+{
+  "id": "...", "timestamp": "...",
+  "actorUserId": "...", "actorDisplayName": "M. Krüger",
+  "category": "project", "action": "project.saved", "result": "success",
+  "resourceType": "project", "resourceId": "...", "resourceLabel": "Lindenstraße 12",
+  "projectId": "...",
+  "clientIp": "192.168.1.25", "clientHostname": "PC-BUERO",
+  "userAgent": "...", "requestId": "...",
+  "metadata": { "stateRevision": 42 }
+}
+```
+
+`clientHostname`, `userAgent`, `requestId` sind optional/nullable. Keine Secrets, Passwörter, Tokens, Faktor-Codes oder Dokumentinhalte ins Audit.
+
+**Client-IP hinter LiteSpeed (Browser → LiteSpeed → Rust):** Primär die Socket-Peer-IP verwenden. `X-Forwarded-For`, `X-Real-IP` oder `Forwarded` nur auswerten, wenn die direkte Verbindung aus einem konfigurierten vertrauenswürdigen Proxy stammt (z. B. `TRUSTED_PROXY_CIDRS=…`, `TRUST_PROXY_HEADERS=true`); niemals ungeprüfte Header aus dem Internet übernehmen. Konkrete Rust-Konfiguration folgt mit dem Server.
+
+**Hostname:** Browser liefern keinen verlässlichen Rechnernamen; keine Browser-/WebRTC-Tricks. Der Server kann optional per Reverse-DNS aus `clientIp` auflösen, sonst `null`. Reverse-DNS darf Login/Requests nie blockieren. Der Hostname ist reine Zusatzinformation, weder sicherheitsrelevant noch garantiert verfügbar.
+
 ## Sicherheit und Betrieb (Rust-Pflichten)
 
 Argon2id mit individuellem Salt und überprüften Parametern; niemals Klartext oder Hashes an React. Zufällige, kryptographisch starke Session-IDs, Hash der ID serverseitig, Ablauf/Widerruf serverautoritativ. Kein Auth-Token in localStorage. Optionales TOTP-Secret verschlüsseln, Schlüssel außerhalb der DB; verwendete Zeitfenster gegen Replay schützen. Recovery Codes zufällig, nur gehasht, einmalig anzeigen und atomar verbrauchen.

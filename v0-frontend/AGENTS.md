@@ -53,8 +53,15 @@ Prefer small, targeted changes over broad rewrites or refactors.
 - Line/wire creation must preserve its existing click-based workflow and snapping behaviour.
 - Existing zoom, pan, selection and drawing interactions must not regress when changing a single tool.
 
+## Shared library (binding)
+- Production shared library data is server-backed (Rust API + MariaDB), not part of a single `CadDocument`.
+- System data: articles, system symbols, potentials, wire styles. Writes require `library.manageSystem` (articles: `article.manage`); users get read-only UI, the server enforces every write.
+- User-owned symbols are also server-backed shared library records with ownership metadata (owner/admin edit, everyone may use and duplicate).
+- Project-local symbols may later exist separately. Browser-persisted library state (Zustand persist, project-embedded definitions) is development/mock only; do not add new browser-only persistence for multi-user system data.
+- Symbol versions (`CustomSymbolDef.version`, `CadSymbol.symbolVersion`) are prepared but historical versions are not resolved yet.
+
 ## Symbol library invariants
-- Custom definitions and built-in metadata/per-pole geometry overrides belong to the document and its save/undo lifecycle. Keep `setProjectSymbols` synchronized on load/replace, including undo/redo and project switches.
+- In the current transitional implementation, custom definitions and built-in overrides still travel with the document save/undo lifecycle. Keep `setProjectSymbols` synchronized on load/replace, including undo/redo and project switches.
 - Resolve symbols through the project-aware registry; preserve stable `custom:<id>` instance references, pin identities and local 0.1 mm geometry. Main-editor rendering, bounds and electrical docking must agree.
 - Do not silently rewrite/delete placed instances when editing/importing/deleting definitions. See `docs/architecture.md` and `docs/editor-behavior.md` for the compact symbol contract.
 
