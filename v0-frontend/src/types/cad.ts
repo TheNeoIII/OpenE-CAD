@@ -74,7 +74,10 @@ export type SymbolShape = {
 
 )
 
-/** Project-specific symbol created in the symbol editor or imported from a library file. */
+/** `project` is reserved for project-local symbols and not yet used. */
+export type SymbolScope = 'system' | 'user' | 'project'
+
+/** Library symbol created in the symbol editor or imported from a library file. */
 export interface CustomSymbolDef {
   id: string
   label: string
@@ -84,6 +87,18 @@ export interface CustomSymbolDef {
   mount: MountType
   pins: CadConnectionPoint[]
   shapes: SymbolShape[]
+  /** Missing on symbols created before ownership existed (treated as unassigned user symbols). */
+  scope?: SymbolScope
+  /** Always null for `system`. */
+  ownerUserId?: string | null
+  createdByUserId?: string | null
+  updatedByUserId?: string | null
+  createdAt?: string
+  updatedAt?: string
+  /** Set when duplicated from another symbol (custom id or built-in variant key). */
+  derivedFromSymbolId?: string
+  /** Logical definition version; incremented on every saved change. Missing means 1. */
+  version?: number
 }
 
 /** Project-level metadata and per-pole geometry changes for a built-in symbol. */
@@ -98,6 +113,10 @@ export interface SymbolOverride {
   bmkPrefix?: string
   category?: DeviceCategory
   mount?: MountType
+  /** Version of the customized standard symbol; missing means 1 (unchanged built-in). */
+  version?: number
+  updatedByUserId?: string | null
+  updatedAt?: string
   }
 
 export interface CadSymbol {
@@ -108,6 +127,12 @@ export interface CadSymbol {
   position: Point
   rotation: Rotation
   poles: 1 | 3
+  /**
+   * Library definition version this placement was created with. Missing means 1.
+   * Rendering still uses the current definition; pinned per-version rendering and
+   * "Neue Symbolversion verfügbar" build on this field without a migration.
+   */
+  symbolVersion?: number
   pinNames?: string[]
   terminalNo?: string
   /** Reading direction of the terminal number above grouped terminals; defaults to 'rotated' (bottom to top). */

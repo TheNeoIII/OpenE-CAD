@@ -14,7 +14,7 @@ import { connectedConductors } from './models/netTrace'
 import { findObject, objectBounds, simplifyPolyline, translateObject } from './models/geometry'
 import { centerOn } from './viewport'
 import type { SnapResult } from './models/snap'
-import { symbolDef, symbolMeta } from './models/symbolLibrary'
+import { currentSymbolVersion, symbolDef, symbolMeta } from './models/symbolLibrary'
 import { relocateWireEndPage, extendRailEndPage, moveJunctionPage, movePage, moveSegmentPage, relocateJunctionPage } from './models/wireEdit'
 
 export function relocateWireEnd(wireId: string, end: 'start' | 'end', target: SnapResult) {
@@ -130,7 +130,7 @@ export function addSymbol(kind: SymbolKind, poles: 1 | 3, position: Point) {
     const dev: Device = a
       ? { ...base, function: a.description, articleId: a.id, manufacturer: a.manufacturer, articleNo: a.articleNo, type: a.type, ratedCurrent: a.ratedCurrent, ac3Power: a.ac3Power, coilVoltage: a.coilVoltage, auxContacts: a.auxContacts, widthTE: a.widthTE, dimensions: a.dimensions }
       : base
-    const sym: CadSymbol = { id: uid('sym'), type: 'symbol', kind, deviceId: dev.id, position, rotation: 0, poles: symbolDef(kind).supportsPoles ? poles : 1 }
+    const sym: CadSymbol = { id: uid('sym'), type: 'symbol', kind, deviceId: dev.id, position, rotation: 0, poles: symbolDef(kind).supportsPoles ? poles : 1, symbolVersion: currentSymbolVersion(kind) }
     if (kind === 'terminal') sym.terminalNo = '1'
     createdId = sym.id
     return updatePage({ ...doc, devices: [...doc.devices, dev] }, pageId, (p) => ({ ...p, symbols: [...p.symbols, sym] }))
@@ -207,7 +207,7 @@ export function rotateObjects(ids: string[]) {
   withPage('Gedreht', (p) => mapObjects(p, set, (o) => (o.type === 'symbol' ? { ...o, rotation: (((o.rotation + 90) % 360) as Rotation) } : o)))
 }
 
-export function updateObject(id: string, patch: Partial<CadObject>, label = 'Eigenschaft geändert') {
+export function updateObject(id: string, patch: Partial<CadObject>, label = 'Eigenschaft ge��ndert') {
   withPage(label, (p) => mapObjects(p, new Set([id]), (o) => ({ ...o, ...patch }) as CadObject))
 }
 
