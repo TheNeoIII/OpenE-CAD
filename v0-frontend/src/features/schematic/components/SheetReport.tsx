@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { PAGE_FORMATS, type CadDocument, type CadPage } from '@/types/cad'
+import { useProjectEditor } from '@/stores/userDirectoryStore'
 import type { Project } from '@/types/project'
 import { fmtDate } from '@/utils/format'
 import { sortedPages } from '@/utils/pages'
@@ -52,6 +53,7 @@ function ReportTable({ x, y, w, title, cols, rows, rowH = 40 }: { x: number; y: 
 
 /** Draws generated content (cover, table of contents, terminal plan) inside the ELCAD sheet frame. */
 export const SheetReport = memo(function SheetReport({ page, doc, project }: { page: CadPage; doc: CadDocument; project: Project | null }) {
+  const projectEditor = useProjectEditor(project).label
   if (page.kind === 'schematic') return null
   const { width: W, height: H } = PAGE_FORMATS[page.format]
   const ix = FRAME_INSET + BORDER
@@ -84,7 +86,7 @@ export const SheetReport = memo(function SheetReport({ page, doc, project }: { p
       ['Bemessungsstrom / Icc', [spec.ratedCurrent, spec.shortCircuit].filter(Boolean).join(' / ') || '—'],
       ['Steuerspannung', spec.controlVoltage || '—'],
       ['Norm', project?.standard ?? '—'],
-      ['Bearbeiter', project?.author || '—'],
+      ['Bearbeiter', projectEditor || '—'],
       ['Revision / Stand', `${project?.revision ?? '—'} · ${fmtDate(project?.updatedAt ?? page.updatedAt)}`],
     ]
     const ty = y0 + 340
@@ -138,7 +140,7 @@ export const SheetReport = memo(function SheetReport({ page, doc, project }: { p
   if (page.report === 'toc') {
     const groups = new Map(doc.functionGroups.map((g) => [g.id, g.label]))
     const maxRows = Math.floor((yEnd - y0 - 120) / 40)
-    const rows = sortedPages(doc).slice(0, maxRows).map((p) => [p.number, `=${p.functionGroup.replace(/^=/, '')}`, groups.get(p.functionGroup) ?? '', p.title, p.revision, fmtDate(p.updatedAt), p.editedBy ?? project?.author ?? ''])
+    const rows = sortedPages(doc).slice(0, maxRows).map((p) => [p.number, `=${p.functionGroup.replace(/^=/, '')}`, groups.get(p.functionGroup) ?? '', p.title, p.revision, fmtDate(p.updatedAt), p.editedBy ?? projectEditor])
     return (
       <g pointerEvents="none">
         <ReportTable x={x0} y={y0} w={w} title="Inhaltsverzeichnis" cols={[{ label: 'Seite', width: 1, mono: true }, { label: 'Anlage', width: 1, mono: true }, { label: 'Funktion', width: 2 }, { label: 'Seitenbenennung', width: 4 }, { label: 'Rev.', width: 0.7, mono: true }, { label: 'Datum', width: 1.3 }, { label: 'Bearbeiter', width: 1.5 }]} rows={rows} />

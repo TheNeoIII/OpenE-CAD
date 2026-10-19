@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { PAGE_FORMATS, type CadPage, type PageFormat } from '@/types/cad'
+import { useProjectEditor } from '@/stores/userDirectoryStore'
 import type { Project } from '@/types/project'
 import { fmtDate } from '@/utils/format'
 
@@ -77,7 +78,8 @@ export const SheetFrame = memo(function SheetFrame({ page, project, pageIndex, p
   const xGroup = xEnd - sheetW - groupW
   const xSheet = xEnd - sheetW
   const revisions = (project?.revisions ?? []).slice(-3).reverse()
-  const editor = page.editedBy || project?.author || ''
+  const projectEditor = useProjectEditor(project).label
+  const editor = page.editedBy || projectEditor || ''
   const drawingNo = project?.number ?? '—'
 
   const midMarker = (x: number, y: number, dir: 'down' | 'up' | 'right' | 'left') => {

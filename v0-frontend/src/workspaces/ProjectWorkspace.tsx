@@ -4,6 +4,7 @@ import { runCommand } from '@/commands/registry'
 import { Badge, Button, Empty, Input, Segmented, Spinner } from '@/components/ui/primitives'
 import { useProjectStore } from '@/stores/projectStore'
 import { useUiStore } from '@/stores/uiStore'
+import { useProjectEditor } from '@/stores/userDirectoryStore'
 import type { Project } from '@/types/project'
 import { cn } from '@/utils/cn'
 import { fmtDate, fmtDateTime } from '@/utils/format'
@@ -16,6 +17,18 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: 'er
       <span className="text-[11px] text-muted">{label}</span>
       <span className={cn('font-mono text-[18px] font-semibold tabular-nums', tone === 'error' && value ? 'text-error' : tone === 'warn' && value ? 'text-warn' : 'text-fg')}>{value}</span>
     </div>
+  )
+}
+
+function EditorValue({ project }: { project: Project }) {
+  const editor = useProjectEditor(project)
+  if (editor.kind === 'none') return <span className="text-muted">—</span>
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span className={cn(editor.unknown && 'text-muted italic')}>{editor.label}</span>
+      {editor.kind === 'custom' && <Badge>Freitext</Badge>}
+      {editor.inactive && <Badge tone="warn">Deaktiviert</Badge>}
+    </span>
   )
 }
 
@@ -92,7 +105,7 @@ function Details({ project }: { project: Project }) {
             <dt className="text-muted">Beschreibung</dt>
             <dd className="text-fg-2">{project.description || '—'}</dd>
             <dt className="text-muted">Bearbeiter</dt>
-            <dd>{project.author}</dd>
+            <dd><EditorValue project={project} /></dd>
             <dt className="text-muted">Norm</dt>
             <dd>{project.standard}</dd>
             <dt className="text-muted">Vorlage</dt>

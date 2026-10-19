@@ -4,6 +4,7 @@ import { backend } from '@/backend'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button, Checkbox, Field, Input, Segmented, Select, Spinner } from '@/components/ui/primitives'
 import { useDataStore } from '@/stores/dataStore'
+import { projectEditorLabel } from '@/stores/userDirectoryStore'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { toast, useUiStore } from '@/stores/uiStore'
@@ -255,7 +256,7 @@ export function RevisionDialog() {
   const current = useProjectStore((s) => s.current)
   const next = current ? String.fromCharCode(Math.max(65, (current.revision.charCodeAt(0) || 64) + 1)) : 'A'
   const [desc, setDesc] = useState('')
-  const [author, setAuthor] = useState(current?.author ?? '')
+  const [author, setAuthor] = useState(() => projectEditorLabel(current))
   if (!current) return null
   const submit = () => {
     if (!desc.trim()) return

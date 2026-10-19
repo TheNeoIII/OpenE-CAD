@@ -3,9 +3,10 @@ import { useState } from 'react'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button, Checkbox, Field, IconButton, Input, Segmented, Select } from '@/components/ui/primitives'
 import { useProjectStore } from '@/stores/projectStore'
-import { useSettingsStore } from '@/stores/settingsStore'
 import { toast, useUiStore } from '@/stores/uiStore'
+import { useUserDirectory } from '@/stores/userDirectoryStore'
 import type { DocPageConfig, Party } from '@/types/project'
+import { editorPatch, projectEditorSource, type ProjectEditorSource } from '@/utils/projectEditor'
 import { CABINET_SPEC_FIELDS, DOC_PAGE_LABELS, NET_SPEC_FIELDS, resolveDocPages, type SpecField } from '@/utils/docPages'
 
 const close = () => useUiStore.getState().closeDialog()
@@ -111,20 +112,63 @@ function PageOrder({ pages, onChange }: { pages: DocPageConfig[]; onChange: (p: 
   )
 }
 
+const CUSTOM = '__custom__'
+
+/** Bearbeiter: an account from the directory XOR a free-text name. Metadata only, never a permission. */
+function EditorPicker({ value, onChange }: { value: ProjectEditorSource; onChange: (v: ProjectEditorSource) => void }) {
+  const directory = useUserDirectory()
+  const assignedId = value.kind === 'user' ? value.userId : null
+  const selectable = directory.filter((u) => u.status === 'active' || u.id === assignedId)
+  const assignedMissing = assignedId !== null && !directory.some((u) => u.id === assignedId)
+  const selectValue = value.kind === 'user' ? value.userId : value.kind === 'custom' ? CUSTOM : ''
+  const pick = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const v = e.target.value
+    if (v === '') onChange({ kind: 'none' })
+    else if (v === CUSTOM) onChange({ kind: 'custom', name: value.kind === 'custom' ? value.name : '' })
+    else onChange({ kind: 'user', userId: v })
+  }
+  const assigned = directory.find((u) => u.id === assignedId)
+  return (
+    <div className="flex flex-col gap-2">
+      <Field label="Bearbeiter" htmlFor="ps-auth">
+        <Select id="ps-auth" value={selectValue} onChange={pick}>
+          <option value="">— keiner —</option>
+          {assignedMissing && <option value={assignedId}>Unbekannter Benutzer</option>}
+          {selectable.length > 0 && (
+            <optgroup label="Benutzerkonten">
+              {selectable.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.displayName}
+                  {u.status !== 'active' ? ' (deaktiviert)' : ''}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          <option value={CUSTOM}>Freier Name (ohne Konto)…</option>
+        </Select>
+      </Field>
+      {value.kind === 'custom' && (
+        <Input aria-label="Name des Bearbeiters" value={value.name} maxLength={120} placeholder="z. B. H. Schmidt (extern)" onChange={(e) => onChange({ kind: 'custom', name: e.target.value })} autoFocus />
+      )}
+      {assigned && assigned.status !== 'active' && <p className="text-[11px] text-warn">Konto ist deaktiviert. Die Zuordnung bleibt erhalten.</p>}
+      {assignedMissing && <p className="text-[11px] text-muted">Das zugeordnete Konto ist nicht mehr vorhanden.</p>}
+    </div>
+  )
+}
+
 export function ProjectSettingsDialog({ projectId }: { projectId?: string }) {
   const current = useProjectStore((s) => {
     const id = projectId ?? s.current?.id
     if (!id) return null
     return s.current?.id === id ? s.current : (s.sessions[id]?.project ?? s.projects.find((p) => p.id === id) ?? null)
   })
-  const editors = useSettingsStore((s) => s.editors)
   const [tab, setTab] = useState<Tab>('general')
+  const [editor, setEditor] = useState<ProjectEditorSource>(() => (current ? projectEditorSource(current) : { kind: 'none' }))
   const [form, setForm] = useState(() => ({
     name: current?.name ?? '',
     number: current?.number ?? '',
     customer: current?.customer ?? '',
     location: current?.location ?? '',
-    author: current?.author ?? '',
     standard: current?.standard ?? 'IEC 81346',
     description: current?.description ?? '',
   }))
@@ -135,7 +179,11 @@ export function ProjectSettingsDialog({ projectId }: { projectId?: string }) {
   if (!current) return null
   const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value })
   const submit = () => {
-    void useProjectStore.getState().updateProject(current.id, { ...form, creator, client, spec, docPages })
+    if (editor.kind === 'custom' && !editor.name.trim()) {
+      setTab('general')
+      return toast('Bitte einen Namen für den freien Bearbeiter eingeben', 'error')
+    }
+    void useProjectStore.getState().updateProject(current.id, { ...form, ...editorPatch(editor), author: undefined, creator, client, spec, docPages })
     close()
     toast('Projekteigenschaften übernommen', 'success')
   }
@@ -190,20 +238,7 @@ export function ProjectSettingsDialog({ projectId }: { projectId?: string }) {
               <Field label="Anlagenort" htmlFor="ps-loc">
                 <Input id="ps-loc" value={form.location} onChange={f('location')} />
               </Field>
-              <Field label="Bearbeiter" htmlFor="ps-auth">
-                {editors.length > 0 ? (
-                  <Select id="ps-auth" value={form.author} onChange={f('author')}>
-                    <option value="">— keiner —</option>
-                    {(form.author && !editors.includes(form.author) ? [form.author, ...editors] : editors).map((e) => (
-                      <option key={e} value={e}>
-                        {e}
-                      </option>
-                    ))}
-                  </Select>
-                ) : (
-                  <Input id="ps-auth" value={form.author} onChange={f('author')} placeholder="Bearbeiter in den Einstellungen anlegen" />
-                )}
-              </Field>
+              <EditorPicker value={editor} onChange={setEditor} />
               <Field label="Revision" htmlFor="ps-rev">
                 <Input id="ps-rev" mono value={current.revision} disabled />
               </Field>

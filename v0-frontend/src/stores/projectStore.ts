@@ -3,6 +3,7 @@ import { backend } from '@/backend'
 import type { CadDocument, CadViewportState } from '@/types/cad'
 import type { DataViewId } from '@/types/data'
 import type { NewProjectInput, Project, ProjectTemplate } from '@/types/project'
+import { normalizeProjectEditor } from '@/utils/projectEditor'
 import { useDocumentStore } from './documentStore'
 import { useHistoryStore } from './historyStore'
 import { useSelectionStore } from './selectionStore'
@@ -128,7 +129,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     loadProjects: async () => {
       set({ listLoading: true })
       try {
-        const [projects, templates] = await Promise.all([backend.listProjects(), backend.listTemplates()])
+        const [list, templates] = await Promise.all([backend.listProjects(), backend.listTemplates()])
+        const projects = list.map(normalizeProjectEditor)
         set({ projects, templates })
         if (!useUiStore.getState().projectFocusId && projects[0]) useUiStore.getState().set({ projectFocusId: projects[0].id })
       } finally {
@@ -140,7 +142,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       if (get().openIds.includes(id)) return get().switchTo(id)
       set({ opening: id })
       try {
-        const { project, document } = await backend.openProject(id)
+        const opened = await backend.openProject(id)
+        const project = normalizeProjectEditor(opened.project)
+        const document = opened.document
         const sessions = park()
         restore({ project, document, activePageId: null, dirty: false, lastSavedAt: project.updatedAt, past: [], future: [] }, sessions)
         set({ opening: null, openIds: [...get().openIds, id] })
@@ -208,7 +212,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       if (!current || !doc || get().saving) return
       set({ saving: true })
       const { savedAt } = await backend.saveProject(current, doc)
-      const projects = await backend.listProjects()
+      const projects = (await backend.listProjects()).map(normalizeProjectEditor)
       set({ saving: false, dirty: false, lastSavedAt: savedAt, projects, current: projects.find((p) => p.id === current.id) ?? current })
       toast('Projekt gespeichert', 'success')
     },

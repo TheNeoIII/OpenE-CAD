@@ -27,7 +27,15 @@ export interface Project {
   customer: string
   location: string
   description: string
-  author: string
+  /**
+   * Assigned editor account (metadata only, never a permission).
+   * Mutually exclusive with `customEditorName`.
+   */
+  assignedEditorUserId?: string | null
+  /** Free-text editor name for people without an account. Mutually exclusive with `assignedEditorUserId`. */
+  customEditorName?: string | null
+  /** @deprecated Legacy free-text editor. Read only for migration via `normalizeProjectEditor`. */
+  author?: string
   revision: string
   standard: string
   template: string

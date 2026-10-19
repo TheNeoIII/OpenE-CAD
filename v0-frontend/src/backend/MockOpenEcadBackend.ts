@@ -50,7 +50,8 @@ function seedProjects(): { projects: Project[]; docs: Map<string, CadDocument> }
       customer,
       location,
       description: '',
-      author: 'M. Krüger',
+      assignedEditorUserId: 'u-admin',
+      customEditorName: null,
       revision: 'B',
       standard: 'IEC 81346 / DIN EN 61082',
       template: 'tpl-uv',
@@ -106,14 +107,23 @@ function seedProjects(): { projects: Project[]; docs: Map<string, CadDocument> }
     { id: 'terminals', enabled: true },
     { id: 'cables', enabled: true },
   ]
+  const hafen = base('p-hafen', 'Hafenkran K3 Retrofit', 'P-2026-009', 'Hafen Logistik GmbH', 'Bremerhaven', '2026-10-09T09:12:00.000Z')
+  hafen.assignedEditorUserId = 'u-weber'
+  const schule = base('p-schule', 'Grundschule Am Park', 'P-2026-021', 'Stadt Göttingen', 'Göttingen', '2026-10-02T13:30:00.000Z')
+  schule.assignedEditorUserId = 'u-user'
+  const press = base('p-press', 'Pressenlinie PL-4', 'P-2025-118', 'Metallbau Rhein AG', 'Koblenz', '2026-08-21T07:45:00.000Z')
+  // Legacy record shape: free-text author only, migrated by normalizeProjectEditor.
+  press.assignedEditorUserId = undefined
+  press.customEditorName = undefined
+  press.author = 'H. Schmidt (extern)'
   linden.revisions.push({ id: uid('rev'), index: 'B', date: '2026-09-28T11:30:00.000Z', author: 'M. Krüger', description: 'Lüftung ergänzt, FI getauscht' })
   return {
     docs,
     projects: [
       linden,
-      base('p-hafen', 'Hafenkran K3 Retrofit', 'P-2026-009', 'Hafen Logistik GmbH', 'Bremerhaven', '2026-10-09T09:12:00.000Z'),
-      base('p-schule', 'Grundschule Am Park', 'P-2026-021', 'Stadt Göttingen', 'Göttingen', '2026-10-02T13:30:00.000Z'),
-      base('p-press', 'Pressenlinie PL-4', 'P-2025-118', 'Metallbau Rhein AG', 'Koblenz', '2026-08-21T07:45:00.000Z'),
+      hafen,
+      schule,
+      press,
       base('p-pv', 'PV-Anlage Halle 2', 'P-2025-096', 'Agrar Nord eG', 'Husum', '2026-05-30T15:00:00.000Z', 'archived'),
     ],
   }
@@ -194,7 +204,8 @@ export class MockOpenEcadBackend implements OpenEcadBackend {
       customer: input.customer,
       location: input.location,
       description: '',
-      author: 'M. Krüger',
+      assignedEditorUserId: this.actor().id,
+      customEditorName: null,
       revision: 'A',
       standard: 'IEC 81346 / DIN EN 61082',
       template: tpl.id,

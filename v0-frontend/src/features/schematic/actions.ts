@@ -5,6 +5,7 @@ import type { CadDocument, CadLine, CadObject, CadPage, FunctionGroup, CadSymbol
 import type { Article, Device, Placement } from '@/types/device'
 import { uid } from '@/utils/format'
 import { useProjectStore } from '@/stores/projectStore'
+import { projectEditorLabel } from '@/stores/userDirectoryStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useToolStore } from '@/stores/toolStore'
 import { groupNo, nextNumberInGroup, sortedPages } from '@/utils/pages'
@@ -335,7 +336,7 @@ export function pastePages() {
   const { pages, devices, groups, sourceProjectId } = useClipboardStore.getState()
   if (!pages.length || !useDocumentStore.getState().document) return 0
   const sameProject = sourceProjectId === currentProjectId()
-  const editedBy = useProjectStore.getState().current?.author || undefined
+  const editedBy = projectEditorLabel(useProjectStore.getState().current) || undefined
   const newIds: string[] = []
   commit(`${pages.length} Seite(n) eingefügt`, (doc) => {
     let working = doc
