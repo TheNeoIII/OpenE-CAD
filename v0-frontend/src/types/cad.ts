@@ -90,11 +90,13 @@ export interface CustomSymbolDef {
 export interface SymbolOverride {
   geometry?: Partial<Record<1 | 3, Pick<CustomSymbolDef, 'shapes' | 'pins'>>>
   label?: string
+  /** Name shown in the symbol list per pole variant; replaces the generated 1-/3-polig name. */
+  poleLabels?: Partial<Record<1 | 3, string>>
   description?: string
   bmkPrefix?: string
   category?: DeviceCategory
   mount?: MountType
-}
+  }
 
 export interface CadSymbol {
   id: string

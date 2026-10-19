@@ -223,8 +223,9 @@ interface Outgoing {
   label: string[]
 }
 
-const F_RAIL_Y = [800, 850, 900]
-const F_N_Y = 950
+const F_RAIL_Y = [900, 950, 1000]
+const F_N_Y = 1050
+const FI_OUT_Y = 819.14
 const PE_Y = 1750
 const OUTLET_Y = 2150
 
@@ -254,10 +255,10 @@ function groupPage(id: string, number: string, title: string, prev: string, next
       b.wire('L2', 'auto', [700, 350], [700, 500]),
       b.wire('L3', 'auto', [800, 400], [800, 500]),
       b.wire('N', 'auto', [900, 450], [900, 500]),
-      b.wire('F/L1', 'auto', [600, 700], [600, F_RAIL_Y[0]]),
-      b.wire('F/L2', 'auto', [700, 700], [700, F_RAIL_Y[1]]),
-      b.wire('F/L3', 'auto', [800, 700], [800, F_RAIL_Y[2]]),
-      b.wire('F/N', 'auto', [900, 700], [900, F_N_Y]),
+      b.wire('F/L1', 'auto', [600, FI_OUT_Y], [600, F_RAIL_Y[0]]),
+      b.wire('F/L2', 'auto', [700, FI_OUT_Y], [700, F_RAIL_Y[1]]),
+      b.wire('F/L3', 'auto', [800, FI_OUT_Y], [800, F_RAIL_Y[2]]),
+      b.wire('F/N', 'auto', [900, FI_OUT_Y], [900, F_N_Y]),
     )
     p.junctions.push(b.j(600, 300), b.j(700, 350), b.j(800, 400), b.j(900, 450), b.j(600, F_RAIL_Y[0]), b.j(700, F_RAIL_Y[1]), b.j(800, F_RAIL_Y[2]), b.j(900, F_N_Y))
   }

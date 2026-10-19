@@ -119,14 +119,16 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
   const def = symbolDef(current.kind)
   const used = usageCount(doc, current.kind)
   const builtin = !current.custom
-  const editing: CustomSymbolDef = { ...(current.custom ?? { ...def, id: current.key, shapes: symbolShapes(current.kind, current.poles), pins: def.pins({ poles: current.poles }) }), ...pending }
+  const editing: CustomSymbolDef = { ...(current.custom ?? { ...def, label: def.supportsPoles ? current.label : def.label, id: current.key, shapes: symbolShapes(current.kind, current.poles), pins: def.pins({ poles: current.poles }) }), ...pending }
   const save = () => {
     if (!pending) return
     if (current.custom) patchCustom(current.custom.id, 'Symbol gespeichert', pending)
     else {
       const kind = current.kind as BuiltinSymbolKind
       const { label, description, bmkPrefix, category, mount, shapes, pins } = editing
-      patchOverride(kind, { label, description, bmkPrefix, category, mount, geometry: { ...symbolOverrideOf(kind)?.geometry, [current.poles]: { shapes, pins } } })
+      const prev = symbolOverrideOf(kind)
+      const naming = def.supportsPoles ? { poleLabels: { ...prev?.poleLabels, [current.poles]: label } } : { label }
+      patchOverride(kind, { ...naming, description, bmkPrefix, category, mount, geometry: { ...prev?.geometry, [current.poles]: { shapes, pins } } })
     }
     setPending(null)
   }
