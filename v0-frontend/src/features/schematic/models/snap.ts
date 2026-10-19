@@ -1,4 +1,5 @@
 import type { CadPage, Point } from '@/types/cad'
+import { screenToWorldTolerance } from '@/features/drawing/viewport'
 import { snapPoint, snapValue, symbolPins } from './geometry'
 
 /**
@@ -92,7 +93,7 @@ function projectOrthogonal(w: Point, a: Point, b: Point, grid: number, gridSnap:
 export function resolveSnap(page: CadPage, w: Point, o: SnapOptions): SnapResult {
   if (o.disabled) return { point: rawPoint(w), kind: 'free', ref: null, label: SNAP_KIND_LABELS.free }
 
-  const tol = (px: number) => px / o.scale
+  const tol = (px: number) => screenToWorldTolerance(px, o.scale)
 
   if (o.electrical) {
     // 1. Symbol connection points
