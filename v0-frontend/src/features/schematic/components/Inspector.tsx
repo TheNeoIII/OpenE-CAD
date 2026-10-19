@@ -24,7 +24,7 @@ import type { Device } from '@/types/device'
 
 function railTips(obj: CadWire | CadPotential, page: CadPage) {
   if (obj.type !== 'potential') return undefined
-  return { left: obj.xrefLeft ? xrefTip('left', obj.x1, page.format) : obj.x1, right: obj.xrefRight ? xrefTip('right', obj.x2, page.format) : obj.x2 }
+  return { left: obj.xrefLeft ? xrefTip('left', obj.x1, page) : obj.x1, right: obj.xrefRight ? xrefTip('right', obj.x2, page) : obj.x2 }
 }
 import { cn } from '@/utils/cn'
 import { fmtTime } from '@/utils/format'

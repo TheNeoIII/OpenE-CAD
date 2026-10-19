@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { PAGE_FORMATS, type CadPage, type PageFormat } from '@/types/cad'
+import { pageSizeOf, type CadPage } from '@/types/cad'
 import { useProjectEditor } from '@/stores/userDirectoryStore'
 import type { Project } from '@/types/project'
 import { fmtDate } from '@/utils/format'
@@ -19,14 +19,14 @@ export const XREF_GAP = 6
 export const XREF_SPAN = XREF_W + XREF_TIP + XREF_GAP
 
 /** Usable drawing area between the left text strip and the right frame border. */
-export function drawingArea(format: PageFormat) {
-  const W = PAGE_FORMATS[format].width
+export function drawingArea(page: CadPage) {
+  const W = pageSizeOf(page).width
   return { left: FRAME_INSET + BORDER + STRIP_W + 4, right: W - FRAME_INSET - BORDER - 4 }
 }
 
 /** Tip x of an xref tag at a rail end, clamped so the tag never leaves the drawing area. */
-export function xrefTip(side: 'left' | 'right', x: number, format: PageFormat) {
-  const a = drawingArea(format)
+export function xrefTip(side: 'left' | 'right', x: number, page: CadPage) {
+  const a = drawingArea(page)
   return side === 'left' ? Math.max(x - XREF_GAP, a.left + XREF_W + XREF_TIP) : Math.min(x + XREF_GAP, a.right - XREF_W - XREF_TIP)
 }
 
@@ -37,7 +37,7 @@ const fit = (value: string, width: number, size: number) => {
 
 /** ELCAD-style drawing frame: border grid 1–8 / A–F, side strip and title block. Never hit-tested. */
 export const SheetFrame = memo(function SheetFrame({ page, project, pageIndex, pageCount, grid, showGrid, guides }: { page: CadPage; project: Project | null; pageIndex: number; pageCount: number; grid: number; showGrid: boolean; guides: boolean }) {
-  const { width: W, height: H } = PAGE_FORMATS[page.format]
+  const { width: W, height: H } = pageSizeOf(page)
   const ink = 'var(--sheet-ink)'
   const ink2 = 'var(--sheet-ink-2)'
   const ox = FRAME_INSET

@@ -2,7 +2,7 @@ import { Suspense, use, useMemo, useState } from 'react'
 import { backend } from '@/backend'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button, Field, Input, Segmented, Select, Spinner } from '@/components/ui/primitives'
-import { addPotential, addCrossReference, assignArticle, updatePageMeta } from '@/features/schematic/actions'
+import { addPage, addPotential, addCrossReference, assignArticle, updatePageMeta } from '@/features/schematic/actions'
 import { Star } from 'lucide-react'
 import { articleVariant, customKind, symbolDef, symbolMeta, symbolVariants, variantByKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
 import { matchesOriginFilter, OriginFilterSelect, ownerOptions, SymbolOriginBadge, useSymbolOriginResolver, type OriginFilter, type ResolvedOrigin } from '@/features/library/SymbolOriginBadge'
@@ -12,41 +12,58 @@ import { SymbolGlyph } from '@/features/schematic/components/SymbolGlyph'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useToolStore } from '@/stores/toolStore'
 import { toast, useUiStore } from '@/stores/uiStore'
-import { PAGE_FORMATS, UNITS_PER_MM, type PageFormat } from '@/types/cad'
+import { PAGE_FORMATS, pageSizeOf, validPageSize, UNITS_PER_MM, type PageFormat, type PageKind } from '@/types/cad'
 import type { Article } from '@/types/device'
 import { cn } from '@/utils/cn'
 import { fmtNumber } from '@/utils/format'
 
 const close = () => useUiStore.getState().closeDialog()
 
-export function PagePropertiesDialog({ pageId }: { pageId: string }) {
+export function PagePropertiesDialog({ pageId }: { pageId?: string }) {
   const doc = useDocumentStore((s) => s.document)
   const page = doc?.pages.find((p) => p.id === pageId)
   const [form, setForm] = useState(() => ({ number: page?.number ?? '', title: page?.title ?? '', format: page?.format ?? 'A3L', functionGroup: page?.functionGroup ?? '', revision: page?.revision ?? '' }))
-  if (!page || !doc) return null
-  const dup = doc.pages.some((p) => p.id !== pageId && p.number === form.number.trim())
+  const [kind, setKind] = useState<PageKind>(page?.kind ?? 'schematic')
+  const [width, setWidth] = useState(String(page ? pageSizeOf(page).width / UNITS_PER_MM : 420))
+  const [height, setHeight] = useState(String(page ? pageSizeOf(page).height / UNITS_PER_MM : 297))
+  if (!doc || (pageId && !page)) return null
+  const customSize = { width: Number(width) * UNITS_PER_MM, height: Number(height) * UNITS_PER_MM }
+  const invalidSize = form.format === 'CUSTOM' && !validPageSize(customSize)
+  const dup = !!pageId && doc.pages.some((p) => p.id !== pageId && p.number === form.number.trim())
   const submit = () => {
-    if (dup || !form.number.trim()) return
-    updatePageMeta(pageId, { ...form, number: form.number.trim(), format: form.format as PageFormat })
+    if (dup || invalidSize || (pageId && !form.number.trim())) return
+    const size = form.format === 'CUSTOM' ? customSize : undefined
+    if (pageId) updatePageMeta(pageId, { ...form, number: form.number.trim(), customSize: size })
+    else addPage(undefined, { title: form.title.trim() || 'Neue Seite', kind, format: form.format, customSize: size })
     close()
   }
   return (
     <Dialog
-      title="Seiteneigenschaften"
-      description={`Seite ${page.number}`}
+      title={pageId ? 'Seiteneigenschaften' : 'Neue Seite'}
+      description={page ? `Seite ${page.number}` : 'Zeichnungstyp und Papierformat wählen'}
       onSubmit={submit}
       footer={
         <>
           <Button onClick={close}>Abbrechen</Button>
-          <Button type="submit" variant="primary" disabled={dup}>
+          <Button type="submit" variant="primary" disabled={dup || invalidSize}>
             Übernehmen
           </Button>
         </>
       }
     >
       <div className="grid grid-cols-2 gap-3">
+        <Field label="Seitentyp" htmlFor="pp-kind" className="col-span-2">
+          <Select id="pp-kind" disabled={!!pageId} value={kind} onChange={e => setKind(e.target.value as PageKind)}>
+            <option value="schematic">Stromlaufplan</option><option value="wiring">Verkabelungsschema</option>
+            {kind === 'cover' && <option value="cover">Deckblatt</option>}{kind === 'report' && <option value="report">Bericht</option>}
+          </Select>
+        </Field>
+        {form.format === 'CUSTOM' && <>
+          <Field label="Breite (mm)" htmlFor="pp-width"><Input id="pp-width" type="number" min="10" max="5000" step="0.1" value={width} onChange={e => setWidth(e.target.value)} /></Field>
+          <Field label="Höhe (mm)" htmlFor="pp-height"><Input id="pp-height" type="number" min="10" max="5000" step="0.1" value={height} onChange={e => setHeight(e.target.value)} /></Field>
+        </>}
         <Field label="Seitennummer" htmlFor="pp-num" hint={dup ? <span className="text-error">Nummer ist bereits vergeben</span> : undefined}>
-          <Input id="pp-num" mono data-autofocus value={form.number} onChange={(e) => {
+          <Input id="pp-num" disabled={!pageId} placeholder="Automatisch" mono data-autofocus value={form.number} onChange={(e) => {
             const number = e.target.value
             const group = doc.functionGroups.find((g, i) => (g.no ?? i) === Number(number.split('.')[0]))
             setForm({ ...form, number, functionGroup: group?.id ?? form.functionGroup })
@@ -59,6 +76,7 @@ export function PagePropertiesDialog({ pageId }: { pageId: string }) {
                 {v.label}
               </option>
             ))}
+            <option value="CUSTOM">Benutzerdefiniert</option>
           </Select>
         </Field>
         <Field label="Seitentitel" htmlFor="pp-title" className="col-span-2">

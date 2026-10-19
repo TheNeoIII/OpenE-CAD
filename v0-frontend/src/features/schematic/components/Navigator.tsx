@@ -181,6 +181,7 @@ export function Navigator() {
                       <FileText className="size-3.5 shrink-0 text-muted" aria-hidden />
                       <span className="w-6 shrink-0 font-mono text-[11px] text-muted">{p.number}</span>
                       <span className="truncate">{p.title}</span>
+                      {p.kind === 'wiring' && <span className="ml-auto text-[10px] text-accent" title="Verkabelungsschema">W</span>}
                     </Row>
                     </Fragment>
                   ))}

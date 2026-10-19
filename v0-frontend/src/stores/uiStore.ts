@@ -26,6 +26,7 @@ export type DialogState =
   | { type: 'projectSettings'; projectId?: string }
   | { type: 'settings' }
   | { type: 'pageProperties'; pageId: string }
+  | { type: 'pageNew' }
   | { type: 'functionGroups' }
   | { type: 'symbolPicker' }
   | { type: 'articlePicker'; deviceId: string }

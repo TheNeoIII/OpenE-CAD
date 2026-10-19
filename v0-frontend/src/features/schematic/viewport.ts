@@ -1,7 +1,7 @@
 import { getActivePage } from '@/stores/documentStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useViewportStore } from '@/stores/viewportStore'
-import { PAGE_FORMATS, type CadViewportState, type Point, type Rect } from '@/types/cad'
+import { pageSizeOf, type CadPage, type CadViewportState, type Point, type Rect } from '@/types/cad'
 import { BASE_SCALE, clampZoom, fitRect, screenToWorld } from '@/features/drawing/viewport'
 import { findObject, objectBounds, unionRects } from './models/geometry'
 
@@ -15,8 +15,8 @@ function ctx() {
   return { page, view, size: vs.size, set: (v: CadViewportState) => vs.setView(page.id, v) }
 }
 
-export function pageRect(format: keyof typeof PAGE_FORMATS): Rect {
-  const f = PAGE_FORMATS[format]
+export function pageRect(page: Pick<CadPage, 'format' | 'customSize'>): Rect {
+  const f = pageSizeOf(page)
   return { x: 0, y: 0, w: f.width, h: f.height }
 }
 
@@ -37,12 +37,12 @@ export function setZoom(zoom: number) {
 
 export function fitPage() {
   const c = ctx()
-  if (c) c.set(fitRect(pageRect(c.page.format), c.size))
+  if (c) c.set(fitRect(pageRect(c.page), c.size))
 }
 
 export function fitWidth() {
   const c = ctx()
-  if (c) c.set(fitRect(pageRect(c.page.format), c.size, 24, 'width'))
+  if (c) c.set(fitRect(pageRect(c.page), c.size, 24, 'width'))
 }
 
 export function fitSelection() {

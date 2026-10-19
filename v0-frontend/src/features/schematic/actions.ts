@@ -471,13 +471,13 @@ export function addCabinetRow(cabinetId: string) {
 
 /* ---------------- pages ---------------- */
 
-export function addPage(afterId?: string) {
+export function addPage(afterId?: string, options: Partial<Pick<CadPage, 'kind' | 'format' | 'customSize' | 'title'>> = {}) {
   const doc = useDocumentStore.getState().document
   if (!doc) return
   const ref = doc.pages.find((p) => p.id === (afterId ?? activeId())) ?? doc.pages[doc.pages.length - 1]
   const id = uid('pg')
   const number = nextNumberInGroup(doc, ref.functionGroup)
-  const page: CadPage = { id, number, title: 'Neue Seite', functionGroup: ref.functionGroup, format: ref.format, kind: 'schematic', revision: 'A', updatedAt: new Date().toISOString(), symbols: [], wires: [], junctions: [], texts: [], potentials: [], lines: [] }
+  const page: CadPage = { id, number, title: 'Neue Seite', functionGroup: ref.functionGroup, format: ref.format, customSize: ref.customSize, kind: 'schematic', ...options, revision: 'A', updatedAt: new Date().toISOString(), symbols: [], wires: [], junctions: [], texts: [], potentials: [], lines: [] }
   commit('Seite angelegt', (d) => {
     const idx = d.pages.findIndex((p) => p.id === ref.id)
     const pages = [...d.pages]
@@ -527,7 +527,7 @@ export function applyFunctionGroups(entries: FunctionGroupEdit[]) {
   })
 }
 
-export function updatePageMeta(pageId: string, patch: Partial<Pick<CadPage, 'title' | 'number' | 'format' | 'functionGroup' | 'revision'>>) {
+export function updatePageMeta(pageId: string, patch: Partial<Pick<CadPage, 'title' | 'number' | 'format' | 'customSize' | 'functionGroup' | 'revision'>>) {
   commit('Seiteneigenschaften geändert', (doc) => updatePage(doc, pageId, (p) => ({ ...p, ...patch })))
 }
 

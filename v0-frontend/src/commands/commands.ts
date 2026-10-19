@@ -48,7 +48,6 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import {
-  addPage,
   copyPages,
   copySelection,
   pastePages,
@@ -354,7 +353,7 @@ const commands: Command[] = [
   { id: 'insert.macro', label: 'Makro einfügen', category: 'Einfügen', future: true, run: () => {} },
 
   /* -------- Seite -------- */
-  { id: 'page.new', label: 'Neue Seite', category: 'Seite', icon: FilePlus2, shortcut: 'Ctrl+Shift+N', isEnabled: hasProject, run: () => { goWorkspace('schematic'); addPage() } },
+  { id: 'page.new', label: 'Neue Seite', category: 'Seite', icon: FilePlus2, shortcut: 'Ctrl+Shift+N', isEnabled: hasProject, run: () => { goWorkspace('schematic'); ui().openDialog({ type: 'pageNew' }) } },
   { id: 'page.duplicate', label: 'Seite duplizieren', category: 'Seite', isEnabled: hasProject, run: (id?: string) => duplicatePage(id ?? useDocumentStore.getState().activePageId!) },
   { id: 'page.properties', label: 'Seiteneigenschaften …', category: 'Seite', isEnabled: hasProject, run: (id?: string) => ui().openDialog({ type: 'pageProperties', pageId: id ?? useDocumentStore.getState().activePageId! }) },
   {

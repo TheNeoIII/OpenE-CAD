@@ -1,10 +1,10 @@
-import { PAGE_FORMATS, type CadDocument, type CadPage, type CadSymbol, type CadText, type Point, type SymbolKind } from '@/types/cad'
+import { pageSizeOf, type CadDocument, type CadPage, type CadSymbol, type CadText, type Point, type SymbolKind } from '@/types/cad'
 import { pageSequence, sortedPages } from '@/utils/pages'
 import { BORDER, COLUMNS, FRAME_INSET, ROWS } from '../components/SheetFrame'
 
 /** Grid coordinate of a point on its sheet, e.g. "E2" (row letter + column number, as in the drawing frame). */
 export function gridRef(page: CadPage, p: Point): string {
-  const { width: W, height: H } = PAGE_FORMATS[page.format]
+  const { width: W, height: H } = pageSizeOf(page)
   const inset = FRAME_INSET + BORDER
   const col = Math.min(COLUMNS, Math.max(1, Math.floor(((p.x - inset) / (W - inset * 2)) * COLUMNS) + 1))
   const row = ROWS[Math.min(ROWS.length - 1, Math.max(0, Math.floor(((p.y - inset) / (H - inset * 2)) * ROWS.length)))]

@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { PAGE_FORMATS, type CadDocument, type CadPage } from '@/types/cad'
+import { pageSizeOf, type CadDocument, type CadPage } from '@/types/cad'
 import { useProjectEditor } from '@/stores/userDirectoryStore'
 import type { Project } from '@/types/project'
 import { fmtDate } from '@/utils/format'
@@ -55,7 +55,7 @@ function ReportTable({ x, y, w, title, cols, rows, rowH = 40 }: { x: number; y: 
 export const SheetReport = memo(function SheetReport({ page, doc, project }: { page: CadPage; doc: CadDocument; project: Project | null }) {
   const projectEditor = useProjectEditor(project).label
   if (page.kind === 'schematic') return null
-  const { width: W, height: H } = PAGE_FORMATS[page.format]
+  const { width: W, height: H } = pageSizeOf(page)
   const ix = FRAME_INSET + BORDER
   const iy = FRAME_INSET + BORDER
   const iw = W - 2 * ix

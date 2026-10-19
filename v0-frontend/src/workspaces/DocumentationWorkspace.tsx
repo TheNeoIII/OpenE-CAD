@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { useDocumentStore } from '@/stores/documentStore'
-import { PAGE_FORMATS } from '@/types/cad'
+import { pageSizeOf } from '@/types/cad'
 import { sortedGroups, sortedPages } from '@/utils/pages'
 import { SheetDrawing } from '@/features/schematic/components/SchematicCanvas'
 
@@ -22,7 +22,7 @@ export function DocumentationWorkspace() {
       <main aria-label="Fertiger Plan" className="min-w-0 flex-1 overflow-auto bg-[var(--sheet-desk)] p-6">
         <p className="mx-auto mb-4 max-w-5xl text-xs text-muted">Alle Blätter in Editor-Reihenfolge · identischer Blattrenderer, ohne Bearbeitungshilfen</p>
         {pages.map(p => {
-          const f = PAGE_FORMATS[p.format]
+          const f = pageSizeOf(p)
           return <article key={p.id} ref={el => { if (el) nodes.current.set(p.id, el); else nodes.current.delete(p.id) }} aria-label={`${p.number} ${p.title}`} className="mx-auto mb-8 max-w-5xl scroll-mt-4">
             <h3 className="mb-2 text-xs text-muted">{p.number} · {p.title}</h3>
             <svg viewBox={`0 0 ${f.width} ${f.height}`} className="block w-full shadow-lg" style={{ fontFamily: 'var(--font-sans)' }}><SheetDrawing page={p} clean /></svg>

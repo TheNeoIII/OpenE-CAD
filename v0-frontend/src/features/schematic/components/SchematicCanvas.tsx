@@ -335,7 +335,7 @@ function CanvasInner({ page }: { page: CadPage }) {
     }
     const labelConductor = labelId && tool === 'select' ? [...page.wires, ...page.potentials].find((c) => c.id === labelId && c.labelPos === 'custom') : undefined
     if (labelConductor) {
-      const tips = labelConductor.type === 'potential' ? { left: labelConductor.xrefLeft ? xrefTip('left', labelConductor.x1, page.format) : labelConductor.x1, right: labelConductor.xrefRight ? xrefTip('right', labelConductor.x2, page.format) : labelConductor.x2 } : undefined
+      const tips = labelConductor.type === 'potential' ? { left: labelConductor.xrefLeft ? xrefTip('left', labelConductor.x1, page) : labelConductor.x1, right: labelConductor.xrefRight ? xrefTip('right', labelConductor.x2, page) : labelConductor.x2 } : undefined
       const at = conductorLabelPlacements(labelConductor, tips)[0]
       const ref = conductorLabelRef(labelConductor)
       if (at) return setGesture({ kind: 'label', id: labelConductor.id, origin: w, offset: { x: at.x - ref.x, y: at.y - ref.y }, delta: { x: 0, y: 0 } })
@@ -348,7 +348,7 @@ function CanvasInner({ page }: { page: CadPage }) {
     const rail = id && (railEnd === 'x1' || railEnd === 'x2') ? page.potentials.find((r) => r.id === id) : undefined
     if (rail && (railEnd === 'x1' || railEnd === 'x2')) {
       const rails = sel.ids.includes(rail.id) ? page.potentials.filter((r) => sel.ids.includes(r.id)) : [rail]
-      const limits = rails.map((r) => ({ r, lim: railEndLimits(page, r.id, railEnd, pageRect(page.format).w)! }))
+      const limits = rails.map((r) => ({ r, lim: railEndLimits(page, r.id, railEnd, pageRect(page).w)! }))
       const minDelta = Math.max(...limits.map(({ r, lim }) => lim.min - r[railEnd]))
       const maxDelta = Math.min(...limits.map(({ r, lim }) => lim.max - r[railEnd]))
       if (minDelta <= maxDelta) return setGesture({ kind: 'railEnd', railId: rail.id, ids: rails.map((r) => r.id), end: railEnd, x: rail[railEnd], start: rail[railEnd], min: rail[railEnd] + minDelta, max: rail[railEnd] + maxDelta })
@@ -568,7 +568,7 @@ const shownPage = gesture?.kind === 'wireEnd' && gesture.snap
             })()}
         </g>
       </svg>
-      {view && <CanvasScrollbars view={view} size={size} sheet={pageRect(page.format)} />}
+      {view && <CanvasScrollbars view={view} size={size} sheet={pageRect(page)} />}
     </div>
   )
 }
@@ -623,8 +623,8 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
             const st = resolve(p, p.name)
             const col = strokeOf(st)
             const label = p.label !== undefined ? p.label.trim() : p.name
-            const tipL = p.xrefLeft ? xrefTip('left', p.x1, page.format) : p.x1
-            const tipR = p.xrefRight ? xrefTip('right', p.x2, page.format) : p.x2
+            const tipL = p.xrefLeft ? xrefTip('left', p.x1, page) : p.x1
+            const tipR = p.xrefRight ? xrefTip('right', p.x2, page) : p.x2
             return (
               <g key={p.id} data-id={p.id} transform={offset(p.id)}>
                 <path d={`M${p.x1} ${p.y} H${p.x2}`} stroke="transparent" strokeWidth={hitW * 2} />
