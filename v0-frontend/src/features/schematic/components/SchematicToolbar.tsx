@@ -1,4 +1,4 @@
-import { Circle, Square, Grid3x3, Hand, Magnet, Maximize, MousePointer2, MoveVertical as MouseScroll, ScanSearch as MouseZoom, PanelLeft, PanelRight, PenLine, Plus, RotateCw, Spline, Trash2, Type, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react'
+import { Circle, Square, Image as ImageIcon, Grid3x3, Hand, Magnet, Maximize, MousePointer2, MoveVertical as MouseScroll, ScanSearch as MouseZoom, PanelLeft, PanelRight, PenLine, Plus, RotateCw, Spline, Trash2, Type, ZoomIn, ZoomOut, type LucideIcon } from 'lucide-react'
 import { runCommand, tooltip } from '@/commands/registry'
 import { IconButton } from '@/components/ui/primitives'
 import { useSelectionStore } from '@/stores/selectionStore'
@@ -55,6 +55,7 @@ export function SchematicToolbar() {
       ))}
       {page?.kind === 'wiring' &&
         SHAPE_TOOLS.map((t) => <IconButton key={t.tool} icon={t.icon} label={tooltip(t.cmd)} active={tool === t.tool} onClick={() => runCommand(t.cmd)} />)}
+      {page?.kind === 'wiring' && <IconButton icon={ImageIcon} label={tooltip('insert.image')} onClick={() => runCommand('insert.image')} />}
       <Sep />
       {favorites.map((v) => (
         <button

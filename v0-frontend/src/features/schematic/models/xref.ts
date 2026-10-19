@@ -69,6 +69,7 @@ export interface ContactRef {
 export function deviceContacts(doc: CadDocument, deviceId: string, exceptId: string): ContactRef[] {
   const out: ContactRef[] = []
   for (const page of doc.pages) {
+    if (page.kind !== 'schematic') continue
     for (const symbol of page.symbols) {
       if (symbol.id !== exceptId && symbol.deviceId === deviceId && CONTACT_KINDS.has(symbol.kind)) out.push({ symbol, page })
     }

@@ -84,7 +84,7 @@ function realRows(view: DataViewId, doc: CadDocument | null): DataRow[] {
         }
       })
     case 'terminals':
-      return doc.pages.flatMap((p) =>
+      return doc.pages.filter((p) => p.kind === 'schematic').flatMap((p) =>
         p.symbols
           .filter((s) => s.kind === 'terminal')
           .map((s) => ({
@@ -98,7 +98,7 @@ function realRows(view: DataViewId, doc: CadDocument | null): DataRow[] {
     case 'plc':
       return doc.plc.map((io) => ({ id: io.id, cells: { address: io.address, direction: io.direction, symbol: io.symbol, deviceBmk: io.deviceBmk, comment: io.comment } }))
     case 'connections':
-      return doc.pages.flatMap((p) =>
+      return doc.pages.filter((p) => p.kind === 'schematic').flatMap((p) =>
         p.wires.map((w, i) => ({
           id: `c-${w.id}`,
           cells: { from: `W${i + 1}.a`, to: `W${i + 1}.b`, potential: w.potential ?? '—', color: w.color === 'red' ? 'RD' : w.potential === 'N' ? 'BU' : w.potential === 'PE' ? 'GNYE' : 'SW', crossSection: w.crossSection, page: p.number },
