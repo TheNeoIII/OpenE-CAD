@@ -7,7 +7,9 @@ import { buildDataTable } from './mock/dataTables'
 import { buildEmptyDocument, buildSampleDocument } from './mock/sampleDocument'
 import { validateDocument } from './mock/validation'
 import type { ExportOptions, OpenEcadBackend } from './OpenEcadBackend'
-import type { AdminUser } from './admin'
+import type { AdminUser, DirectoryUser } from './admin'
+import { MockAuditLog, seedAudit } from './mock/audit'
+import { MockAdmin } from './mock/MockAdmin'
 import type { AccountUser, DevIdentityControl } from './auth'
 import { MOCK_ADMIN_ID, MOCK_USER_ID, seedUsers } from './mock/users'
 
@@ -136,10 +138,19 @@ export class MockOpenEcadBackend implements OpenEcadBackend {
     },
   }
 
+  readonly audit = new MockAuditLog()
+  readonly admin = new MockAdmin(this.users, () => this.actor(), this.audit)
+
   constructor() {
     const seed = seedProjects()
     this.projects = seed.projects
     this.docs = seed.docs
+    seedAudit(this.audit)
+  }
+
+  async listUserDirectory(): Promise<DirectoryUser[]> {
+    await delay(LATENCY / 2)
+    return this.users.map(({ id, username, displayName, status }) => ({ id, username, displayName, status }))
   }
 
   private actor() {

@@ -1,7 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import useSWR from 'swr'
 import { backend } from '@/backend'
-import { Button, Badge } from '@/components/ui/primitives'
+import { Badge } from '@/components/ui/primitives'
+import { AccountMenu } from './AccountMenu'
+import { AdminArea, type AdminTab } from './admin/AdminArea'
 import { LoginScreen } from './LoginScreen'
 import { SecurityDialog } from './SecurityDialog'
 import { ImportProjectDialog } from '@/components/dialogs/ImportProjectDialog'
@@ -14,6 +16,7 @@ export function AccountBoundary({ children }: { children: ReactNode }) {
   const [expired, setExpired] = useState(false)
   const [security, setSecurity] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [adminTab, setAdminTab] = useState<AdminTab | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const { data: session, error: sessionError, isLoading } = useSWR(backend.account ? 'auth-session' : null, () => backend.account!.session(), { shouldRetryOnError: false, refreshInterval: 60_000 })
@@ -46,10 +49,11 @@ export function AccountBoundary({ children }: { children: ReactNode }) {
   return <div className="flex h-dvh flex-col bg-app text-fg">
     <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-panel px-3 py-1 text-xs">
       <div className="flex items-center gap-2"><span>{user?.displayName ?? 'Entwicklungsvorschau (nicht angemeldet)'}</span>{user?.roles.map((role) => <Badge key={role}>{role}</Badge>)}{development && <Badge tone="warn">Development-only · nicht angemeldet</Badge>}{development && <DevIdentitySwitch />}</div>
-      <div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => setImportOpen(true)}>Projekt importieren</Button><Button size="sm" onClick={() => setSecurity(true)}>Konto & Sicherheit</Button><Button size="sm" disabled={busy} onClick={() => void logout()}>{development ? 'Vorschau verlassen' : 'Abmelden'}</Button></div>
+      <AccountMenu onSecurity={() => setSecurity(true)} onImport={() => setImportOpen(true)} onAdmin={setAdminTab} onLogout={() => void logout()} logoutLabel={development ? 'Vorschau verlassen' : 'Abmelden'} busy={busy} />
       {error && <p role="alert" className="w-full text-error">{error}</p>}
     </header>
-    <div className="min-h-0 flex-1">{children}</div>
+    {adminTab && <div className="min-h-0 flex-1"><AdminArea tab={adminTab} onTab={setAdminTab} onClose={() => setAdminTab(null)} /></div>}
+    <div className={adminTab ? 'hidden' : 'min-h-0 flex-1'}>{children}</div>
     <div onKeyDown={(event) => event.stopPropagation()}>
       {security && <SecurityDialog onClose={() => setSecurity(false)} />}
       {importOpen && <ImportProjectDialog onClose={() => setImportOpen(false)} />}

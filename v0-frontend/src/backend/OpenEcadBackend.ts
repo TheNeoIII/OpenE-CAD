@@ -31,6 +31,10 @@ export interface OpenEcadBackend {
   readonly account?: import('./auth').AccountBackend
   /** Development mock only: switch between mock identities. Never present in production. */
   readonly dev?: import('./auth').DevIdentityControl
+  /** App-level administration. The server re-authorizes every call. */
+  readonly admin?: import('./admin').AdminBackend
+  /** Minimal directory of accounts for owner badges and editor assignment (any authenticated user). */
+  listUserDirectory(): Promise<import('./admin').DirectoryUser[]>
 
   listProjects(): Promise<Project[]>
   listTemplates(): Promise<ProjectTemplate[]>
