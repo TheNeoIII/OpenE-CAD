@@ -104,6 +104,8 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
   const [search, setSearch] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [exported, setExported] = useState<{ name: string; text: string; url: string } | null>(null)
+  const exportTextRef = useRef<HTMLTextAreaElement>(null)
 
   const entries = useMemo<Entry[]>(() => {
     const all: Entry[] = symbolVariants().map((v) => ({ ...v, custom: doc?.customSymbols?.find((c) => customKind(c.id) === v.kind) }))
@@ -177,13 +179,33 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
     select('breaker:1')
   }
 
-  const exportLib = () => {
-    const blob = new Blob([JSON.stringify({ format: 'symbol-library', version: 1, symbols: doc.customSymbols ?? [] }, null, 2)], { type: 'application/json' })
+  const exportLib = (all = false) => {
+    const symbols = all ? (doc.customSymbols ?? []).map((symbol) => symbol.id === editing.id ? editing : symbol) : [editing]
+    const text = JSON.stringify({ format: 'symbol-library', version: 1, symbols }, null, 2)
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+    const name = all ? 'symbolbibliothek.json' : `${editing.label.replace(/[^\p{L}\p{N}_-]+/gu, '_') || 'symbol'}.json`
     const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = 'symbolbibliothek.json'
+    a.href = url
+    a.download = name
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(a.href)
+    a.remove()
+    setExported((previous) => {
+      if (previous) URL.revokeObjectURL(previous.url)
+      return { name, text, url }
+    })
+    setNotice(null)
+  }
+
+  const copyExport = async () => {
+    if (!exported) return
+    try {
+      await navigator.clipboard.writeText(exported.text)
+      setNotice('JSON in die Zwischenablage kopiert.')
+    } catch {
+      exportTextRef.current?.select()
+      setNotice('Kopieren nicht erlaubt – Text ist markiert, bitte mit Strg+C kopieren.')
+    }
   }
 
   const importLib = async (file: File) => {
@@ -193,9 +215,16 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
       if (!Array.isArray(list)) throw new Error('format')
       const valid = list.filter((s) => s && typeof s.id === 'string' && typeof s.label === 'string' && Array.isArray(s.pins) && Array.isArray(s.shapes))
       commitCustom('Symbole importiert', (cur) => {
-        const byId = new Map(cur.map((s) => [s.id, s]))
-        for (const s of valid) byId.set(s.id, { ...s, description: s.description ?? '', bmkPrefix: s.bmkPrefix || 'X', category: s.category ?? 'Klemme', mount: s.mount ?? 'rail' })
-        return [...byId.values()]
+        const names = new Set([...symbolVariants().map((v) => v.label), ...cur.map((s) => s.label), editing.label].map((label) => label.trim().toLocaleLowerCase()))
+        const imported = valid.map((s) => {
+          const base = s.label.trim() || 'Symbol'
+          let label = base
+          let copy = 1
+          while (names.has(label.toLocaleLowerCase())) label = `${base} (Kopie ${copy++})`
+          names.add(label.toLocaleLowerCase())
+          return { ...s, id: crypto.randomUUID(), label, description: s.description ?? '', bmkPrefix: s.bmkPrefix || 'X', category: s.category ?? 'Klemme', mount: s.mount ?? 'rail' }
+        })
+        return [...cur, ...imported]
       })
       setNotice(`${valid.length} Symbol(e) importiert${valid.length < list.length ? `, ${list.length - valid.length} ungültig übersprungen` : ''}.`)
     } catch {
@@ -215,7 +244,8 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
               Neu
             </Button>
             <IconButton icon={Upload} label="Bibliothek importieren" size="sm" onClick={() => fileRef.current?.click()} />
-            <IconButton icon={Download} label="Eigene Symbole exportieren" size="sm" disabled={!doc.customSymbols?.length} onClick={exportLib} />
+            <IconButton icon={Download} label="Ausgewähltes Symbol exportieren (inklusive Entwurf)" size="sm" onClick={() => exportLib()} />
+            <IconButton icon={Download} label="Alle eigenen Symbole exportieren" size="sm" disabled={!doc.customSymbols?.length} onClick={() => exportLib(true)} />
             <input
               ref={fileRef}
               type="file"
@@ -245,6 +275,25 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
             </ul>
             <button className="text-[11px]" onClick={() => setArticles(null)}>Artikelauswahl schließen</button>
           </div>}
+          {exported && (
+            <section aria-label="Exportiertes JSON" className="flex flex-col gap-2 rounded border border-border bg-panel-2 p-2">
+              <p className="text-[11px] text-muted">
+                Falls kein Download erscheint (in der eingebetteten Vorschau werden Downloads blockiert), JSON kopieren oder in neuem Tab öffnen.
+              </p>
+              <textarea ref={exportTextRef} readOnly aria-label="Symbol-JSON" value={exported.text} className={cn(fieldCls, 'h-24 resize-y font-mono text-[10px]')} onFocus={(e) => e.currentTarget.select()} />
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => void copyExport()}>
+                  <Copy className="size-3.5" aria-hidden="true" /> Kopieren
+                </Button>
+                <a href={exported.url} download={exported.name} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] hover:bg-panel">
+                  <Download className="size-3.5" aria-hidden="true" /> {exported.name}
+                </a>
+                <button type="button" className="ml-auto text-[11px] text-muted hover:text-fg" onClick={() => { URL.revokeObjectURL(exported.url); setExported(null) }}>
+                  Schließen
+                </button>
+              </div>
+            </section>
+          )}
           {notice && (
             <p role="status" className="text-[11px] text-muted">
               {notice}
@@ -315,7 +364,8 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
           <MetaForm value={editing} onPatch={(p) => setPending((previous) => ({ ...previous, ...p }))} />
         </div>
 
-        <ShapeCanvas
+              <ShapeCanvas
+                sessionKey={`${documentId}:${selected}`}
           key={current.key}
           sym={editing}
           onPatch={(_label, patch) => setPending((previous) => ({ ...previous, ...patch }))}
