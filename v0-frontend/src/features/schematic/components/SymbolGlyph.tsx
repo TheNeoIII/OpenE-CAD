@@ -1,5 +1,6 @@
 import type { SymbolKind, SymbolShape } from '@/types/cad'
 import { customSymbolOf, isCustomKind, symbolDef, symbolShapes } from '../models/symbolLibrary'
+import { arrowHead, shapeRotationPivot } from '../models/shapeTransform'
 
 /** Renders editor shapes; shared by placed symbols and the symbol editor canvas. */
 export function ShapeList({ shapes, hitArea = false }: { shapes: SymbolShape[]; hitArea?: boolean }) {
@@ -7,12 +8,34 @@ export function ShapeList({ shapes, hitArea = false }: { shapes: SymbolShape[]; 
     <g>
       {shapes.map((s, i) => {
         const style = { stroke: hitArea ? 'transparent' : s.color, strokeWidth: hitArea ? 24 : s.strokeWidth }
-        if (s.t === 'line') return <line key={i} {...style} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} strokeDasharray={s.dashed ? s.dash ?? '16 12' : undefined} />
-        if (s.t === 'path') return <path key={i} {...style} d={s.d} transform={`translate(${s.x} ${s.y})`} fill={s.fillColor ? (hitArea ? 'transparent' : s.fillColor) : undefined} />
-        if (s.t === 'rect') return <rect key={i} {...style} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} stroke={hitArea ? 'transparent' : s.noStroke ? 'none' : s.color} fill={hitArea ? 'transparent' : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
+        if (s.t === 'line') {
+          if (!s.arrow) return <line key={i} {...style} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} strokeDasharray={s.dashed ? s.dash ?? '16 12' : undefined} />
+          const a = { x: s.x1, y: s.y1 }
+          const b = { x: s.x2, y: s.y2 }
+          const sw = s.strokeWidth ?? 7
+          const endHead = s.arrow !== 'start' ? arrowHead(a, b, sw) : null
+          const startHead = s.arrow !== 'end' ? arrowHead(b, a, sw) : null
+          const p1 = startHead?.base ?? a
+          const p2 = endHead?.base ?? b
+          const headFill = hitArea ? 'transparent' : s.color ?? 'currentColor'
+          return (
+            <g key={i}>
+              <line {...style} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} strokeDasharray={s.dashed ? s.dash ?? '16 12' : undefined} />
+              {endHead && <polygon points={endHead.points} fill={headFill} stroke={hitArea ? 'transparent' : 'none'} />}
+              {startHead && <polygon points={startHead.points} fill={headFill} stroke={hitArea ? 'transparent' : 'none'} />}
+            </g>
+          )
+        }
+        const rot = s.rot ? ` rotate(${s.rot} ${shapeRotationPivot(s).x} ${shapeRotationPivot(s).y})` : ''
+        if (s.t === 'path') {
+          const local = s.rot ? ` rotate(${s.rot} ${s.w / 2} ${s.h / 2})` : ''
+          const scale = s.sx || s.sy ? ` scale(${s.sx ?? 1} ${s.sy ?? 1})` : ''
+          return <path key={i} {...style} d={s.d} vectorEffect={scale ? 'non-scaling-stroke' : undefined} transform={`translate(${s.x} ${s.y})${local}${scale}`} fill={s.fillColor ? (hitArea ? 'transparent' : s.fillColor) : undefined} />
+        }
+        if (s.t === 'rect') return <rect key={i} {...style} transform={rot || undefined} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} stroke={hitArea ? 'transparent' : s.noStroke ? 'none' : s.color} fill={hitArea ? 'transparent' : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
         if (s.t === 'circle') return <circle key={i} {...style} cx={s.cx} cy={s.cy} r={s.r} fill={hitArea ? 'transparent' : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
         return (
-          <text key={i} {...style} x={s.x} y={s.y} fontSize={s.size} fontWeight={s.weight} textAnchor={s.anchor ?? 'start'} fill={hitArea ? 'transparent' : s.color ?? 'currentColor'} stroke="none" fontFamily={s.font === 'inherit' ? undefined : 'ui-monospace, monospace'}>
+          <text key={i} {...style} transform={rot || undefined} x={s.x} y={s.y} fontSize={s.size} fontWeight={s.weight} textAnchor={s.anchor ?? 'start'} fill={hitArea ? 'transparent' : s.color ?? 'currentColor'} stroke={hitArea ? 'transparent' : 'none'} fontFamily={s.font === 'inherit' ? undefined : 'ui-monospace, monospace'}>
             {s.text}
           </text>
         )

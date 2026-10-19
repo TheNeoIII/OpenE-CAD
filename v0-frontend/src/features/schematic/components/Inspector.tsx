@@ -19,6 +19,7 @@ import { symbolLabelPosition } from '../models/labels'
 import { CONDUCTOR_LABEL_POSITIONS, conductorLabelPosPatch } from '../models/conductorLabels'
 import type { ConductorLabelPos } from '@/types/cad'
 import { xrefTip } from './SheetFrame'
+import { xrefDisplay } from '../models/xref'
 import type { Device } from '@/types/device'
 
 function railTips(obj: CadWire | CadPotential, page: CadPage) {
@@ -307,6 +308,7 @@ function Properties() {
   const page = useActivePage()
   const devices = useDocumentStore((s) => s.document?.devices)
   const xrefMode = useDocumentStore((s) => s.document?.xrefMode ?? 'group')
+  const doc = useDocumentStore((s) => s.document)
   const presets = presetsOf(useDocumentStore((s) => s.document))
   const results = useValidationStore((s) => s.results)
 
@@ -345,7 +347,7 @@ function Properties() {
             </Select>
           </Field>
         </Section>
-        <Empty icon={MousePointerClick} title="Nichts ausgew��hlt">
+        <Empty icon={MousePointerClick} title="Nichts ausgewählt">
           Objekt im Plan anklicken oder mit gedrückter Maustaste einen Auswahlrahmen ziehen.
         </Empty>
       </div>
@@ -594,9 +596,13 @@ function Properties() {
           <Field label="Verweistext" htmlFor="i-xref" className="col-span-2">
             <CommitInput id="i-xref" mono value={obj.text} onCommit={(v) => updateObject(obj.id, { text: v.trim() || obj.text }, 'Querverweis geändert')} />
           </Field>
+          <Field label="Anzeige">
+            <div className="font-mono text-[12px]">{doc ? xrefDisplay(doc, page, obj) : obj.text}</div>
+          </Field>
           <Field label="Seite">
             <div className="font-mono text-[12px] text-fg-2">{obj.xref?.side === 'left' ? 'Anfang' : 'Ende'}</div>
           </Field>
+          <p className="col-span-2 text-[11px] text-muted">Seiten- oder Gruppennummer: ohne Auswahl im Abschnitt „Querverweise“ umschalten.</p>
           <Button className="col-span-2" onClick={() => runCommand('xref.goto', obj.id)}>Gehe zu Verweisziel</Button>
         </Section>
       )}

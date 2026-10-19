@@ -12,7 +12,7 @@ import { useCursorStore, useViewportStore } from '@/stores/viewportStore'
 import type { CadPage, Point, Rect } from '@/types/cad'
 import { pageSequence } from '@/utils/pages'
 import { executionType, makerLines } from '../models/execution'
-import { COIL_KINDS, formatRef } from '../models/xref'
+import { COIL_KINDS, resolveXrefText, xrefDisplay } from '../models/xref'
 import { ContactMirror } from './ContactMirror'
 import { extendRailEnd, relocateWireEnd } from '../actions'
 import { extendRailEndPage, relocateWireEndPage } from '../models/wireEdit'
@@ -45,7 +45,7 @@ function XrefTag({ tip, y, text, side, interactive = false, selected = false }: 
   return (
     <g pointerEvents={interactive ? 'all' : 'none'}>
       <path d={d} fill={selected ? 'var(--sheet-select)' : 'var(--w-xref)'} fillOpacity={selected ? 0.22 : 0.14} stroke={selected ? 'var(--sheet-select)' : 'var(--w-xref)'} strokeOpacity={selected ? 1 : 0.6} strokeWidth={selected ? 3 : 2} strokeLinejoin="round" />
-      <text x={(back + base) / 2} y={y + 8} textAnchor="middle" fontSize={21} fontWeight={600} fill="var(--w-xref-ink)" fontFamily="var(--font-mono)">
+      <text x={(back + base) / 2} y={y + 7} textAnchor="middle" fontSize={Math.min(21, (XREF_W - 8) / (Math.max(1, text.length) * 0.6))} fontWeight={600} fill="var(--w-xref-ink)" fontFamily="var(--font-mono)">
         {text}
       </text>
     </g>
@@ -594,11 +594,8 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
  const devices = new Map(doc?.devices.map(d => [d.id, d]))
  const shownPage = page
  const { numberOnly, grouped } = terminalLabelGroups(page)
- const xrefText = (t: CadPage['texts'][number]) => {
-   const target = doc && t.xref ? doc.pages.find((p) => p.id === t.xref?.targetPageId) : undefined
-   const peer = target?.texts.find((x) => x.id === t.xref?.peerId)
-   return doc && target && peer ? formatRef(doc, target, peer.position) : t.text
- }
+ const xrefText = (t: CadPage['texts'][number]) => (doc ? xrefDisplay(doc, page, t) : t.text)
+ const railXref = (text: string, name: string, side: 'left' | 'right') => (doc ? resolveXrefText(doc, text, name, side) : text)
  const offset = (_id: string): string | undefined => undefined
  const selColor = 'var(--sheet-select)'
  const ink = 'var(--sheet-ink)'
@@ -631,8 +628,8 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
                   const at = conductorLabelPlacements(p, { left: tipL, right: tipR })[0]
                   return at ? <LabelAnchorHandle id={p.id} x={at.x} y={at.y} s={s} color={selColor} /> : null
                 })()}
-                {p.xrefLeft && <XrefTag tip={tipL} y={p.y} text={p.xrefLeft} side="left" />}
-                {p.xrefRight && <XrefTag tip={tipR} y={p.y} text={p.xrefRight} side="right" />}
+                {p.xrefLeft && <XrefTag tip={tipL} y={p.y} text={railXref(p.xrefLeft, p.name, 'left')} side="left" />}
+                {p.xrefRight && <XrefTag tip={tipR} y={p.y} text={railXref(p.xrefRight, p.name, 'right')} side="right" />}
                 {sel && !clean &&
                   (['x1', 'x2'] as const).map((end) => {
                     const hsz = 9 / Math.max(s, 0.35)

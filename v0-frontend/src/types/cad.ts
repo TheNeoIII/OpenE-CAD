@@ -57,9 +57,17 @@ export interface CadConnectionPoint {
 }
 
 /** Graphic primitive of a project symbol, in symbol-local world units (0.1 mm). */
-export type SymbolShape = { color?: string; strokeWidth?: number; fillColor?: string } & (
-  | { t: 'line'; x1: number; y1: number; x2: number; y2: number; dashed?: boolean; dash?: string }
-  | { t: 'path'; x: number; y: number; w: number; h: number; d: string }
+export type SymbolShape = {
+  color?: string
+  strokeWidth?: number
+  fillColor?: string
+  /** Shapes sharing a group id are selected, moved and transformed together in the symbol editor. */
+  group?: string
+  /** Rotation in degrees around the shape's own centre (rect, path) or anchor (text). */
+  rot?: number
+} & (
+  | { t: 'line'; x1: number; y1: number; x2: number; y2: number; dashed?: boolean; dash?: string; arrow?: 'start' | 'end' | 'both' }
+  | { t: 'path'; x: number; y: number; w: number; h: number; d: string; sx?: number; sy?: number }
   | { t: 'rect'; x: number; y: number; w: number; h: number; filled?: boolean; rx?: number; noStroke?: boolean }
   | { t: 'circle'; cx: number; cy: number; r: number; filled?: boolean }
   | { t: 'text'; x: number; y: number; text: string; size: number; anchor?: 'start' | 'middle' | 'end'; weight?: number; font?: 'inherit' }

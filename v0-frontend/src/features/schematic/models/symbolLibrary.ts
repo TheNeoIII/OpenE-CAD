@@ -1,6 +1,7 @@
 import type { BuiltinSymbolKind, CadConnectionPoint, CadDocument, CadSymbol, CustomSymbolDef, Rect, SymbolKind, SymbolOverride, SymbolShape } from '@/types/cad'
 import type { DeviceCategory, MountType } from '@/types/device'
 import { builtinShapes } from './builtinShapes'
+import { shapePoints } from './shapeTransform'
 
 export interface SymbolDef {
   kind: SymbolKind
@@ -291,17 +292,7 @@ export function shapesBounds(shapes: SymbolShape[], pins: CadConnectionPoint[]):
   const xs: number[] = []
   const ys: number[] = []
   for (const p of pins) xs.push(p.x), ys.push(p.y)
-  for (const s of shapes) {
-    if (s.t === 'line') xs.push(s.x1, s.x2), ys.push(s.y1, s.y2)
-    else if (s.t === 'rect' || s.t === 'path') xs.push(s.x, s.x + s.w), ys.push(s.y, s.y + s.h)
-    else if (s.t === 'circle') xs.push(s.cx - s.r, s.cx + s.r), ys.push(s.cy - s.r, s.cy + s.r)
-    else {
-      const w = s.text.length * s.size * 0.6
-      const x0 = s.anchor === 'middle' ? s.x - w / 2 : s.anchor === 'end' ? s.x - w : s.x
-      xs.push(x0, x0 + w)
-      ys.push(s.y - s.size, s.y)
-    }
-  }
+  for (const s of shapes) for (const p of shapePoints(s)) xs.push(p.x), ys.push(p.y)
   if (!xs.length) return { x: -50, y: -50, w: 100, h: 100 }
   const x = Math.min(...xs)
   const y = Math.min(...ys)
