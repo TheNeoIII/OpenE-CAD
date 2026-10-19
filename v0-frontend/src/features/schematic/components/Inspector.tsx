@@ -9,7 +9,7 @@ import { useUiStore, type InspectorTab } from '@/stores/uiStore'
 import { issuesForTarget, useValidationStore } from '@/stores/validationStore'
 import type { CadObject, CadPage, CadPotential, CadWire, LineStyle, Rotation, SymbolKind, WireColor, WireWeight } from '@/types/cad'
 import { detachRailReferences } from '../actions'
-import { CHARACTERISTICS, executionKind, executionType, FUSE_CLASSES, RCD_TYPES, terminalCrossSection } from '../models/execution'
+import { CHARACTERISTICS, executionKind, executionType, FUSE_CLASSES, terminalCrossSection } from '../models/execution'
 import { outletPinNames } from '../models/symbolLibrary'
 import { LINE_STYLE_LABELS, potentialDefsOf, presetPatch, presetsOf, styleResolver, WIRE_COLOR_LABELS, WIRE_WEIGHT_LABELS } from '../models/wireStyles'
 import { connectedConductors } from '../models/netTrace'
@@ -102,14 +102,15 @@ function findObject(page: CadPage, id: string): CadObject | undefined {
 }
 
 /** Text field that commits on blur/Enter so history gets one entry per edit. */
-function CommitInput({ id, value, onCommit, mono, type = 'text' }: { id: string; value: string; onCommit: (v: string) => void; mono?: boolean; type?: string }) {
+function CommitInput({ id, value, onCommit, mono, type = 'text', placeholder }: { id: string; value: string; onCommit: (v: string) => void; mono?: boolean; type?: string; placeholder?: string }) {
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
   const commit = () => draft !== value && onCommit(draft)
   return (
-    <Input
-      id={id}
-      type={type}
+  <Input
+  id={id}
+  type={type}
+  placeholder={placeholder}
       mono={mono}
       value={draft}
       onChange={(e) => {
@@ -204,13 +205,7 @@ function ExecutionFields({ device, kind, poles }: { device: Device; kind: Symbol
             <CommitInput id="i-idn" mono value={device.residualCurrent != null ? String(device.residualCurrent) : ''} onCommit={(v) => up({ residualCurrent: num(v) })} />
           </Field>
           <Field label="Typ" htmlFor="i-rtype">
-            <Select id="i-rtype" value={device.rcdType ?? ''} onChange={(e) => up({ rcdType: e.target.value || undefined })}>
-              {RCD_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t || 'keine Angabe'}
-                </option>
-              ))}
-            </Select>
+            <CommitInput id="i-rtype" mono placeholder="z. B. A, F, B, XG-A" value={device.rcdType ?? ''} onCommit={(v) => up({ rcdType: v.trim() || undefined })} />
           </Field>
         </>
       )}

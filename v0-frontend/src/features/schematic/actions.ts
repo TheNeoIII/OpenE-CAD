@@ -13,7 +13,7 @@ import { connectedConductors } from './models/netTrace'
 import { findObject, objectBounds, simplifyPolyline, translateObject } from './models/geometry'
 import { centerOn } from './viewport'
 import type { SnapResult } from './models/snap'
-import { symbolDef } from './models/symbolLibrary'
+import { symbolDef, symbolMeta } from './models/symbolLibrary'
 import { relocateWireEndPage, extendRailEndPage, moveJunctionPage, movePage, moveSegmentPage, relocateJunctionPage } from './models/wireEdit'
 
 export function relocateWireEnd(wireId: string, end: 'start' | 'end', target: SnapResult) {
@@ -89,8 +89,8 @@ function nextBmk(doc: CadDocument, prefix: string) {
   return `-${prefix}${(nums.length ? Math.max(...nums) : 0) + 1}`
 }
 
-function newDevice(doc: CadDocument, kind: SymbolKind): Device {
-  const def = symbolDef(kind)
+function newDevice(doc: CadDocument, kind: SymbolKind, poles: 1 | 3): Device {
+  const def = symbolMeta(kind, poles)
   return {
     id: uid('dev'),
     bmk: nextBmk(doc, def.bmkPrefix),
@@ -123,8 +123,8 @@ export function addSymbol(kind: SymbolKind, poles: 1 | 3, position: Point) {
   const pageId = activeId()
   if (!pageId) return
   let createdId = ''
-  commit(`${symbolDef(kind).label} platziert`, (doc) => {
-    const base = newDevice(doc, kind)
+  commit(`${symbolMeta(kind, poles).label} platziert`, (doc) => {
+    const base = newDevice(doc, kind, poles)
     const a = useToolStore.getState().placeArticle
     const dev: Device = a
       ? { ...base, function: a.description, articleId: a.id, manufacturer: a.manufacturer, articleNo: a.articleNo, type: a.type, ratedCurrent: a.ratedCurrent, ac3Power: a.ac3Power, coilVoltage: a.coilVoltage, auxContacts: a.auxContacts, widthTE: a.widthTE, dimensions: a.dimensions }

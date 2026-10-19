@@ -324,7 +324,7 @@ const geometryOf = (kind: BuiltinSymbolKind, poles: number, o: SymbolOverride | 
 function withOverride(def: SymbolDef, o: SymbolOverride | undefined): SymbolDef {
   const kind = def.kind as BuiltinSymbolKind
   if (!o && !BUILTIN_GEOMETRY[kind]) return def
-  const { poleLabels: _poleLabels, geometry: _geometry, ...meta } = o ?? {}
+  const { poleLabels: _poleLabels, poleMeta: _poleMeta, geometry: _geometry, ...meta } = o ?? {}
   const clean = Object.fromEntries(Object.entries(meta).filter(([, v]) => v !== undefined && v !== '')) as SymbolOverride
   return {
     ...def, ...clean,
@@ -412,6 +412,18 @@ function variantsOf(kind: SymbolKind): SymbolVariant[] {
 export const symbolVariants = () => variants
 export const variantByKey = (key: string) => variantIndex.get(key)
 export const variantLabel = (kind: SymbolKind, poles: 1 | 3) => variantIndex.get(variantKey(kind, poles))?.label ?? symbolDef(kind).label
+
+export type SymbolMeta = Pick<SymbolDef, 'label' | 'description' | 'bmkPrefix' | 'category' | 'mount'>
+
+/** Metadata of one concrete list entry; pole variants of a built-in symbol each keep their own settings. */
+export function symbolMeta(kind: SymbolKind, poles: 1 | 3): SymbolMeta {
+  const def = symbolDef(kind)
+  const base: SymbolMeta = { label: def.label, description: def.description, bmkPrefix: def.bmkPrefix, category: def.category, mount: def.mount }
+  if (isCustomKind(kind) || !def.supportsPoles) return base
+  const own = overrides[kind as BuiltinSymbolKind]?.poleMeta?.[poles] ?? {}
+  const clean = Object.fromEntries(Object.entries(own).filter(([, v]) => v !== undefined)) as Partial<SymbolMeta>
+  return { ...base, ...clean, label: variantLabel(kind, poles) }
+}
 
 setProjectSymbols(null)
 
