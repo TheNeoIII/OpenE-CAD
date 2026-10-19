@@ -7,8 +7,15 @@ import { buildDataTable } from './mock/dataTables'
 import { buildEmptyDocument, buildSampleDocument } from './mock/sampleDocument'
 import { validateDocument } from './mock/validation'
 import type { ExportOptions, OpenEcadBackend } from './OpenEcadBackend'
+import type { AdminUser } from './admin'
+import type { AccountUser, DevIdentityControl } from './auth'
+import { MOCK_ADMIN_ID, MOCK_USER_ID, seedUsers } from './mock/users'
 
 const LATENCY = 120
+
+function toAccountUser(u: AdminUser): AccountUser {
+  return { id: u.id, username: u.username, displayName: u.displayName, email: u.email, roles: [...u.roles], permissions: [...u.permissions], status: u.status }
+}
 
 const TEMPLATES: ProjectTemplate[] = [
   { id: 'tpl-uv', name: 'Unterverteilung Wohngebäude', description: 'Deckblatt, Einspeisung, 3 Stromkreisseiten, Klemmenplan', pages: 5 },
@@ -116,11 +123,27 @@ export class MockOpenEcadBackend implements OpenEcadBackend {
   readonly capabilities = { nativeFilesystem: false, serverPersistence: false, offlinePersistence: false, authentication: false, collaboration: false }
   private projects: Project[]
   private docs: Map<string, CadDocument>
+  private users: AdminUser[] = seedUsers()
+  private actorId = MOCK_ADMIN_ID
+
+  readonly dev: DevIdentityControl = {
+    identities: () => this.users.filter((u) => u.id === MOCK_ADMIN_ID || u.id === MOCK_USER_ID).map(toAccountUser),
+    current: () => toAccountUser(this.actor()),
+    switchTo: (userId) => {
+      if (userId !== MOCK_ADMIN_ID && userId !== MOCK_USER_ID) throw new Error('Unbekannte Mock-Identität')
+      this.actorId = userId
+      return toAccountUser(this.actor())
+    },
+  }
 
   constructor() {
     const seed = seedProjects()
     this.projects = seed.projects
     this.docs = seed.docs
+  }
+
+  private actor() {
+    return this.users.find((u) => u.id === this.actorId) ?? this.users[0]
   }
 
   private find(id: string) {

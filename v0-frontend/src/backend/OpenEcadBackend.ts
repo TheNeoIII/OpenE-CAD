@@ -29,6 +29,8 @@ export interface OpenEcadBackend {
   readonly label: string
   readonly capabilities: BackendCapabilities
   readonly account?: import('./auth').AccountBackend
+  /** Development mock only: switch between mock identities. Never present in production. */
+  readonly dev?: import('./auth').DevIdentityControl
 
   listProjects(): Promise<Project[]>
   listTemplates(): Promise<ProjectTemplate[]>

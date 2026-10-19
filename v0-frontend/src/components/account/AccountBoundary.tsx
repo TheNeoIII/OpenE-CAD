@@ -6,6 +6,8 @@ import { LoginScreen } from './LoginScreen'
 import { SecurityDialog } from './SecurityDialog'
 import { ImportProjectDialog } from '@/components/dialogs/ImportProjectDialog'
 import { useProjectStore } from '@/stores/projectStore'
+import { useAccountStore } from '@/stores/accountStore'
+import { DevIdentitySwitch } from './DevIdentitySwitch'
 
 export function AccountBoundary({ children }: { children: ReactNode }) {
   const [preview, setPreview] = useState(false)
@@ -21,6 +23,13 @@ export function AccountBoundary({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('openecad:session-expired', expire)
   }, [])
   const development = import.meta.env.DEV && !backend.capabilities.authentication
+  const setUser = useAccountStore((s) => s.setUser)
+  const user = useAccountStore((s) => s.user)
+  useEffect(() => {
+    if (session?.user) setUser(session.user)
+    else if (preview && import.meta.env.DEV && backend.dev) setUser(backend.dev.current())
+    else setUser(null)
+  }, [session, preview, setUser])
   if (isLoading) return <main className="flex min-h-dvh items-center justify-center bg-app text-fg" role="status">Session wird geprüft …</main>
   if (expired || (!preview && !session?.user) || sessionError) return <LoginScreen expired={expired} connectionError={sessionError?.message} onAuthenticated={() => window.location.reload()} onPreview={development ? () => setPreview(true) : undefined} />
 
@@ -36,7 +45,7 @@ export function AccountBoundary({ children }: { children: ReactNode }) {
   }
   return <div className="flex h-dvh flex-col bg-app text-fg">
     <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-panel px-3 py-1 text-xs">
-      <div className="flex items-center gap-2"><span>{session?.user?.displayName ?? 'Entwicklungsvorschau (nicht angemeldet)'}</span>{session?.user?.roles.map((role) => <Badge key={role}>{role}</Badge>)}{development && <Badge tone="warn">Development-only</Badge>}</div>
+      <div className="flex items-center gap-2"><span>{user?.displayName ?? 'Entwicklungsvorschau (nicht angemeldet)'}</span>{user?.roles.map((role) => <Badge key={role}>{role}</Badge>)}{development && <Badge tone="warn">Development-only · nicht angemeldet</Badge>}{development && <DevIdentitySwitch />}</div>
       <div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => setImportOpen(true)}>Projekt importieren</Button><Button size="sm" onClick={() => setSecurity(true)}>Konto & Sicherheit</Button><Button size="sm" disabled={busy} onClick={() => void logout()}>{development ? 'Vorschau verlassen' : 'Abmelden'}</Button></div>
       {error && <p role="alert" className="w-full text-error">{error}</p>}
     </header>
