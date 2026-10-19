@@ -1,6 +1,7 @@
 import type { BuiltinSymbolKind, CadConnectionPoint, CadDocument, CadSymbol, CustomSymbolDef, Rect, SymbolKind, SymbolOverride, SymbolShape } from '@/types/cad'
 import type { DeviceCategory, MountType } from '@/types/device'
 import { builtinShapes } from './builtinShapes'
+import { BUILTIN_GEOMETRY } from './builtinGeometry'
 import { shapePoints } from './shapeTransform'
 
 export interface SymbolDef {
@@ -317,14 +318,19 @@ function customDef(kind: SymbolKind, c: CustomSymbolDef | undefined): SymbolDef 
   }
 }
 
+const geometryOf = (kind: BuiltinSymbolKind, poles: number, o: SymbolOverride | undefined) =>
+  o?.geometry?.[poles as 1 | 3] ?? BUILTIN_GEOMETRY[kind]?.[poles as 1 | 3]
+
 function withOverride(def: SymbolDef, o: SymbolOverride | undefined): SymbolDef {
-  if (!o) return def
-  const clean = Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== '')) as SymbolOverride
+  const kind = def.kind as BuiltinSymbolKind
+  if (!o && !BUILTIN_GEOMETRY[kind]) return def
+  const { poleLabels: _poleLabels, poleMeta: _poleMeta, geometry: _geometry, ...meta } = o ?? {}
+  const clean = Object.fromEntries(Object.entries(meta).filter(([, v]) => v !== undefined && v !== '')) as SymbolOverride
   return {
     ...def, ...clean,
-    pins: (s) => o.geometry?.[s.poles]?.pins.map((p, i) => ({ ...p, id: s.pinNames?.[i] ?? p.id })) ?? def.pins(s),
+    pins: (s) => geometryOf(kind, s.poles, o)?.pins.map((p, i) => ({ ...p, id: s.pinNames?.[i] ?? p.id })) ?? def.pins(s),
     bbox: (s) => {
-      const geometry = o.geometry?.[s.poles]
+      const geometry = geometryOf(kind, s.poles, o)
       return geometry ? shapesBounds(geometry.shapes, geometry.pins) : def.bbox(s)
     },
   }
@@ -347,7 +353,7 @@ export const symbolOverrideOf = (kind: BuiltinSymbolKind) => overrides[kind]
 export function symbolShapes(kind: SymbolKind, poles: 1 | 3, ways?: number): SymbolShape[] {
   if (isCustomKind(kind)) return customSymbolOf(kind)?.shapes ?? []
   if (kind === 'crossMark' || (kind === 'outlet' && ways != null)) return builtinShapes(kind, poles, kind === 'crossMark' ? ways ?? 4 : ways)
-  return overrides[kind]?.geometry?.[poles]?.shapes ?? builtinShapes(kind, poles)
+  return geometryOf(kind as BuiltinSymbolKind, poles, overrides[kind as BuiltinSymbolKind])?.shapes ?? builtinShapes(kind, poles)
 }
 
 /** Syncs the module registry with the open document; called by the document store on every change. */
@@ -374,16 +380,31 @@ export interface SymbolVariant {
 
 export const variantKey = (kind: SymbolKind, poles: 1 | 3) => `${kind}:${symbolDef(kind).supportsPoles ? poles : 1}`
 
+const DEFAULT_POLE_LABELS: Partial<Record<BuiltinSymbolKind, [string, string]>> = {
+  breakerN: ['LS-Schalter 1+N', 'LS-Schalter 3+N'],
+  rcd: ['FI-Schutzschalter 1+N', 'FI-Schutzschalter 3+N'],
+  rcbo: ['FI-LS 1+N', 'FI-LS 3+N'],
+  fuseD02: ['D02 1-polig, N durchgeführt', 'D02 3-polig, N durchgeführt'],
+  fuseD02N: ['D02 1+N, N geschaltet', 'D02 3+N, N geschaltet'],
+}
+
+/** List name of a built-in pole variant: the saved name if any, otherwise the factory name. */
+function builtinPoleLabel(kind: BuiltinSymbolKind, poles: 1 | 3): string {
+  const o = overrides[kind]
+  const saved = o?.poleLabels?.[poles] ?? (o?.label && o.geometry?.[poles] ? o.label : undefined)
+  if (saved) return saved
+  const preset = DEFAULT_POLE_LABELS[kind]
+  if (preset) return preset[poles === 3 ? 1 : 0]
+  return `${SYMBOLS[kind].label} ${poles}-polig`
+}
+
 function variantsOf(kind: SymbolKind): SymbolVariant[] {
   const def = symbolDef(kind)
   const make = (poles: 1 | 3, label: string, group: '1' | '3' = poles === 3 ? '3' : '1'): SymbolVariant => ({ key: variantKey(kind, poles), kind, poles, label, group })
-  const renamed = !isCustomKind(kind) && !!overrides[kind as BuiltinSymbolKind]?.label
-  if (kind === 'breakerN' && !renamed) return [make(1, 'LS-Schalter 1+N'), make(3, 'LS-Schalter 3+N')]
-  if (kind === 'rcd' && !renamed) return [make(1, 'FI-Schutzschalter 1+N (2-polig)'), make(3, 'FI-Schutzschalter 3+N (4-polig)')]
-  if (kind === 'rcbo' && !renamed) return [make(1, 'FI-LS 1+N'), make(3, 'FI-LS 3+N')]
-  if (kind === 'fuseD02' && !renamed) return [make(1, 'D02 1-polig, N durchgeführt'), make(3, 'D02 3-polig, N durchgeführt')]
-  if (kind === 'fuseD02N' && !renamed) return [make(1, 'D02 1+N, N geschaltet'), make(3, 'D02 3+N, N geschaltet')]
-  if (def.supportsPoles) return [make(1, `${def.label} 1-polig`), make(3, `${def.label} 3-polig`)]
+  if (!isCustomKind(kind) && def.supportsPoles) {
+    const k = kind as BuiltinSymbolKind
+    return [make(1, builtinPoleLabel(k, 1)), make(3, builtinPoleLabel(k, 3))]
+  }
   return [make(1, def.label, kind === 'motor' ? '3' : '1')]
 }
 
@@ -391,6 +412,18 @@ function variantsOf(kind: SymbolKind): SymbolVariant[] {
 export const symbolVariants = () => variants
 export const variantByKey = (key: string) => variantIndex.get(key)
 export const variantLabel = (kind: SymbolKind, poles: 1 | 3) => variantIndex.get(variantKey(kind, poles))?.label ?? symbolDef(kind).label
+
+export type SymbolMeta = Pick<SymbolDef, 'label' | 'description' | 'bmkPrefix' | 'category' | 'mount'>
+
+/** Metadata of one concrete list entry; pole variants of a built-in symbol each keep their own settings. */
+export function symbolMeta(kind: SymbolKind, poles: 1 | 3): SymbolMeta {
+  const def = symbolDef(kind)
+  const base: SymbolMeta = { label: def.label, description: def.description, bmkPrefix: def.bmkPrefix, category: def.category, mount: def.mount }
+  if (isCustomKind(kind) || !def.supportsPoles) return base
+  const own = overrides[kind as BuiltinSymbolKind]?.poleMeta?.[poles] ?? {}
+  const clean = Object.fromEntries(Object.entries(own).filter(([, v]) => v !== undefined)) as Partial<SymbolMeta>
+  return { ...base, ...clean, label: variantLabel(kind, poles) }
+}
 
 setProjectSymbols(null)
 

@@ -2,7 +2,7 @@ import { Copy, Download, Plus, RotateCcw, Trash2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, IconButton } from '@/components/ui/primitives'
 import { SymbolGlyph } from '@/features/schematic/components/SymbolGlyph'
-import { articleVariant, customKind, symbolDef, symbolOverrideOf, symbolShapes, symbolVariants, variantKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
+import { articleVariant, customKind, symbolDef, symbolMeta, symbolOverrideOf, symbolShapes, symbolVariants, variantKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
 import { useDocumentStore } from '@/stores/documentStore'
 import type { BuiltinSymbolKind, CadDocument, CustomSymbolDef, SymbolKind, SymbolOverride } from '@/types/cad'
 import { backend } from '@/backend'
@@ -110,7 +110,7 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
   const entries = useMemo<Entry[]>(() => {
     const all: Entry[] = symbolVariants().map((v) => ({ ...v, custom: doc?.customSymbols?.find((c) => customKind(c.id) === v.kind) }))
     const n = search.trim().toLowerCase()
-    return n ? all.filter((e) => `${e.label} ${symbolDef(e.kind).bmkPrefix}`.toLowerCase().includes(n)) : all
+    return n ? all.filter((e) => `${e.label} ${symbolMeta(e.kind, e.poles).bmkPrefix}`.toLowerCase().includes(n)) : all
   }, [doc, search])
 
   if (!doc) return null
@@ -119,14 +119,19 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
   const def = symbolDef(current.kind)
   const used = usageCount(doc, current.kind)
   const builtin = !current.custom
-  const editing: CustomSymbolDef = { ...(current.custom ?? { ...def, id: current.key, shapes: symbolShapes(current.kind, current.poles), pins: def.pins({ poles: current.poles }) }), ...pending }
+  const meta = symbolMeta(current.kind, current.poles)
+  const editing: CustomSymbolDef = { ...(current.custom ?? { ...meta, id: current.key, shapes: symbolShapes(current.kind, current.poles), pins: def.pins({ poles: current.poles }) }), ...pending }
   const save = () => {
     if (!pending) return
     if (current.custom) patchCustom(current.custom.id, 'Symbol gespeichert', pending)
     else {
       const kind = current.kind as BuiltinSymbolKind
       const { label, description, bmkPrefix, category, mount, shapes, pins } = editing
-      patchOverride(kind, { label, description, bmkPrefix, category, mount, geometry: { ...symbolOverrideOf(kind)?.geometry, [current.poles]: { shapes, pins } } })
+      const prev = symbolOverrideOf(kind)
+      const meta = def.supportsPoles
+        ? { poleLabels: { ...prev?.poleLabels, [current.poles]: label }, poleMeta: { ...prev?.poleMeta, [current.poles]: { description, bmkPrefix, category, mount } } }
+        : { label, description, bmkPrefix, category, mount }
+      patchOverride(kind, { ...meta, geometry: { ...prev?.geometry, [current.poles]: { shapes, pins } } })
     }
     setPending(null)
   }
@@ -162,10 +167,10 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
     createSymbol({
       shapes: structuredClone(symbolShapes(current.kind, current.poles)),
       label: `${current.label} (Kopie)`,
-      description: def.description,
-      bmkPrefix: def.bmkPrefix,
-      category: def.category,
-      mount: def.mount,
+      description: meta.description,
+      bmkPrefix: meta.bmkPrefix,
+      category: meta.category,
+      mount: meta.mount,
       pins: pins.map((p) => ({ id: p.id, x: p.x, y: p.y })),
     })
   }
