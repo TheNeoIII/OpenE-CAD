@@ -32,7 +32,10 @@ export function ShapeList({ shapes, hitArea = false, hitWidth = 24, strokeScale 
         if (s.t === 'path') {
           const local = s.rot ? ` rotate(${s.rot} ${s.w / 2} ${s.h / 2})` : ''
           const scale = s.sx || s.sy ? ` scale(${s.sx ?? 1} ${s.sy ?? 1})` : ''
-          return <path key={i} {...style} d={s.d} vectorEffect={scale ? 'non-scaling-stroke' : undefined} transform={`translate(${s.x} ${s.y})${local}${scale}`} fill={hitArea ? areaFill(!!s.fillColor) : s.fillColor ?? undefined} />
+          // Compensate the path's own scale so its stroke stays in world units (non-scaling-stroke would pin it to screen pixels).
+          const k = Math.sqrt(Math.abs((s.sx ?? 1) * (s.sy ?? 1))) || 1
+          const pathStroke = style.strokeWidth != null ? style.strokeWidth / k : 7 / k
+          return <path key={i} {...style} strokeWidth={pathStroke} d={s.d} transform={`translate(${s.x} ${s.y})${local}${scale}`} fill={hitArea ? areaFill(!!s.fillColor) : s.fillColor ?? undefined} />
         }
         if (s.t === 'rect') return <rect key={i} {...style} transform={rot || undefined} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} stroke={hitArea ? 'transparent' : s.noStroke ? 'none' : s.color} fill={hitArea ? areaFill(!!s.filled) : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
         if (s.t === 'circle') return <circle key={i} {...style} cx={s.cx} cy={s.cy} r={s.r} fill={hitArea ? areaFill(!!s.filled) : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
