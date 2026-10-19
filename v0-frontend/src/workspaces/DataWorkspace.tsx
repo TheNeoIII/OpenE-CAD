@@ -131,7 +131,7 @@ export function DataWorkspace() {
     <main aria-label="Datenmanager" className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex shrink-0 items-stretch border-b border-line bg-panel">
         <div className="flex min-w-0 items-stretch">
-          <span className="flex items-center pr-1 pl-3 text-[10.5px] font-semibold tracking-wide text-muted uppercase" title="Gilt für alle Projekte, auch ohne geöffnetes Projekt bearbeitbar">
+          <span className="flex items-center pr-1 pl-3 text-[10.5px] font-semibold tracking-wide text-muted uppercase" title="Gilt für alle Projekte und ist auch ohne geöffnetes Projekt verfügbar">
             Bibliothek
           </span>
           <Tabs<Pane>

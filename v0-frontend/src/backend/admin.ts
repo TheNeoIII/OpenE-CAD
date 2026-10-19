@@ -55,7 +55,7 @@ export interface AdminActionResult {
   message: string
 }
 
-export const AUDIT_CATEGORIES = ['auth', 'users', 'project', 'symbol', 'library'] as const
+export const AUDIT_CATEGORIES = ['auth', 'users', 'project', 'symbol', 'library', 'system'] as const
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number]
 
 export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
@@ -64,6 +64,7 @@ export const AUDIT_CATEGORY_LABELS: Record<AuditCategory, string> = {
   project: 'Projekt',
   symbol: 'Symbol',
   library: 'Bibliothek',
+  system: 'System',
 }
 
 export const AUDIT_ACTIONS: Record<AuditCategory, readonly string[]> = {
@@ -72,6 +73,7 @@ export const AUDIT_ACTIONS: Record<AuditCategory, readonly string[]> = {
   project: ['project.created', 'project.saved', 'project.duplicated', 'project.archived', 'project.restored', 'project.trashed', 'project.deleted', 'project.imported', 'project.exported'],
   symbol: ['symbol.created', 'symbol.updated', 'symbol.duplicated', 'symbol.deleted', 'symbol.imported', 'systemSymbol.updated'],
   library: ['article.created', 'article.updated', 'article.deleted', 'article.imported', 'potential.updated', 'wireStyle.updated'],
+  system: ['system.startup', 'system.migration', 'system.configChanged', 'system.storageCleanup', 'system.backup'],
 }
 
 export type AuditResult = 'success' | 'failure' | 'denied'
