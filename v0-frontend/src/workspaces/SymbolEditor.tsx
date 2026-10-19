@@ -104,6 +104,8 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
   const [search, setSearch] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [exported, setExported] = useState<{ name: string; text: string; url: string } | null>(null)
+  const exportTextRef = useRef<HTMLTextAreaElement>(null)
 
   const entries = useMemo<Entry[]>(() => {
     const all: Entry[] = symbolVariants().map((v) => ({ ...v, custom: doc?.customSymbols?.find((c) => customKind(c.id) === v.kind) }))
@@ -179,17 +181,31 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
 
   const exportLib = (all = false) => {
     const symbols = all ? (doc.customSymbols ?? []).map((symbol) => symbol.id === editing.id ? editing : symbol) : [editing]
-    const blob = new Blob([JSON.stringify({ format: 'symbol-library', version: 1, symbols }, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
+    const text = JSON.stringify({ format: 'symbol-library', version: 1, symbols }, null, 2)
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+    const name = all ? 'symbolbibliothek.json' : `${editing.label.replace(/[^\p{L}\p{N}_-]+/gu, '_') || 'symbol'}.json`
     const a = document.createElement('a')
     a.href = url
-    a.download = all ? 'symbolbibliothek.json' : `${editing.label.replace(/[^\p{L}\p{N}_-]+/gu, '_') || 'symbol'}.json`
+    a.download = name
     document.body.appendChild(a)
     a.click()
     a.remove()
-    // Keep the URL alive until the browser has consumed the download.
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-    setNotice('JSON-Download gestartet; aktuelle ungespeicherte Änderungen sind enthalten.')
+    setExported((previous) => {
+      if (previous) URL.revokeObjectURL(previous.url)
+      return { name, text, url }
+    })
+    setNotice(null)
+  }
+
+  const copyExport = async () => {
+    if (!exported) return
+    try {
+      await navigator.clipboard.writeText(exported.text)
+      setNotice('JSON in die Zwischenablage kopiert.')
+    } catch {
+      exportTextRef.current?.select()
+      setNotice('Kopieren nicht erlaubt – Text ist markiert, bitte mit Strg+C kopieren.')
+    }
   }
 
   const importLib = async (file: File) => {
@@ -259,6 +275,25 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
             </ul>
             <button className="text-[11px]" onClick={() => setArticles(null)}>Artikelauswahl schließen</button>
           </div>}
+          {exported && (
+            <section aria-label="Exportiertes JSON" className="flex flex-col gap-2 rounded border border-border bg-panel-2 p-2">
+              <p className="text-[11px] text-muted">
+                Falls kein Download erscheint (in der eingebetteten Vorschau werden Downloads blockiert), JSON kopieren oder in neuem Tab öffnen.
+              </p>
+              <textarea ref={exportTextRef} readOnly aria-label="Symbol-JSON" value={exported.text} className={cn(fieldCls, 'h-24 resize-y font-mono text-[10px]')} onFocus={(e) => e.currentTarget.select()} />
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => void copyExport()}>
+                  <Copy className="size-3.5" aria-hidden="true" /> Kopieren
+                </Button>
+                <a href={exported.url} download={exported.name} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] hover:bg-panel">
+                  <Download className="size-3.5" aria-hidden="true" /> {exported.name}
+                </a>
+                <button type="button" className="ml-auto text-[11px] text-muted hover:text-fg" onClick={() => { URL.revokeObjectURL(exported.url); setExported(null) }}>
+                  Schließen
+                </button>
+              </div>
+            </section>
+          )}
           {notice && (
             <p role="status" className="text-[11px] text-muted">
               {notice}

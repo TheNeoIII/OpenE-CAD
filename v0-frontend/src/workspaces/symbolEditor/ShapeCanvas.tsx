@@ -23,12 +23,14 @@ import type { CadConnectionPoint, CustomSymbolDef, SymbolShape } from '@/types/c
 import { cn } from '@/utils/cn'
 import { NumField, TextField, fieldCls } from './fields'
 
-const viewSessions = new Map<string, { zoom: number; left: number; top: number }>()
+const viewSessions = new Map<string, { zoom: number; left: number; top: number; vw: number; vh: number }>()
 const sessionExtents = new Map<string, number>()
 let copiedGeometry: Geometry | null = null
+let gridMmSetting = 5
 const GRID = 50
 const VIEW = 300
-const VIEW_GRID_PX = 5 * 96 / 25.4
+const MM_PX = 96 / 25.4
+const GRID_DOT_PX = 1.6
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 type Tool = 'select' | 'line' | 'arrow' | 'rect' | 'circle' | 'text' | 'pin'
@@ -130,7 +132,12 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
   const drag = useRef<Drag | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [viewport, setViewport] = useState({ width: 600, height: 400 })
+  const [viewport, setViewport] = useState(() => {
+    const saved = viewSessions.get(sessionKey)
+    return saved ? { width: saved.vw, height: saved.vh } : { width: 600, height: 400 }
+  })
+  const [gridMm, setGridMm] = useState(gridMmSetting)
+  const [editingGrid, setEditingGrid] = useState(false)
   const previousSize = useRef({ width: 0, height: 0, id: sym.id })
   const canvasWidth = viewport.width * zoom * 4
   const canvasHeight = viewport.height * zoom * 4
@@ -138,7 +145,11 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
   useLayoutEffect(() => {
     const node = scrollRef.current
     if (!node) return
-    const observer = new ResizeObserver(() => setViewport({ width: node.clientWidth, height: node.clientHeight }))
+    // A hidden tab reports a zero size; keeping the last real size preserves the scroll position.
+    const observer = new ResizeObserver(() => {
+      if (!node.clientWidth || !node.clientHeight) return
+      setViewport((v) => (v.width === node.clientWidth && v.height === node.clientHeight ? v : { width: node.clientWidth, height: node.clientHeight }))
+    })
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
@@ -153,7 +164,7 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
     node.scrollLeft = reset && saved ? saved.left : (reset ? 0.5 : (node.scrollLeft + anchor.x) / previous.width) * canvasWidth - anchor.x
     node.scrollTop = reset && saved ? saved.top : (reset ? 0.5 : (node.scrollTop + anchor.y) / previous.height) * canvasHeight - anchor.y
     zoomAnchor.current = null
-    viewSessions.set(sessionKey, { zoom, left: node.scrollLeft, top: node.scrollTop })
+    viewSessions.set(sessionKey, { zoom, left: node.scrollLeft, top: node.scrollTop, vw: viewport.width, vh: viewport.height })
     previousSize.current = { width: canvasWidth, height: canvasHeight, id: sym.id }
   }, [canvasWidth, canvasHeight, viewport.width, viewport.height, sym.id])
   const shapes = draft?.shapes ?? sym.shapes
@@ -188,7 +199,16 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m)
     return { x: p.x, y: p.y }
   }
-  const gridStep = VIEW_GRID_PX * extent * 2 / (Math.max(1, Math.min(viewport.width, viewport.height)) * zoom)
+  const unitsPerPx = extent * 2 / (Math.max(1, Math.min(viewport.width, viewport.height)) * zoom)
+  const gridStep = gridMm * MM_PX * unitsPerPx
+  const commitGridMm = (value: string) => {
+    const mm = Number(value.replace(',', '.'))
+    if (Number.isFinite(mm) && mm >= 0.5 && mm <= 50) {
+      gridMmSetting = mm
+      setGridMm(mm)
+    }
+    setEditingGrid(false)
+  }
   const snap = (value: number) => Math.round(value / gridStep) * gridStep
 
   const toLocal = (e: React.PointerEvent): Pt => {
@@ -472,7 +492,35 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
           <IconButton icon={Trash2} label="Auswahl löschen (Entf)" size="sm" disabled={isEmpty(sel)} onClick={removeSelected} />
           <button type="button" disabled={!past.length} onClick={undo} className="text-xs disabled:opacity-40">Rückgängig</button>
           <button type="button" disabled={!future.length} onClick={redo} className="text-xs disabled:opacity-40">Wiederholen</button>
-          <span className="ml-auto text-[11px] text-muted">Raster 5 mm · Anschlüsse: {sym.pins.length}</span>
+          <span className="ml-auto flex items-center gap-1 text-[11px] text-muted">
+          {editingGrid ? (
+            <label className="flex items-center gap-1">
+              Raster
+              <input
+                autoFocus
+                aria-label="Rasterabstand in mm"
+                type="number"
+                min={0.5}
+                max={50}
+                step={0.5}
+                defaultValue={gridMm}
+                className="w-14 rounded border border-border bg-panel-2 px-1 py-0.5 text-[11px] text-fg"
+                onBlur={(e) => commitGridMm(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) commitGridMm(e.currentTarget.value)
+                  if (e.key === 'Escape') setEditingGrid(false)
+                }}
+              />
+              mm
+            </label>
+          ) : (
+            <button type="button" className="rounded px-1 hover:bg-panel-2 hover:text-fg" title="Rasterabstand ändern" onClick={() => setEditingGrid(true)}>
+              Raster {String(gridMm).replace('.', ',')} mm
+            </button>
+          )}
+          · Anschlüsse: {sym.pins.length}
+        </span>
         </div>
         <div className="flex flex-wrap items-center gap-3 border-b border-line px-2 py-1 text-[11px]">
           <label><input type="checkbox" checked={grid} onChange={(e) => setGrid(e.target.checked)} /> Raster</label>
@@ -481,7 +529,11 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
           <label className="flex items-center gap-2">Zoom <input aria-label="Symbolzoom" type="range" min="0.25" max="6" step="0.25" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} /> {Math.round(zoom * 100)}%</label>
           <button type="button" onClick={() => setZoom(1)}>Einpassen</button>
         </div>
-        <div ref={scrollRef} onScroll={(e) => viewSessions.set(sessionKey, { zoom: zoomRef.current, left: e.currentTarget.scrollLeft, top: e.currentTarget.scrollTop })} role="region" aria-label="Zeichenfläche scrollen" className="min-h-0 flex-1 overflow-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-width:auto] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted [&::-webkit-scrollbar-track]:bg-panel [&::-webkit-scrollbar-corner]:bg-panel">
+        <div ref={scrollRef} onScroll={(e) => {
+          const node = e.currentTarget
+          if (!node.clientWidth || !node.clientHeight) return
+          viewSessions.set(sessionKey, { zoom: zoomRef.current, left: node.scrollLeft, top: node.scrollTop, vw: viewport.width, vh: viewport.height })
+        }} role="region" aria-label="Zeichenfläche scrollen" className="min-h-0 flex-1 overflow-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-width:auto] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted [&::-webkit-scrollbar-track]:bg-panel [&::-webkit-scrollbar-corner]:bg-panel">
         <svg
           ref={svgRef}
           tabIndex={0}
@@ -540,7 +592,7 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
         >
           <defs>
             <pattern id="sym-grid" width={gridStep} height={gridStep} patternUnits="userSpaceOnUse" x={0} y={0}>
-              <circle cx={0} cy={0} r={1.6} className="fill-muted/40" />
+              <circle cx={0} cy={0} r={GRID_DOT_PX * unitsPerPx} className="fill-muted/40" />
             </pattern>
           </defs>
           {grid && <rect x={-extent * 20} y={-extent * 20} width={extent * 40} height={extent * 40} fill="url(#sym-grid)" />}
