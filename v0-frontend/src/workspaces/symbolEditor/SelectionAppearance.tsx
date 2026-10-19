@@ -9,7 +9,7 @@ function common<T>(values: T[]): T | undefined {
 export function SelectionAppearance({ shapes, onChange }: { shapes: SymbolShape[]; onChange: (change: (shape: SymbolShape) => SymbolShape) => void }) {
   const strokes = shapes.filter((s) => s.t !== 'text')
   const lines = shapes.filter((s) => s.t === 'line')
-  const fills = shapes.filter((s) => s.t === 'rect' || s.t === 'circle')
+  const fills = shapes.filter((s) => s.t === 'rect' || s.t === 'circle' || s.t === 'path')
   const color = common(shapes.map((s) => s.color ?? 'standard'))
   const width = common(strokes.map((s) => s.strokeWidth ?? 7))
   const dash = common(lines.map((s) => s.dashed ? s.dash ?? '16 12' : ''))
@@ -27,8 +27,8 @@ export function SelectionAppearance({ shapes, onChange }: { shapes: SymbolShape[
       </select>
     </label>}
     {fills.length > 0 && <>
-      <label className="flex items-center justify-between text-[12px]">Füllfarbe {fill === undefined && <span className="text-muted">Gemischt</span>}<ColorPicker label="Auswahlfüllfarbe" value={fill ?? '#ffffff'} onChange={(fillColor) => onChange((s) => s.t === 'rect' || s.t === 'circle' ? { ...s, fillColor, filled: true } : s)} /></label>
-      <button type="button" className="text-left text-[11px] text-muted" onClick={() => onChange((s) => s.t === 'rect' || s.t === 'circle' ? { ...s, filled: false } : s)}>Füllung entfernen</button>
+      <label className="flex items-center justify-between text-[12px]">Füllfarbe {fill === undefined && <span className="text-muted">Gemischt</span>}<ColorPicker label="Auswahlfüllfarbe" value={fill ?? '#ffffff'} onChange={(fillColor) => onChange((s) => s.t === 'rect' || s.t === 'circle' ? { ...s, fillColor, filled: true } : s.t === 'path' ? { ...s, fillColor } : s)} /></label>
+      <button type="button" className="text-left text-[11px] text-muted" onClick={() => onChange((s) => s.t === 'rect' || s.t === 'circle' ? { ...s, filled: false } : s.t === 'path' ? { ...s, fillColor: undefined } : s)}>Füllung entfernen</button>
     </>}
     <p className="text-[11px] text-muted">Änderungen gelten für passende Formen der Auswahl. Anschlusspunkte bleiben unverändert.</p>
   </section>

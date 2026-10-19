@@ -3,11 +3,13 @@ import { customSymbolOf, isCustomKind, symbolDef, symbolShapes } from '../models
 import { arrowHead, shapeRotationPivot } from '../models/shapeTransform'
 
 /** Renders editor shapes; shared by placed symbols and the symbol editor canvas. */
-export function ShapeList({ shapes, hitArea = false, strokeScale = 1 }: { shapes: SymbolShape[]; hitArea?: boolean; strokeScale?: number }) {
+export function ShapeList({ shapes, hitArea = false, hitWidth = 24, strokeScale = 1 }: { shapes: SymbolShape[]; hitArea?: boolean; hitWidth?: number; strokeScale?: number }) {
   return (
     <g>
       {shapes.map((s, i) => {
-        const style = { stroke: hitArea ? 'transparent' : s.color, strokeWidth: hitArea ? 24 : s.strokeWidth != null ? s.strokeWidth * strokeScale : undefined }
+        const style = { stroke: hitArea ? 'transparent' : s.color, strokeWidth: hitArea ? Math.max(hitWidth, s.strokeWidth ?? 7) : s.strokeWidth != null ? s.strokeWidth * strokeScale : undefined }
+        // Unfilled outlines must only be hit on their stroke, otherwise they swallow clicks on shapes inside them.
+        const areaFill = (filled: boolean) => (hitArea ? (filled ? 'transparent' : 'none') : undefined)
         if (s.t === 'line') {
           if (!s.arrow) return <line key={i} {...style} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} strokeDasharray={s.dashed ? s.dash ?? '16 12' : undefined} />
           const a = { x: s.x1, y: s.y1 }
@@ -30,10 +32,10 @@ export function ShapeList({ shapes, hitArea = false, strokeScale = 1 }: { shapes
         if (s.t === 'path') {
           const local = s.rot ? ` rotate(${s.rot} ${s.w / 2} ${s.h / 2})` : ''
           const scale = s.sx || s.sy ? ` scale(${s.sx ?? 1} ${s.sy ?? 1})` : ''
-          return <path key={i} {...style} d={s.d} vectorEffect={scale ? 'non-scaling-stroke' : undefined} transform={`translate(${s.x} ${s.y})${local}${scale}`} fill={s.fillColor ? (hitArea ? 'transparent' : s.fillColor) : undefined} />
+          return <path key={i} {...style} d={s.d} vectorEffect={scale ? 'non-scaling-stroke' : undefined} transform={`translate(${s.x} ${s.y})${local}${scale}`} fill={hitArea ? areaFill(!!s.fillColor) : s.fillColor ?? undefined} />
         }
-        if (s.t === 'rect') return <rect key={i} {...style} transform={rot || undefined} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} stroke={hitArea ? 'transparent' : s.noStroke ? 'none' : s.color} fill={hitArea ? 'transparent' : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
-        if (s.t === 'circle') return <circle key={i} {...style} cx={s.cx} cy={s.cy} r={s.r} fill={hitArea ? 'transparent' : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
+        if (s.t === 'rect') return <rect key={i} {...style} transform={rot || undefined} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} stroke={hitArea ? 'transparent' : s.noStroke ? 'none' : s.color} fill={hitArea ? areaFill(!!s.filled) : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
+        if (s.t === 'circle') return <circle key={i} {...style} cx={s.cx} cy={s.cy} r={s.r} fill={hitArea ? areaFill(!!s.filled) : s.filled ? s.fillColor ?? 'currentColor' : 'none'} />
         return (
           <text key={i} {...style} transform={rot || undefined} x={s.x} y={s.y} fontSize={s.size} fontWeight={s.weight} textAnchor={s.anchor ?? 'start'} fill={hitArea ? 'transparent' : s.color ?? 'currentColor'} stroke={hitArea ? 'transparent' : 'none'} fontFamily={s.font === 'inherit' ? undefined : 'ui-monospace, monospace'}>
             {s.text}
