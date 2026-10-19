@@ -11,6 +11,8 @@ import type { ExportOptions, OpenEcadBackend, OpenedProject } from './OpenEcadBa
  */
 export class TauriOpenEcadBackend implements OpenEcadBackend {
   readonly kind = 'tauri' as const
+  readonly label = 'Tauri / Rust (deferred, future offline desktop)'
+  readonly capabilities = { nativeFilesystem: true, serverPersistence: false, offlinePersistence: true, authentication: false, collaboration: false }
 
   listProjects() {
     return invoke<Project[]>('list_projects')

@@ -1,0 +1,15 @@
+Options -Indexes
+RewriteEngine On
+
+# Proxy /api and /api/ in the VHost BEFORE these rules, preserving the URI.
+RewriteRule ^api(?:/|$) - [L]
+# Never serve secrets, repository metadata, source files or private storage.
+RewriteRule (^|/)\. - [F,L]
+RewriteRule ^(?:src|storage|uploads|assets-private|deployment|node_modules)(?:/|$) - [F,L]
+RewriteRule \.(?:map|tsx?|rs|env|sql)$ - [F,L,NC]
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+# Missing assets are not SPA routes.
+RewriteRule ^assets/ - [L]
+RewriteRule ^ index.html [L]

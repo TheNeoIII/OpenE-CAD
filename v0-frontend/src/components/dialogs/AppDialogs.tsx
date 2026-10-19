@@ -163,7 +163,7 @@ export function AboutDialog() {
         <dt className="text-muted">Oberfläche</dt>
         <dd className="text-fg">React 19, Vite, Zustand, SVG-Renderer</dd>
         <dt className="text-muted">Kern</dt>
-        <dd className="text-fg">{backend.kind === 'mock' ? 'Mock-Backend (Entwicklung)' : 'Tauri / Rust'}</dd>
+        <dd className="text-fg">{backend.label}</dd>
         <dt className="text-muted">Lizenz</dt>
         <dd className="text-fg">Open Source</dd>
       </dl>

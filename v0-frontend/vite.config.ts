@@ -10,7 +10,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// Static SPA for Tauri 2: relative asset paths, no server runtime.
+// Self-hosted static SPA; /api is reverse-proxied to the Rust service.
 export default defineConfig({
   plugins: [react(), tailwindcss(), {
     name: 'incremental-build-version',
@@ -33,7 +33,7 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
-    sourcemap: true,
+    sourcemap: false,
     outDir: 'dist',
   },
 })

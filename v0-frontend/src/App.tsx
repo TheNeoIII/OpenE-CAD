@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import useSWR from 'swr'
 import '@/commands/commands'
 import { installKeyboard } from '@/commands/keyboard'
 import { CommandPalette } from '@/components/shell/CommandPalette'
@@ -17,15 +18,24 @@ import { DocumentationWorkspace } from '@/workspaces/DocumentationWorkspace'
 import { ProjectWorkspace } from '@/workspaces/ProjectWorkspace'
 import { SchematicWorkspace } from '@/workspaces/SchematicWorkspace'
 
+import { AccountBoundary } from '@/components/account/AccountBoundary'
+
 export function App() {
+  const theme = useSettingsStore((s) => s.theme)
+  useEffect(() => applyTheme(theme), [theme])
+  return <AccountBoundary><EditorApp /></AccountBoundary>
+}
+
+function EditorApp() {
   const workspace = useUiStore((s) => s.workspace)
   const hasProject = useProjectStore((s) => !!s.current)
   const theme = useSettingsStore((s) => s.theme)
 
   useEffect(() => applyTheme(theme), [theme])
 
+  const { error: projectError, mutate: reloadProjects } = useSWR('project-list', () => useProjectStore.getState().loadProjects(), { shouldRetryOnError: false, revalidateOnFocus: false })
+
   useEffect(() => {
-    void useProjectStore.getState().loadProjects()
     const offKeys = installKeyboard()
     const offValidation = startValidationWatcher()
     const onUnload = (e: BeforeUnloadEvent) => {
@@ -42,8 +52,9 @@ export function App() {
   const ws = hasProject || workspace === 'data' ? workspace : 'project'
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-app text-fg">
+    <div className="flex h-full flex-col overflow-hidden bg-app text-fg">
       <TitleBar />
+      {projectError && <div role="alert" className="flex items-center gap-3 bg-panel px-3 py-2 text-xs text-error">{projectError.message}<button type="button" className="underline" onClick={() => void reloadProjects()}>Erneut laden</button></div>}
       <ProjectTabs />
       <WorkspaceTabs />
       <div className="flex min-h-0 flex-1">

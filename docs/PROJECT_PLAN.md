@@ -1,6 +1,8 @@
 # Projektplan
 
-Stand: 13.10.2026
+Stand: 19.10.2026
+
+Aktives Produktionsziel: **self-hosted Web Application**. Bestehendes React/TypeScript/Vite-Frontend und SVG-Editor erhalten; HTTP/Rust, MariaDB/MySQL, LiteSpeed, private Dateien außerhalb des Webroots. Deployment über `/srv/repos.sh` und `deployment/sync-server-webroot.sh`. Server-Sessions mit Passwort und optional TOTP/Passkeys, Rollen admin/user, keine Selbstregistrierung. Rust-Webserver und echte Sicherheitsfunktionen noch ausstehend. Desktop/Tauri ist deferred; historische Spikes bleiben Forschung. Verträge: WEB_API.md, DATABASE_ARCHITECTURE.md, IMPORT_ARCHITECTURE.md.
 
 ## 1. Produktvision
 
@@ -123,7 +125,7 @@ project.oecad
 └── history/
 ```
 
-Für große lokale Hersteller-/Artikeldatenbanken ist SQLite vorgesehen. Das eigentliche Projektformat soll möglichst transparent und nicht von einer proprietären Datenbankstruktur abhängig sein.
+MariaDB/MySQL ist die Produktionsdatenbank; SQLite bleibt nur historischer Spike bzw. mögliche spätere lokale Offline-Datenbank. `.oecad` bleibt transparentes, portables Austauschformat, unabhängig vom Server-Persistenzschema.
 
 ## 6. UI-Hauptbereiche
 
@@ -171,19 +173,16 @@ Von jedem Gerät sollen direkte Sprünge möglich sein zu:
 
 ## 8. Technische Richtung
 
-Noch keine endgültige Frameworkentscheidung.
+Verbindlich:
 
-Geplant:
+- React + TypeScript + Vite; bestehende SVG-Zeichenfläche, Undo/Redo und Editor-Interaktionen unverändert erhalten.
+- Rust Web API und Engineering Core, ausschließlich über OpenEcadBackend angesprochen.
+- MariaDB/MySQL, private Storage-Referenzen und `.oecad`-Domain-Austausch.
+- Versionierte API-/DB-Verträge, serverautoritative Authentifizierung, CSRF und Objektberechtigungen.
+- ELCAD/EPLAN erst nach realen Dateien/verifizierten Spezifikationen; keine erfundenen Parser.
+- LiteSpeed SPA-Auslieferung + `/api` Reverse Proxy, keine festgelegte Domain.
 
-- Rust als Kernsprache
-- UI und CAD-Rendering logisch getrennt
-- eigener Undo-/Redo-Kommandostack
-- klar versioniertes Datenmodell
-- Plugin-/Importer-Schnittstellen früh berücksichtigen
-- GPU-beschleunigte Zeichenfläche prüfen, z. B. auf Basis von `wgpu`
-- Desktop-UI-Framework separat evaluieren, z. B. Slint, egui oder andere Rust-taugliche Ansätze
-
-Die Frameworkentscheidung erfolgt erst nach einem kleinen technischen Spike für Canvas, Docking, Textdarstellung, DPI/Scaling und große Projekte.
+GPU-/Rust-Desktop-UI-Spikes (wgpu, Slint, egui, iced) bleiben historische Forschung, keine aktive Roadmap.
 
 ## 9. Nicht-Ziele für den ersten Entwicklungsabschnitt
 

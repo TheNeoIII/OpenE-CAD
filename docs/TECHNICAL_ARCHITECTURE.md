@@ -1,7 +1,13 @@
 # Technische Zielarchitektur (Rust)
 
-Stand: 14.10.2026  
-Status: **Architekturentwurf v0.1 – noch kein Produktivcode**
+Stand: 19.10.2026
+Status: **Self-hosted Web Application; Rust-Webserver noch nicht implementiert**
+
+Verbindliche aktive Architektur: React + TypeScript + Vite (`v0-frontend/`, bestehender SVG-CAD-Renderer) → OpenEcadBackend → HTTP `/api` → Rust Web API → Engineering Core → MariaDB/MySQL + Storage außerhalb des öffentlichen Webroots. LiteSpeed liefert Vite-Assets und proxyt die API. Domain/APP_URL und interner Port sind konfigurierbar, noch nicht festgelegt. Server-Sessions, Argon2id-Passwörter, optional TOTP/Recovery und WebAuthn sind das Sicherheitsziel; keine öffentliche Registrierung.
+
+Deployment: `/srv/repos.sh` (Git/Lock/Backups) + `deployment/sync-server-webroot.sh` (Build/Publish/Hooks). Siehe [WEB_API.md](WEB_API.md), [DATABASE_ARCHITECTURE.md](DATABASE_ARCHITECTURE.md), [IMPORT_ARCHITECTURE.md](IMPORT_ARCHITECTURE.md) und [LiteSpeed](../deployment/litespeed/README.md).
+
+Die folgenden Rust-Desktop-/GPU-Workspace- und UI-Evaluierungen dokumentieren **historische Forschung**, keine aktive Produktroadmap. Tauri/Slint/egui/iced und SQLite sind deferred bzw. mögliche spätere Offline-Optionen. UUIDv7, Fixed Point, milli-TE, Paper/Model/Screen Space, Snap, analytische Primitives, Layer, Hit Testing und Text-Erkenntnisse bleiben gültig. `.oecad` bleibt portables Austauschformat, unabhängig von der Server-DB.
 
 Dieses Dokument übersetzt die fachliche Spezifikation in eine erste technische Zielstruktur für die Rust-Implementierung.
 
@@ -242,23 +248,9 @@ Globale Katalogdatenbank ist unabhängig von geöffneten Projekten.
 
 # 12. Katalog-Persistenz
 
-Wahrscheinliche Richtung:
+Web-Produktion: MariaDB/MySQL, InnoDB, utf8mb4 und versionierte Migrationen. Zugriff ausschließlich über Rust, parameterisierte Queries/prepared statements; niemals Benutzerinput in SQL konkatenieren, dynamische Identifier nur über serverseitige Allowlists. Zusammenhängende Änderungen transaktional; Details in DATABASE_ARCHITECTURE.md.
 
-```text
-SQLite
-```
-
-Begründung:
-
-- große strukturierte Artikelmengen
-- Indizes
-- Volltextsuche
-- lokale Offline-Nutzung
-- einfaches Backup/Update
-
-Dies wird im Persistence-Spike verifiziert.
-
-Das `.oecad`-Projekt selbst bleibt kein SQLite-Dump.
+SQLite bleibt eine historische Spike-/mögliche lokale Offline-Option. `.oecad` ist kein Datenbankdump und bleibt portables Domain-Austauschformat.
 
 ---
 
@@ -324,7 +316,7 @@ MVP darf zunächst gröber invalidieren.
 
 # 16. Renderer-Technologie
 
-Aktueller Favorit für den CAD-Canvas:
+Historischer Spike-Favorit, **nicht** das aktive Web-Renderingziel (dieses bleibt SVG):
 
 ```text
 wgpu
