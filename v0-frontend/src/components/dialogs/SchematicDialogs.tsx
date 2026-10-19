@@ -4,7 +4,9 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button, Field, Input, Segmented, Select, Spinner } from '@/components/ui/primitives'
 import { addPotential, addCrossReference, assignArticle, updatePageMeta } from '@/features/schematic/actions'
 import { Star } from 'lucide-react'
-import { articleVariant, symbolDef, symbolVariants, variantByKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
+import { articleVariant, customKind, symbolDef, symbolMeta, symbolVariants, variantByKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
+import { matchesOriginFilter, OriginFilterSelect, ownerOptions, SymbolOriginBadge, useSymbolOriginResolver, type OriginFilter, type ResolvedOrigin } from '@/features/library/SymbolOriginBadge'
+import { useLibraryStore } from '@/stores/libraryStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { SymbolGlyph } from '@/features/schematic/components/SymbolGlyph'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -84,14 +86,13 @@ export function PagePropertiesDialog({ pageId }: { pageId: string }) {
   )
 }
 
-type PickEntry = { id: string; variant: SymbolVariant; title: string; sub: string; article?: Article }
+type PickEntry = { id: string; variant: SymbolVariant; title: string; sub: string; article?: Article; origin?: ResolvedOrigin; haystack: string }
 
-const variantEntry = (v: SymbolVariant, prefix = ''): PickEntry => ({
-  id: prefix + v.key,
-  variant: v,
-  title: v.label,
-  sub: `-${symbolDef(v.kind).bmkPrefix} · ${symbolDef(v.kind).category}`,
-})
+const variantEntry = (v: SymbolVariant, origin: ResolvedOrigin, prefix = ''): PickEntry => {
+  const meta = symbolMeta(v.kind, v.poles)
+  const sub = `-${meta.bmkPrefix} · ${meta.category}`
+  return { id: prefix + v.key, variant: v, title: v.label, sub, origin, haystack: `${v.label} ${meta.description} ${meta.bmkPrefix} ${meta.category} ${origin.label} ${origin.mine ? 'mein meine' : ''}` }
+}
 
 const allArticles = () => loadArticles('')
 
@@ -124,17 +125,31 @@ function SymbolPickerBody({ articles }: { articles: Article[] }) {
   const [active, setActive] = useState(0)
   const favorites = useSettingsStore((s) => s.favoriteSymbols)
   const toggleFavorite = useSettingsStore((s) => s.toggleFavorite)
+  const customSymbols = useLibraryStore((s) => s.customSymbols)
+  const symbolOverrides = useLibraryStore((s) => s.symbolOverrides)
+  const resolveOrigin = useSymbolOriginResolver()
+  const [originFilter, setOriginFilter] = useState<OriginFilter>('all')
+
+  const originOf = useMemo(() => {
+    const byKind = new Map(customSymbols.map((c) => [customKind(c.id), c]))
+    return (v: SymbolVariant) => resolveOrigin(byKind.get(v.kind))
+  }, [customSymbols, resolveOrigin])
+  const owners = useMemo(() => ownerOptions(symbolVariants().map(originOf)), [originOf])
 
   const sections = useMemo(() => {
     const needle = q.trim().toLowerCase()
     const poleOk = (v: SymbolVariant) => poles === 'all' || v.group === poles
-    const match = (e: PickEntry) => !needle || `${e.title} ${e.sub} ${e.article?.articleNo ?? ''} ${e.article?.manufacturer ?? ''}`.toLowerCase().includes(needle)
+    const match = (e: PickEntry) => !needle || e.haystack.toLowerCase().includes(needle)
+    const originOk = (e: PickEntry) => !e.origin || matchesOriginFilter(e.origin, originFilter)
 
-    const symbols = symbolVariants().filter(poleOk).map((v) => variantEntry(v)).filter(match)
-    const devices = articles
+    const symbols = symbolVariants().filter(poleOk).map((v) => variantEntry(v, originOf(v))).filter((e) => originOk(e) && match(e))
+    // Article devices are not owned symbols; the owner filter only narrows the symbol sections.
+    const devices = originFilter !== 'all' ? [] : articles
       .map((a): PickEntry | null => {
         const v = articleVariant(a)
-        return v && poleOk(v) ? { id: `art:${a.id}`, variant: v, article: a, title: a.description, sub: `${a.manufacturer} ${a.articleNo} · -${symbolDef(v.kind).bmkPrefix}` } : null
+        if (!v || !poleOk(v)) return null
+        const sub = `${a.manufacturer} ${a.articleNo} · -${symbolDef(v.kind).bmkPrefix}`
+        return { id: `art:${a.id}`, variant: v, article: a, title: a.description, sub, haystack: `${a.description} ${sub} ${a.category}` }
       })
       .filter((e): e is PickEntry => !!e && match(e))
     const favs = needle
@@ -142,14 +157,17 @@ function SymbolPickerBody({ articles }: { articles: Article[] }) {
       : favorites
           .map((k) => variantByKey(k))
           .filter((v): v is SymbolVariant => !!v && poleOk(v))
-          .map((v) => variantEntry(v, 'fav:'))
+          .map((v) => variantEntry(v, originOf(v), 'fav:'))
+          .filter(originOk)
 
     return [
       { title: 'Favoriten', entries: favs },
       { title: 'Symbole', entries: symbols },
       { title: 'Geräte aus Artikelliste', entries: devices },
     ].filter((s) => s.entries.length > 0)
-  }, [q, poles, favorites, articles])
+    // symbolOverrides changes labels/metadata resolved by symbolVariants()/symbolMeta()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, poles, favorites, articles, originOf, originFilter, symbolOverrides])
 
   const flat = sections.flatMap((s) => s.entries)
   const current = flat[Math.min(active, flat.length - 1)]
@@ -179,8 +197,14 @@ function SymbolPickerBody({ articles }: { articles: Article[] }) {
             if (e.key === 'ArrowDown' || e.key === 'ArrowRight') (e.preventDefault(), setActive((a) => Math.min(flat.length - 1, a + 1)))
             if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') (e.preventDefault(), setActive((a) => Math.max(0, a - 1)))
           }}
-          placeholder="Suchen: FI, LS, Schütz, Klemme, Artikelnummer …"
+          placeholder="Suchen: Name, BMK, Kategorie, Besitzer, Artikelnummer …"
           aria-label="Symbole filtern"
+        />
+        <OriginFilterSelect
+          value={originFilter}
+          onChange={(v) => (setOriginFilter(v), setActive(0))}
+          owners={owners}
+          className="h-8 max-w-44 shrink-0 rounded-md border border-line bg-app px-2 text-[12px] text-fg outline-none focus:border-accent"
         />
         <Segmented
           label="Polzahl"
@@ -216,7 +240,10 @@ function SymbolPickerBody({ articles }: { articles: Article[] }) {
                       <SymbolGlyph kind={e.variant.kind} poles={e.variant.poles} className="size-11 shrink-0 rounded-sm bg-app text-fg" />
                       <span className="min-w-0">
                         <span className="block truncate text-[12px] font-medium text-fg">{e.title}</span>
-                        <span className="block truncate text-[11px] text-muted">{e.sub}</span>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          {e.origin && <SymbolOriginBadge origin={e.origin} />}
+                          <span className="truncate text-[11px] text-muted">{e.sub}</span>
+                        </span>
                       </span>
                     </button>
                     {!e.article && (
