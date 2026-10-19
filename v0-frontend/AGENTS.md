@@ -55,7 +55,7 @@ Prefer small, targeted changes over broad rewrites or refactors.
 
 ## Shared library (binding)
 - Production shared library data is server-backed (Rust API + MariaDB), not part of a single `CadDocument`.
-- System data: articles, system symbols, potentials, wire styles. Writes require `library.manageSystem` (articles: `article.manage`); users get read-only UI, the server enforces every write.
+- System data: articles, system symbols, potentials, wire styles. Writes require `library.manageSystem` (articles: `article.manage`); users get read-only UI, the server enforces every write. Article deletion has no backend contract yet and stays disabled for everyone (`ARTICLE_DELETE_BACKEND_AVAILABLE` in `src/features/library/libraryPermissions.ts`). Symbol versioning is prepared only; no historical versions or version-bound placements exist yet.
 - User-owned symbols are also server-backed shared library records with ownership metadata (owner/admin edit, everyone may use and duplicate).
 - Project-local symbols may later exist separately. Browser-persisted library state (Zustand persist, project-embedded definitions) is development/mock only; do not add new browser-only persistence for multi-user system data.
 - Symbol versions (`CustomSymbolDef.version`, `CadSymbol.symbolVersion`) are prepared but historical versions are not resolved yet.

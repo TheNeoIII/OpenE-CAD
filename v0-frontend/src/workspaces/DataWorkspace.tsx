@@ -5,6 +5,7 @@ import { runCommand } from '@/commands/registry'
 import { Button, Checkbox, Input, Spinner, Tabs } from '@/components/ui/primitives'
 import { useCan } from '@/stores/accountStore'
 import { useDataStore } from '@/stores/dataStore'
+import { canDeleteRows } from '@/features/library/libraryPermissions'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useUiStore } from '@/stores/uiStore'
 import type { CellValue, DataColumn, DataRow, DataViewId } from '@/types/data'
@@ -170,7 +171,7 @@ export function DataWorkspace() {
         <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-app p-6 text-center">
           <p className="text-[13px] font-medium text-fg">Kein Projekt geöffnet</p>
           <p className="max-w-sm text-[12px] text-muted">
-            {PROJECT_VIEWS.find((v) => v.value === view)?.label} sind Projektdaten. Öffne ein Projekt, um sie anzuzeigen. Artikel, Potentiale, Leiterstile und Symbole sind auch ohne Projekt bearbeitbar.
+            {PROJECT_VIEWS.find((v) => v.value === view)?.label} sind Projektdaten. Öffne ein Projekt, um sie anzuzeigen. Artikel, Potentiale, Leiterstile und Symbole sind auch ohne geöffnetes Projekt verfügbar; Bearbeitungsmöglichkeiten hängen von den Benutzerrechten ab.
           </p>
           <Button size="sm" onClick={() => runCommand('file.open')}>
             Projekt öffnen …
@@ -213,7 +214,14 @@ export function DataWorkspace() {
         <Button size="sm" icon={PencilLine} disabled={!selected.length || readOnly} onClick={() => runCommand('data.bulkEdit')}>
           Sammeländerung
         </Button>
-        <Button size="sm" variant="ghost" icon={Trash2} disabled={!selected.length || view === 'articles'} onClick={() => useDataStore.getState().deleteRows(view, selected)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={Trash2}
+          disabled={!selected.length || !canDeleteRows(view, canManageArticles)}
+          title={view === 'articles' ? (canManageArticles ? 'Artikel löschen: Backend noch nicht implementiert' : 'Artikel löschen erfordert die Berechtigung „Artikel verwalten“') : undefined}
+          onClick={() => useDataStore.getState().deleteRows(view, selected)}
+        >
           Löschen
         </Button>
         <Button size="sm" variant="ghost" icon={Upload} disabled={readOnly} onClick={() => runCommand('data.import')}>

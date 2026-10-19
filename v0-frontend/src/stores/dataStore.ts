@@ -1,13 +1,13 @@
 import { create } from 'zustand'
 import { backend } from '@/backend'
 import type { CellValue, DataTable, DataViewId } from '@/types/data'
-import { can } from '@/backend/permissions'
+import { canDeleteRows, canManageArticles, canWriteDataView } from '@/features/library/libraryPermissions'
 import { useAccountStore } from './accountStore'
 import { useDocumentStore } from './documentStore'
 
 /** UX guard only; the Rust server enforces `article.manage` on every library write. */
 export function canWriteView(view: DataViewId) {
-  return view !== 'articles' || can(useAccountStore.getState().user, 'article.manage')
+  return canWriteDataView(view, useAccountStore.getState().user)
 }
 
 export interface SortState {
@@ -80,7 +80,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   deleteRows: (view, rowIds) => {
     const table = get().tables[view]
-    if (!table || !canWriteView(view)) return
+    if (!table || !canDeleteRows(view, canManageArticles(useAccountStore.getState().user))) return
     const ids = new Set(rowIds)
     set((s) => ({ tables: { ...s.tables, [view]: { ...table, rows: table.rows.filter((r) => !ids.has(r.id) || r.deviceId) } }, selected: [] }))
   },
