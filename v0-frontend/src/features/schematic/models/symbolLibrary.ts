@@ -349,6 +349,9 @@ export function symbolDef(kind: SymbolKind): SymbolDef {
 
 export const customSymbolOf = (kind: SymbolKind) => (isCustomKind(kind) ? customById.get(kind.slice(CUSTOM_PREFIX.length)) : undefined)
 export const symbolOverrideOf = (kind: BuiltinSymbolKind) => overrides[kind]
+/** Library version a newly placed instance is based on; existing instances keep theirs. */
+export const currentSymbolVersion = (kind: SymbolKind): number =>
+  (isCustomKind(kind) ? customSymbolOf(kind)?.version : overrides[kind as BuiltinSymbolKind]?.version) ?? 1
 
 export function symbolShapes(kind: SymbolKind, poles: 1 | 3, ways?: number): SymbolShape[] {
   if (isCustomKind(kind)) return customSymbolOf(kind)?.shapes ?? []

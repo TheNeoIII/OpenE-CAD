@@ -5,6 +5,7 @@ import { normalizePages, synchronizePage } from '@/utils/pageOrganization'
 import type { CadDocument, CadPage } from '@/types/cad'
 import { useHistoryStore } from './historyStore'
 import { useProjectStore } from './projectStore'
+import { projectEditorLabel } from './userDirectoryStore'
 
 interface DocumentState {
   document: CadDocument | null
@@ -63,6 +64,6 @@ export function getActivePage(): CadPage | null {
 }
 
 export function updatePage(doc: CadDocument, pageId: string, fn: (p: CadPage) => CadPage): CadDocument {
-  const editedBy = useProjectStore.getState().current?.author || undefined
+  const editedBy = projectEditorLabel(useProjectStore.getState().current) || undefined
   return { ...doc, pages: doc.pages.map((p) => (p.id === pageId ? { ...synchronizePage(doc, p, fn(p)), updatedAt: new Date().toISOString(), editedBy: editedBy ?? p.editedBy } : p)) }
 }

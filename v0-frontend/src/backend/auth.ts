@@ -48,4 +48,6 @@ export interface DevIdentityControl {
   identities(): AccountUser[]
   current(): AccountUser
   switchTo(userId: string): AccountUser
+  /** Simulates another user saving the project, so the next save hits a 409 conflict. */
+  simulateConcurrentEdit(projectId: string): void
 }

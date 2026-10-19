@@ -4,13 +4,10 @@ import type { Article } from '@/types/device'
 import type { NewProjectInput, Project, ProjectTemplate, ValidationResult } from '@/types/project'
 import type { AccountBackend, AccountSecurity, AuthSession, LoginResult } from './auth'
 import type { AdminActionResult, AdminBackend, AdminUser, AdminUserDetail, AuditPage, AuditQuery, DirectoryUser, SystemStatus } from './admin'
-import type { ExportOptions, OpenEcadBackend, OpenedProject } from './OpenEcadBackend'
+import type { ExportOptions, OpenEcadBackend, OpenedProject, SaveResult } from './OpenEcadBackend'
+import { ApiError, ProjectConflictError } from './errors'
 
-export class ApiError extends Error {
-  constructor(public readonly status: number, public readonly code: string, message: string, public readonly retryAfterSeconds?: number) {
-    super(message)
-  }
-}
+export { ApiError, ProjectConflictError }
 
 const id = encodeURIComponent
 
@@ -99,6 +96,10 @@ export class HttpOpenEcadBackend implements OpenEcadBackend {
         this.csrfToken = null
         window.dispatchEvent(new Event('openecad:session-expired'))
       }
+      if (response.status === 409 && payload?.error?.code === 'PROJECT_REVISION_CONFLICT') {
+        const current = Number(payload?.error?.currentRevision)
+        throw new ProjectConflictError(Number.isInteger(current) ? current : null)
+      }
       const retry = Number(response.headers.get('Retry-After'))
       throw new ApiError(response.status, payload?.error?.code ?? 'HTTP_ERROR', payload?.error?.message ?? `Anfrage fehlgeschlagen (${response.status}).`, Number.isFinite(retry) && retry > 0 ? retry : undefined)
     }
@@ -114,8 +115,12 @@ export class HttpOpenEcadBackend implements OpenEcadBackend {
   updateProject(project: Project) { return this.request<Project>(`/projects/${id(project.id)}`, 'PUT', { project }) }
   duplicateProject(projectId: string, name: string) { return this.request<Project>(`/projects/${id(projectId)}/duplicate`, 'POST', { name }) }
   archiveProject(projectId: string, archived: boolean) { return this.request<Project>(`/projects/${id(projectId)}/archive`, 'POST', { archived }) }
-  deleteProject(projectId: string) { return this.request<void>(`/projects/${id(projectId)}`, 'DELETE') }
-  saveProject(project: Project, document: CadDocument) { return this.request<{ savedAt: string }>(`/projects/${id(project.id)}/document`, 'PUT', { project, document }) }
+  trashProject(projectId: string) { return this.request<Project>(`/projects/${id(projectId)}/trash`, 'POST') }
+  restoreProject(projectId: string) { return this.request<Project>(`/projects/${id(projectId)}/restore`, 'POST') }
+  purgeProject(projectId: string) { return this.request<void>(`/projects/${id(projectId)}`, 'DELETE') }
+  saveProject(project: Project, document: CadDocument, expectedRevision: number) {
+    return this.request<SaveResult>(`/projects/${id(project.id)}/document`, 'PUT', { project, document, expectedRevision })
+  }
   getPage(documentId: string, pageId: string) { return this.request<CadPage>(`/documents/${id(documentId)}/pages/${id(pageId)}`) }
   updateObjects(documentId: string, pageId: string, objects: CadObject[]) { return this.request<void>(`/documents/${id(documentId)}/pages/${id(pageId)}/objects`, 'PUT', { objects }) }
   listArticles(query?: string) { return this.request<Article[]>(`/articles${query ? `?query=${encodeURIComponent(query)}` : ''}`) }

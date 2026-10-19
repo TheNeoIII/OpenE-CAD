@@ -1,6 +1,9 @@
-import { Copy, Download, Plus, RotateCcw, Trash2, Upload } from 'lucide-react'
+import { Copy, Download, Lock, Plus, RotateCcw, Trash2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, IconButton } from '@/components/ui/primitives'
+import { matchesOriginFilter, OriginFilterSelect, ownerOptions, SymbolOriginBadge, useSymbolOriginResolver, type OriginFilter } from '@/features/library/SymbolOriginBadge'
+import { canDeleteSymbol, canDuplicateSymbol, canEditSymbol, canImportSystemSymbols, newSymbolProvenance, nextSymbolVersion } from '@/features/library/symbolOwnership'
+import { useCurrentUser } from '@/stores/accountStore'
 import { SymbolGlyph } from '@/features/schematic/components/SymbolGlyph'
 import { articleVariant, customKind, symbolDef, symbolMeta, symbolOverrideOf, symbolShapes, symbolVariants, variantKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -44,9 +47,9 @@ function usageCount(doc: CadDocument, kind: SymbolKind) {
   return n
 }
 
-function MetaForm({ value, onPatch }: { value: { label: string; description: string; bmkPrefix: string; category: DeviceCategory; mount: MountType }; onPatch: (p: SymbolOverride) => void }) {
+function MetaForm({ value, readOnly, onPatch }: { value: { label: string; description: string; bmkPrefix: string; category: DeviceCategory; mount: MountType }; readOnly?: boolean; onPatch: (p: SymbolOverride) => void }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <fieldset disabled={readOnly} className="grid grid-cols-2 gap-2 disabled:opacity-70">
       <TextField label="Bezeichnung" value={value.label} onCommit={(v) => v && onPatch({ label: v })} />
       <TextField label="BMK-Präfix" value={value.bmkPrefix} mono onCommit={(v) => v && onPatch({ bmkPrefix: v.toUpperCase() })} />
       <div className="col-span-2">
@@ -70,11 +73,12 @@ function MetaForm({ value, onPatch }: { value: { label: string; description: str
           ))}
         </select>
       </label>
-    </div>
+    </fieldset>
   )
 }
 
 type Entry = SymbolVariant & { custom?: CustomSymbolDef }
+type GroupName = 'Meine Symbole' | 'Andere Benutzer' | 'System'
 
 const unsavedDrafts = new Map<string, { selected: string; pending: Partial<CustomSymbolDef> }>()
 
@@ -109,24 +113,46 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
   const [exported, setExported] = useState<{ name: string; text: string; url: string } | null>(null)
   const exportTextRef = useRef<HTMLTextAreaElement>(null)
 
-  const entries = useMemo<Entry[]>(() => {
-    const all: Entry[] = symbolVariants().map((v) => ({ ...v, custom: customSymbols.find((c) => customKind(c.id) === v.kind) }))
-    const n = search.trim().toLowerCase()
-    return n ? all.filter((e) => `${e.label} ${symbolMeta(e.kind, e.poles).bmkPrefix}`.toLowerCase().includes(n)) : all
+  const user = useCurrentUser()
+  const resolveOrigin = useSymbolOriginResolver()
+  const [originFilter, setOriginFilter] = useState<OriginFilter>('all')
+  const [importAsSystem, setImportAsSystem] = useState(false)
+
+  const allEntries = useMemo(
+    () => symbolVariants().map((v) => {
+      const custom = customSymbols.find((c) => customKind(c.id) === v.kind)
+      return { ...v, custom, origin: resolveOrigin(custom) }
+    }),
     // symbolOverrides changes the variant labels resolved by symbolVariants()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customSymbols, symbolOverrides, search])
+    [customSymbols, symbolOverrides, resolveOrigin],
+  )
+  const owners = useMemo(() => ownerOptions(allEntries.map((e) => e.origin)), [allEntries])
+  const entries = useMemo(() => {
+    const n = search.trim().toLowerCase()
+    return allEntries.filter((e) => {
+      if (!matchesOriginFilter(e.origin, originFilter)) return false
+      if (!n) return true
+      const m = symbolMeta(e.kind, e.poles)
+      return `${e.label} ${m.bmkPrefix} ${m.description} ${m.category} ${e.origin.label}`.toLowerCase().includes(n)
+    })
+  }, [allEntries, search, originFilter])
 
   const variant = symbolVariants().find((v) => v.key === selected) ?? symbolVariants()[0]
   const current: Entry = { ...variant, custom: customSymbols.find((c) => customKind(c.id) === variant.kind) }
+  const origin = resolveOrigin(current.custom)
+  const editable = canEditSymbol(user, origin)
+  const deletable = canDeleteSymbol(user, origin)
+  const duplicable = canDuplicateSymbol(user)
   const def = symbolDef(current.kind)
   const used = doc ? usageCount(doc, current.kind) : 0
   const builtin = !current.custom
   const meta = symbolMeta(current.kind, current.poles)
   const editing: CustomSymbolDef = { ...(current.custom ?? { ...meta, id: current.key, shapes: symbolShapes(current.kind, current.poles), pins: def.pins({ poles: current.poles }) }), ...pending }
+  const stage = (p: Partial<CustomSymbolDef>) => { if (editable) setPending((previous) => ({ ...previous, ...p })) }
   const save = () => {
-    if (!pending) return
-    if (current.custom) patchCustom(current.custom.id, 'Symbol gespeichert', pending)
+    if (!pending || !editable) return
+    if (current.custom) patchCustom(current.custom.id, 'Symbol gespeichert', { ...pending, ...nextSymbolVersion(user, current.custom.version) })
     else {
       const kind = current.kind as BuiltinSymbolKind
       const { label, description, bmkPrefix, category, mount, shapes, pins } = editing
@@ -134,13 +160,13 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
       const meta = def.supportsPoles
         ? { poleLabels: { ...prev?.poleLabels, [current.poles]: label }, poleMeta: { ...prev?.poleMeta, [current.poles]: { description, bmkPrefix, category, mount } } }
         : { label, description, bmkPrefix, category, mount }
-      patchOverride(kind, { ...meta, geometry: { ...prev?.geometry, [current.poles]: { shapes, pins } } })
+      patchOverride(kind, { ...meta, geometry: { ...prev?.geometry, [current.poles]: { shapes, pins } }, ...nextSymbolVersion(user, prev?.version) })
     }
     setPending(null)
   }
 
   const createSymbol = (base?: Partial<CustomSymbolDef>) => {
-    if (!abandon()) return
+    if (!duplicable || !abandon()) return
     setPending(null)
     const id = uid()
     const sym: CustomSymbolDef = {
@@ -160,6 +186,7 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
         { t: 'line', x1: 0, y1: 50, x2: 0, y2: 100 },
       ],
       ...base,
+      ...newSymbolProvenance(user, 'user', base?.derivedFromSymbolId),
     }
     commitCustom('Symbol angelegt', (list) => [...list, sym])
     select(variantKey(customKind(id), 1))
@@ -175,11 +202,12 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
       category: meta.category,
       mount: meta.mount,
       pins: pins.map((p) => ({ id: p.id, x: p.x, y: p.y })),
+      derivedFromSymbolId: current.custom?.id ?? current.key,
     })
   }
 
   const remove = () => {
-    if (!current.custom || !abandon()) return
+    if (!current.custom || !deletable || !abandon()) return
     setPending(null)
     if (!window.confirm(`Symbol „${current.label}“ systemweit löschen?${used ? ` Es wird ${used}× im geöffneten Projekt verwendet.` : ''} Platzierte Symbole werden in allen Projekten als „Unbekanntes Symbol“ angezeigt.`)) return
     const id = current.custom.id
@@ -217,6 +245,8 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
   }
 
   const importLib = async (file: File) => {
+    if (!duplicable) return
+    const scope = importAsSystem && canImportSystemSymbols(user) ? 'system' : 'user'
     try {
       const data = JSON.parse(await file.text())
       const list: CustomSymbolDef[] = Array.isArray(data) ? data : data.symbols
@@ -230,11 +260,12 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
           let copy = 1
           while (names.has(label.toLocaleLowerCase())) label = `${base} (Kopie ${copy++})`
           names.add(label.toLocaleLowerCase())
-          return { ...s, id: crypto.randomUUID(), label, description: s.description ?? '', bmkPrefix: s.bmkPrefix || 'X', category: s.category ?? 'Klemme', mount: s.mount ?? 'rail' }
+          // Ownership from the file is never trusted: imports belong to the importer (or the system, for admins).
+          return { ...s, id: crypto.randomUUID(), label, description: s.description ?? '', bmkPrefix: s.bmkPrefix || 'X', category: s.category ?? 'Klemme', mount: s.mount ?? 'rail', ...newSymbolProvenance(user, scope) }
         })
         return [...cur, ...imported]
       })
-      setNotice(`${valid.length} Symbol(e) importiert${valid.length < list.length ? `, ${list.length - valid.length} ungültig übersprungen` : ''}.`)
+      setNotice(`${valid.length} Symbol(e) als ${scope === 'system' ? 'Systemsymbole' : 'eigene Symbole'} importiert${valid.length < list.length ? `, ${list.length - valid.length} ungültig übersprungen` : ''}.`)
     } catch {
       setNotice('Datei konnte nicht gelesen werden (erwartet: Symbolbibliothek als JSON).')
     }
@@ -246,12 +277,13 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
     <div className="flex min-h-0 flex-1">
       <nav aria-label="Symbolbibliothek" className="flex w-64 shrink-0 flex-col border-r border-line bg-panel">
         <div className="flex flex-col gap-2 border-b border-line p-2">
-          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Symbol suchen…" aria-label="Symbol suchen" className={fieldCls} />
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, BMK, Kategorie, Besitzer…" aria-label="Symbol suchen" className={fieldCls} />
+          <OriginFilterSelect value={originFilter} onChange={setOriginFilter} owners={owners} className={fieldCls} />
           <div className="flex gap-1">
-            <Button size="sm" icon={Plus} onClick={() => createSymbol()} className="flex-1">
+            <Button size="sm" icon={Plus} disabled={!duplicable} onClick={() => createSymbol()} className="flex-1">
               Neu
             </Button>
-            <IconButton icon={Upload} label="Bibliothek importieren" size="sm" onClick={() => fileRef.current?.click()} />
+            <IconButton icon={Upload} label={importAsSystem ? 'Bibliothek als Systemsymbole importieren' : 'Bibliothek als eigene Symbole importieren'} size="sm" disabled={!duplicable} onClick={() => fileRef.current?.click()} />
             <IconButton icon={Download} label="Ausgewähltes Symbol exportieren (inklusive Entwurf)" size="sm" onClick={() => exportLib()} />
             <IconButton icon={Download} label="Alle eigenen Symbole exportieren" size="sm" disabled={!customSymbols.length} onClick={() => exportLib(true)} />
             <input
@@ -267,7 +299,13 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
               }}
             />
           </div>
-          <Button size="sm" disabled={loadingArticles} onClick={async () => {
+          {canImportSystemSymbols(user) && (
+            <label className="flex items-center gap-2 text-[11px] text-fg-2">
+              <input type="checkbox" checked={importAsSystem} onChange={(e) => setImportAsSystem(e.target.checked)} className="accent-accent" />
+              Import als Systemsymbole
+            </label>
+          )}
+          <Button size="sm" disabled={loadingArticles || !duplicable} onClick={async () => {
             setLoadingArticles(true)
             try { setArticles(await backend.listArticles('')) } catch { setNotice('Artikelliste konnte nicht geladen werden.') } finally { setLoadingArticles(false) }
           }}>Aus Artikelvorlage…</Button>
@@ -309,8 +347,9 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
           )}
         </div>
         <ul className="min-h-0 flex-1 overflow-y-auto p-1">
-          {(['Eigene Symbole', 'Standardsymbole'] as const).map((group) => {
-            const items = entries.filter((e) => (group === 'Eigene Symbole' ? !!e.custom : !e.custom))
+          {entries.length === 0 && <li className="px-2 py-6 text-center text-[11px] text-muted">Keine Symbole für diesen Filter.</li>}
+          {(['Meine Symbole', 'Andere Benutzer', 'System'] as GroupName[]).map((group) => {
+            const items = entries.filter((e) => (group === 'System' ? e.origin.scope === 'system' : group === 'Meine Symbole' ? e.origin.mine : e.origin.scope !== 'system' && !e.origin.mine))
             if (!items.length) return null
             return (
               <li key={group}>
@@ -327,7 +366,11 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
                           className={cn('flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] hover:bg-panel-2', e.key === current.key && 'bg-accent-soft text-fg')}
                         >
                           <SymbolGlyph kind={e.kind} poles={e.poles} className="size-8 shrink-0 rounded-sm bg-app text-fg" />
-                          <span className="min-w-0 flex-1 truncate">{e.label}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate">{e.label}</span>
+                            {group === 'Andere Benutzer' && <span className="block truncate text-[10px] text-muted">{e.origin.label}</span>}
+                          </span>
+                          {e.origin.scope === 'system' && e.custom && <SymbolOriginBadge origin={e.origin} />}
                           <span className="font-mono text-[11px] text-muted">{d.bmkPrefix}</span>
                         </button>
                       </li>
@@ -344,23 +387,32 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
         <header className="flex items-start gap-3">
           <SymbolGlyph kind={current.kind} poles={current.poles} className="size-14 shrink-0 rounded-md border border-line bg-app text-fg" />
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[15px] font-semibold">{editing.label}{pending ? ' · Ungespeichert' : ''}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="truncate text-[15px] font-semibold">{editing.label}{pending ? ' · Ungespeichert' : ''}</h2>
+              <SymbolOriginBadge origin={origin} />
+            </div>
             <p className="text-[12px] text-muted">
-              {builtin ? 'Standardvorlage – systemweit anpassbar' : 'Eigenes Symbol – systemweit, frei editierbar'}{doc ? ` · ${used}× im geöffneten Projekt verwendet` : ''}
+              {builtin ? 'Standardsymbol' : origin.scope === 'system' ? 'Systemsymbol' : origin.mine ? 'Ihr Symbol' : `Benutzersymbol · ${origin.label}`}
+              {` · Version ${(builtin ? symbolOverrideOf(current.kind as BuiltinSymbolKind)?.version : current.custom?.version) ?? 1}`}
+              {doc ? ` · ${used}× im geöffneten Projekt verwendet` : ''}
             </p>
           </div>
           <div className="flex flex-wrap gap-1">
-            <Button size="sm" disabled={!pending} onClick={save}>Speichern</Button>
-            <Button size="sm" disabled={!pending} onClick={() => setPending(null)}>Änderungen verwerfen</Button>
-            {overridden && (
+            {editable && (
+              <>
+                <Button size="sm" disabled={!pending} onClick={save}>Speichern</Button>
+                <Button size="sm" disabled={!pending} onClick={() => setPending(null)}>Änderungen verwerfen</Button>
+              </>
+            )}
+            {overridden && editable && (
               <Button size="sm" icon={RotateCcw} onClick={() => { if (abandon()) { setPending(null); patchOverride(current.kind as BuiltinSymbolKind, null) } }}>
                 Zurücksetzen
               </Button>
             )}
-            <Button size="sm" icon={Copy} onClick={duplicate}>
-              Duplizieren
+            <Button size="sm" icon={Copy} variant={editable ? undefined : 'primary'} disabled={!duplicable} onClick={duplicate}>
+              {editable ? 'Duplizieren' : 'Als eigene Variante duplizieren'}
             </Button>
-            {!builtin && (
+            {deletable && (
               <Button size="sm" icon={Trash2} variant="danger" onClick={remove}>
                 Löschen
               </Button>
@@ -368,16 +420,32 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
           </div>
         </header>
 
+        {!editable && (
+          <div role="note" className="flex max-w-xl items-start gap-2 rounded-md border border-line bg-panel-2 px-3 py-2 text-[12px] text-fg-2">
+            <Lock className="mt-0.5 size-3.5 shrink-0 text-muted" aria-hidden />
+            <span>
+              {origin.scope === 'system'
+                ? 'Nur Lesen – Systemsymbole können nur von Administratoren geändert werden.'
+                : origin.ownerUserId
+                  ? `Nur Lesen – dieses Symbol gehört ${origin.label}.`
+                  : 'Nur Lesen – dieses ältere Symbol ist keinem Besitzer zugeordnet.'}{' '}
+              {duplicable ? 'Duplizieren Sie es, um eine eigene, bearbeitbare Variante zu erhalten.' : ''}
+            </span>
+          </div>
+        )}
+
         <div className="max-w-xl">
-          <MetaForm value={editing} onPatch={(p) => setPending((previous) => ({ ...previous, ...p }))} />
+          <MetaForm value={editing} readOnly={!editable} onPatch={stage} />
         </div>
 
-              <ShapeCanvas
-                sessionKey={`${documentId}:${selected}`}
-          key={current.key}
-          sym={editing}
-          onPatch={(_label, patch) => setPending((previous) => ({ ...previous, ...patch }))}
-        />
+        <div className={cn('contents', !editable && 'pointer-events-none select-none')} aria-disabled={!editable || undefined}>
+          <ShapeCanvas
+            sessionKey={`${documentId}:${selected}`}
+            key={current.key}
+            sym={editing}
+            onPatch={(_label, patch) => stage(patch)}
+          />
+        </div>
       </section>
     </div>
   )
