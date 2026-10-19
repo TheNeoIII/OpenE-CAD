@@ -91,8 +91,20 @@ export interface AuditEvent {
   resourceId: string | null
   resourceLabel: string
   projectId?: string | null
+  /**
+   * Request context. Determined exclusively by the Rust server (socket peer IP, forwarded
+   * headers only from configured trusted proxies). Never sent or trusted from the browser.
+   */
+  clientIp: string | null
+  /** Optional, best-effort reverse-DNS name. Informational only, never security relevant. */
+  clientHostname: string | null
+  userAgent: string | null
+  requestId: string | null
+  source: AuditSource
   metadata: AuditMetadata
 }
+
+export type AuditSource = 'web' | 'api' | 'system'
 
 export interface AuditQuery {
   from?: string
@@ -102,6 +114,9 @@ export interface AuditQuery {
   action?: string
   projectId?: string
   result?: AuditResult
+  clientIp?: string
+  clientHostname?: string
+  /** Free text: actor, action, resource, IP address and hostname. */
   q?: string
   page: number
   pageSize: number
