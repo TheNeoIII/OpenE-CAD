@@ -315,7 +315,8 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
           <MetaForm value={editing} onPatch={(p) => setPending((previous) => ({ ...previous, ...p }))} />
         </div>
 
-        <ShapeCanvas
+              <ShapeCanvas
+                sessionKey={`${documentId}:${selected}`}
           key={current.key}
           sym={editing}
           onPatch={(_label, patch) => setPending((previous) => ({ ...previous, ...patch }))}
