@@ -239,7 +239,7 @@ export class MockOpenEcadBackend implements OpenEcadBackend {
     return validateDocument(document)
   }
 
-  async getDataTable(view: DataViewId, document: CadDocument) {
+  async getDataTable(view: DataViewId, document: CadDocument | null) {
     await delay(60)
     return buildDataTable(view, document)
   }

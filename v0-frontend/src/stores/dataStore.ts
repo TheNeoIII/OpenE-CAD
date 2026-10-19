@@ -42,7 +42,7 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   load: async (view) => {
     const doc = useDocumentStore.getState().document
-    if (!doc) return
+    if (!doc && view !== 'articles') return
     if (!get().tables[view]) set({ loading: view })
     const table = await backend.getDataTable(view, doc)
     const prev = get().tables[view]

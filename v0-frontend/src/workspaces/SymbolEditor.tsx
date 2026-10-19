@@ -4,6 +4,7 @@ import { Button, IconButton } from '@/components/ui/primitives'
 import { SymbolGlyph } from '@/features/schematic/components/SymbolGlyph'
 import { articleVariant, customKind, symbolDef, symbolMeta, symbolOverrideOf, symbolShapes, symbolVariants, variantKey, type SymbolVariant } from '@/features/schematic/models/symbolLibrary'
 import { useDocumentStore } from '@/stores/documentStore'
+import { useLibraryStore } from '@/stores/libraryStore'
 import type { BuiltinSymbolKind, CadDocument, CustomSymbolDef, SymbolKind, SymbolOverride } from '@/types/cad'
 import { backend } from '@/backend'
 import type { Article, DeviceCategory, MountType } from '@/types/device'
@@ -22,18 +23,18 @@ const MOUNTS: { value: MountType; label: string }[] = [
 
 
 
-function commitCustom(label: string, fn: (list: CustomSymbolDef[]) => CustomSymbolDef[]) {
-  useDocumentStore.getState().commit(label, (d) => ({ ...d, customSymbols: fn(d.customSymbols ?? []) }))
+function commitCustom(_label: string, fn: (list: CustomSymbolDef[]) => CustomSymbolDef[]) {
+  useLibraryStore.getState().setCustomSymbols(fn)
 }
 function patchCustom(id: string, label: string, p: Partial<CustomSymbolDef>) {
   commitCustom(label, (list) => list.map((s) => (s.id === id ? { ...s, ...p } : s)))
 }
 function patchOverride(kind: BuiltinSymbolKind, p: SymbolOverride | null) {
-  useDocumentStore.getState().commit(p ? 'Symbol angepasst' : 'Symbol zurückgesetzt', (d) => {
-    const next = { ...(d.symbolOverrides ?? {}) }
+  useLibraryStore.getState().setOverrides((o) => {
+    const next = { ...o }
     if (p) next[kind] = { ...next[kind], ...p }
     else delete next[kind]
-    return { ...d, symbolOverrides: next }
+    return next
   })
 }
 
@@ -78,12 +79,13 @@ type Entry = SymbolVariant & { custom?: CustomSymbolDef }
 const unsavedDrafts = new Map<string, { selected: string; pending: Partial<CustomSymbolDef> }>()
 
 export function SymbolEditor() {
-  const id = useDocumentStore((s) => s.document?.id)
-  return id ? <SymbolEditorSession key={id} documentId={id} /> : null
+  return <SymbolEditorSession documentId="library" />
 }
 
 function SymbolEditorSession({ documentId }: { documentId: string }) {
   const doc = useDocumentStore((s) => s.document)
+  const customSymbols = useLibraryStore((s) => s.customSymbols)
+  const symbolOverrides = useLibraryStore((s) => s.symbolOverrides)
   const [selected, select] = useState(() => unsavedDrafts.get(documentId)?.selected ?? 'breaker:1')
   const [pending, setPending] = useState<Partial<CustomSymbolDef> | null>(() => unsavedDrafts.get(documentId)?.pending ?? null)
   useEffect(() => {
@@ -108,16 +110,17 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
   const exportTextRef = useRef<HTMLTextAreaElement>(null)
 
   const entries = useMemo<Entry[]>(() => {
-    const all: Entry[] = symbolVariants().map((v) => ({ ...v, custom: doc?.customSymbols?.find((c) => customKind(c.id) === v.kind) }))
+    const all: Entry[] = symbolVariants().map((v) => ({ ...v, custom: customSymbols.find((c) => customKind(c.id) === v.kind) }))
     const n = search.trim().toLowerCase()
     return n ? all.filter((e) => `${e.label} ${symbolMeta(e.kind, e.poles).bmkPrefix}`.toLowerCase().includes(n)) : all
-  }, [doc, search])
+    // symbolOverrides changes the variant labels resolved by symbolVariants()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customSymbols, symbolOverrides, search])
 
-  if (!doc) return null
   const variant = symbolVariants().find((v) => v.key === selected) ?? symbolVariants()[0]
-  const current: Entry = { ...variant, custom: doc.customSymbols?.find((c) => customKind(c.id) === variant.kind) }
+  const current: Entry = { ...variant, custom: customSymbols.find((c) => customKind(c.id) === variant.kind) }
   const def = symbolDef(current.kind)
-  const used = usageCount(doc, current.kind)
+  const used = doc ? usageCount(doc, current.kind) : 0
   const builtin = !current.custom
   const meta = symbolMeta(current.kind, current.poles)
   const editing: CustomSymbolDef = { ...(current.custom ?? { ...meta, id: current.key, shapes: symbolShapes(current.kind, current.poles), pins: def.pins({ poles: current.poles }) }), ...pending }
@@ -178,14 +181,14 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
   const remove = () => {
     if (!current.custom || !abandon()) return
     setPending(null)
-    if (used && !window.confirm(`Das Symbol wird ${used}× im Projekt verwendet. Trotzdem löschen? Platzierte Symbole werden als „Unbekanntes Symbol“ angezeigt.`)) return
+    if (!window.confirm(`Symbol „${current.label}“ systemweit löschen?${used ? ` Es wird ${used}× im geöffneten Projekt verwendet.` : ''} Platzierte Symbole werden in allen Projekten als „Unbekanntes Symbol“ angezeigt.`)) return
     const id = current.custom.id
     commitCustom('Symbol gelöscht', (list) => list.filter((s) => s.id !== id))
     select('breaker:1')
   }
 
   const exportLib = (all = false) => {
-    const symbols = all ? (doc.customSymbols ?? []).map((symbol) => symbol.id === editing.id ? editing : symbol) : [editing]
+    const symbols = all ? customSymbols.map((symbol) => symbol.id === editing.id ? editing : symbol) : [editing]
     const text = JSON.stringify({ format: 'symbol-library', version: 1, symbols }, null, 2)
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
     const name = all ? 'symbolbibliothek.json' : `${editing.label.replace(/[^\p{L}\p{N}_-]+/gu, '_') || 'symbol'}.json`
@@ -250,7 +253,7 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
             </Button>
             <IconButton icon={Upload} label="Bibliothek importieren" size="sm" onClick={() => fileRef.current?.click()} />
             <IconButton icon={Download} label="Ausgewähltes Symbol exportieren (inklusive Entwurf)" size="sm" onClick={() => exportLib()} />
-            <IconButton icon={Download} label="Alle eigenen Symbole exportieren" size="sm" disabled={!doc.customSymbols?.length} onClick={() => exportLib(true)} />
+            <IconButton icon={Download} label="Alle eigenen Symbole exportieren" size="sm" disabled={!customSymbols.length} onClick={() => exportLib(true)} />
             <input
               ref={fileRef}
               type="file"
@@ -306,8 +309,8 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
           )}
         </div>
         <ul className="min-h-0 flex-1 overflow-y-auto p-1">
-          {(['Projektsymbole', 'Standardsymbole'] as const).map((group) => {
-            const items = entries.filter((e) => (group === 'Projektsymbole' ? !!e.custom : !e.custom))
+          {(['Eigene Symbole', 'Standardsymbole'] as const).map((group) => {
+            const items = entries.filter((e) => (group === 'Eigene Symbole' ? !!e.custom : !e.custom))
             if (!items.length) return null
             return (
               <li key={group}>
@@ -343,7 +346,7 @@ function SymbolEditorSession({ documentId }: { documentId: string }) {
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[15px] font-semibold">{editing.label}{pending ? ' · Ungespeichert' : ''}</h2>
             <p className="text-[12px] text-muted">
-              {builtin ? 'Standardvorlage – Grafik dieser Polvariante im Projekt editierbar' : 'Projektsymbol – frei editierbar'} · {used}× verwendet
+              {builtin ? 'Standardvorlage – systemweit anpassbar' : 'Eigenes Symbol – systemweit, frei editierbar'}{doc ? ` · ${used}× im geöffneten Projekt verwendet` : ''}
             </p>
           </div>
           <div className="flex flex-wrap gap-1">

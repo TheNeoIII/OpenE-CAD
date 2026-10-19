@@ -1,6 +1,7 @@
 import { ColorPicker } from '@/components/ui/ColorPicker'
 import type { SymbolShape } from '@/types/cad'
 import { fieldCls } from './fields'
+import { ConductorColorSelect } from './ConductorColorSelect'
 
 function common<T>(values: T[]): T | undefined {
   return values.every((v) => v === values[0]) ? values[0] : undefined
@@ -9,13 +10,14 @@ function common<T>(values: T[]): T | undefined {
 export function SelectionAppearance({ shapes, onChange }: { shapes: SymbolShape[]; onChange: (change: (shape: SymbolShape) => SymbolShape) => void }) {
   const strokes = shapes.filter((s) => s.t !== 'text')
   const lines = shapes.filter((s) => s.t === 'line')
-  const fills = shapes.filter((s) => s.t === 'rect' || s.t === 'circle')
+  const fills = shapes.filter((s) => s.t === 'rect' || s.t === 'circle' || s.t === 'path')
   const color = common(shapes.map((s) => s.color ?? 'standard'))
   const width = common(strokes.map((s) => s.strokeWidth ?? 7))
   const dash = common(lines.map((s) => s.dashed ? s.dash ?? '16 12' : ''))
   const fill = common(fills.map((s) => s.fillColor ?? '#ffffff'))
   return <section className="flex flex-col gap-3" aria-label="Gemeinsame Darstellung">
     <h4 className="text-[11px] text-muted">Gemeinsame Darstellung</h4>
+    {lines.length > 0 && <ConductorColorSelect color={common(lines.map((s) => s.color))} onChange={(color) => onChange((s) => s.t === 'line' ? { ...s, color } : s)} />}
     <label className="flex items-center justify-between text-[12px]">Farbe {color === undefined && <span className="text-muted">Gemischt</span>}<ColorPicker label="Auswahlfarbe" value={color === 'standard' || !color ? '#ffffff' : color} onChange={(color) => onChange((s) => ({ ...s, color }))} /></label>
     <button type="button" className="text-left text-[11px] text-muted" onClick={() => onChange((s) => ({ ...s, color: undefined }))}>Standardfarbe verwenden</button>
     {strokes.length > 0 && <label className="flex flex-col gap-1 text-[11px] text-muted">Linienstärke (0,1 mm)
@@ -27,8 +29,8 @@ export function SelectionAppearance({ shapes, onChange }: { shapes: SymbolShape[
       </select>
     </label>}
     {fills.length > 0 && <>
-      <label className="flex items-center justify-between text-[12px]">Füllfarbe {fill === undefined && <span className="text-muted">Gemischt</span>}<ColorPicker label="Auswahlfüllfarbe" value={fill ?? '#ffffff'} onChange={(fillColor) => onChange((s) => s.t === 'rect' || s.t === 'circle' ? { ...s, fillColor, filled: true } : s)} /></label>
-      <button type="button" className="text-left text-[11px] text-muted" onClick={() => onChange((s) => s.t === 'rect' || s.t === 'circle' ? { ...s, filled: false } : s)}>Füllung entfernen</button>
+      <label className="flex items-center justify-between text-[12px]">Füllfarbe {fill === undefined && <span className="text-muted">Gemischt</span>}<ColorPicker label="Auswahlfüllfarbe" value={fill ?? '#ffffff'} onChange={(fillColor) => onChange((s) => s.t === 'rect' || s.t === 'circle' ? { ...s, fillColor, filled: true } : s.t === 'path' ? { ...s, fillColor } : s)} /></label>
+      <button type="button" className="text-left text-[11px] text-muted" onClick={() => onChange((s) => s.t === 'rect' || s.t === 'circle' ? { ...s, filled: false } : s.t === 'path' ? { ...s, fillColor: undefined } : s)}>Füllung entfernen</button>
     </>}
     <p className="text-[11px] text-muted">Änderungen gelten für passende Formen der Auswahl. Anschlusspunkte bleiben unverändert.</p>
   </section>

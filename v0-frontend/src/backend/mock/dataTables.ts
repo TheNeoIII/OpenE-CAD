@@ -67,7 +67,9 @@ const columns: Record<DataViewId, DataColumn[]> = {
   ],
 }
 
-function realRows(view: DataViewId, doc: CadDocument): DataRow[] {
+function realRows(view: DataViewId, doc: CadDocument | null): DataRow[] {
+  if (view === 'articles') return ARTICLES.map((a) => ({ id: a.id, cells: { manufacturer: a.manufacturer, articleNo: a.articleNo, type: a.type, description: a.description, category: a.category, widthTE: a.widthTE, price: a.price } }))
+  if (!doc) return []
   const issues = validateDocument(doc)
   const pageOf = (deviceId: string) => doc.pages.find((p) => p.symbols.some((s) => s.deviceId === deviceId))?.number ?? '—'
   switch (view) {
@@ -81,8 +83,6 @@ function realRows(view: DataViewId, doc: CadDocument): DataRow[] {
           cells: { bmk: d.bmk, function: d.function, category: d.category, location: d.location, manufacturer: d.manufacturer, articleNo: d.articleNo, ratedCurrent: d.ratedCurrent, widthTE: d.widthTE, page: pageOf(d.id) },
         }
       })
-    case 'articles':
-      return ARTICLES.map((a) => ({ id: a.id, cells: { manufacturer: a.manufacturer, articleNo: a.articleNo, type: a.type, description: a.description, category: a.category, widthTE: a.widthTE, price: a.price } }))
     case 'terminals':
       return doc.pages.flatMap((p) =>
         p.symbols
@@ -145,7 +145,7 @@ function generatedRows(view: DataViewId): DataRow[] {
 
 const generatedCache = new Map<DataViewId, DataRow[]>()
 
-export function buildDataTable(view: DataViewId, doc: CadDocument): DataTable {
+export function buildDataTable(view: DataViewId, doc: CadDocument | null): DataTable {
   if (!generatedCache.has(view)) generatedCache.set(view, generatedRows(view))
   return { view, columns: columns[view], rows: [...realRows(view, doc), ...generatedCache.get(view)!] }
 }

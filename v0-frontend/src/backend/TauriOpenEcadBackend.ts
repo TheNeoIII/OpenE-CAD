@@ -51,8 +51,8 @@ export class TauriOpenEcadBackend implements OpenEcadBackend {
   validateProject(document: CadDocument) {
     return invoke<ValidationResult[]>('validate_project', { documentId: document.id })
   }
-  getDataTable(view: DataViewId, document: CadDocument) {
-    return invoke<DataTable>('get_data_table', { view, documentId: document.id })
+  getDataTable(view: DataViewId, document: CadDocument | null) {
+    return invoke<DataTable>('get_data_table', { view, documentId: document?.id ?? null })
   }
   exportDocuments(document: CadDocument, options: ExportOptions) {
     return invoke<{ fileName: string }>('export_documents', { documentId: document.id, options })

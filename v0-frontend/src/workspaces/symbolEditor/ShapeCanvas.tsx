@@ -1,5 +1,6 @@
-import { Circle, Crosshair, FlipHorizontal2, FlipVertical2, Group, Minus, MousePointer2, MoveRight, RotateCcw, RotateCw, Square, Trash2, Type, Ungroup } from 'lucide-react'
+import { Circle, Crosshair, FlipHorizontal2, FlipVertical2, Group, Minus, MousePointer2, MoveRight, RotateCcw, RotateCw, Square, Trash2, Triangle, Type, Ungroup } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ConductorColorSelect } from './ConductorColorSelect'
 import { SelectionAppearance } from './SelectionAppearance'
 import { IconButton } from '@/components/ui/primitives'
 import { ColorPicker } from '@/components/ui/ColorPicker'
@@ -33,7 +34,9 @@ const MM_PX = 96 / 25.4
 const GRID_DOT_PX = 1.6
 const uid = () => Math.random().toString(36).slice(2, 10)
 
-type Tool = 'select' | 'line' | 'arrow' | 'rect' | 'circle' | 'text' | 'pin'
+type Tool = 'select' | 'line' | 'arrow' | 'rect' | 'circle' | 'triangle' | 'text' | 'pin'
+/** Pick tolerance around strokes in screen pixels, independent of zoom. */
+const HIT_PX = 8
 type Selection = { shapes: number[]; pins: number[] }
 type Geometry = { shapes: SymbolShape[]; pins: CadConnectionPoint[] }
 type Handle = { kind: 'p1' | 'p2' } | { kind: 'scale'; corner: Pt; anchor: Pt } | { kind: 'rotate'; center: Pt }
@@ -295,6 +298,17 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
     return { ...EMPTY, [key]: members }
   }
 
+  /** Alt+click walks through all shapes stacked under the cursor, topmost first. */
+  const cycleHit = (e: React.PointerEvent, top: number) => {
+    const stack = [...new Set(document.elementsFromPoint(e.clientX, e.clientY).flatMap((el) => {
+      const idx = el.closest('[data-shape-index]')?.getAttribute('data-shape-index')
+      return idx == null ? [] : [Number(idx)]
+    }))]
+    if (stack.length < 2) return top
+    const current = stack.findIndex((i) => sel.shapes.length === 1 && sel.shapes[0] === i)
+    return stack[(current + 1) % stack.length]
+  }
+
   const startDrag = (e: React.PointerEvent, d: Drag) => {
     svgRef.current?.setPointerCapture(e.pointerId)
     drag.current = d
@@ -349,6 +363,11 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
     }
     if (tool === 'rect') return { t: 'rect', x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y) }
     if (tool === 'circle') return { t: 'circle', cx: start.x, cy: start.y, r: Math.hypot(p.x - start.x, p.y - start.y) }
+    if (tool === 'triangle') {
+      const w = Math.abs(p.x - start.x)
+      const h = Math.abs(p.y - start.y)
+      return { t: 'path', x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w, h, d: `M${w / 2} 0 L${w} ${h} L0 ${h} Z` }
+    }
     return null
   }
 
@@ -429,7 +448,7 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
       const shape = drawShape(d.start, toLocal(e))
       setPreview(null)
       if (!shape) return
-      const valid = shape.t === 'line' ? shape.x1 !== shape.x2 || shape.y1 !== shape.y2 : shape.t === 'rect' ? shape.w > 0 && shape.h > 0 : shape.t === 'circle' ? shape.r > 0 : true
+      const valid = shape.t === 'line' ? shape.x1 !== shape.x2 || shape.y1 !== shape.y2 : shape.t === 'rect' || shape.t === 'path' ? shape.w > 0 && shape.h > 0 : shape.t === 'circle' ? shape.r > 0 : true
       if (valid) {
         onPatch(shape.t === 'line' && shape.arrow ? 'Pfeil eingefügt' : 'Element gezeichnet', { shapes: [...sym.shapes, shape] })
         setSel({ shapes: [sym.shapes.length], pins: [] })
@@ -457,11 +476,12 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
   const updatePin = (p: Partial<CadConnectionPoint>) => selPin && onPatch('Anschluss geändert', { pins: sym.pins.map((s, i) => (i === sel.pins[0] ? { ...s, ...p } : s)) })
 
   const tools: { id: Tool; label: string; icon: typeof Minus }[] = [
-    { id: 'select', label: 'Auswählen / Verschieben (Umschalt = Mehrfachauswahl)', icon: MousePointer2 },
+    { id: 'select', label: 'Auswählen / Verschieben (Umschalt = Mehrfachauswahl, Alt = darunterliegendes Element)', icon: MousePointer2 },
     { id: 'line', label: 'Linie', icon: Minus },
     { id: 'arrow', label: 'Pfeil (klicken oder ziehen)', icon: MoveRight },
     { id: 'rect', label: 'Rechteck', icon: Square },
     { id: 'circle', label: 'Kreis', icon: Circle },
+    { id: 'triangle', label: 'Dreieck', icon: Triangle },
     { id: 'text', label: 'Text', icon: Type },
     { id: 'pin', label: 'Anschlusspunkt', icon: Crosshair },
   ]
@@ -636,16 +656,17 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
               return (
                 <g
                   key={i}
+                  data-shape-index={i}
                   className={cn(selected && 'text-accent', tool === 'select' && 'cursor-move')}
                   onPointerDown={(e) => {
                     if (tool !== 'select') return
                     e.stopPropagation()
-                    onDown(e, { type: 'shape', index: i })
+                    onDown(e, { type: 'shape', index: e.altKey ? cycleHit(e, i) : i })
                   }}
                 >
                   <ShapeList shapes={[s]} />
-                  <g stroke="transparent" strokeWidth={24} fill="none">
-                    <ShapeList shapes={[s]} hitArea />
+                  <g stroke="transparent" fill="none">
+                    <ShapeList shapes={[s]} hitArea hitWidth={HIT_PX / zoom} />
                   </g>
                 </g>
               )
@@ -804,10 +825,15 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
         {count > 1 && selShapes.length > 0 && <SelectionAppearance shapes={selShapes} onChange={(change) => transformSelection('Darstellung der Auswahl geändert', change, (p) => p)} />}
 
         {single && <>
+          {single.t === 'line' && <ConductorColorSelect color={single.color} onChange={(color) => updateShape({ color })} />}
           <label className="flex items-center justify-between text-[12px]">{single.t === 'text' ? 'Textfarbe' : 'Außenlinienfarbe'}<ColorPicker label="Elementfarbe" value={single.color ?? '#ffffff'} onChange={(color) => updateShape({ color })} /></label>
           <button className="text-left text-[11px] text-muted" onClick={() => updateShape({ color: undefined })}>Standardfarbe verwenden</button>
           {single.t !== 'text' && <NumField label="Linienstärke (0,1 mm)" value={single.strokeWidth ?? 7} onCommit={(strokeWidth) => updateShape({ strokeWidth: Math.max(0.1, strokeWidth) })} />}
           {(single.t === 'rect' || single.t === 'circle') && <label className="flex items-center justify-between text-[12px]">Füllfarbe<ColorPicker label="Füllfarbe" value={single.fillColor ?? '#ffffff'} onChange={(fillColor) => updateShape({ fillColor, filled: true })} /></label>}
+          {single.t === 'path' && <>
+            <label className="flex items-center justify-between text-[12px]">Füllfarbe<ColorPicker label="Füllfarbe" value={single.fillColor ?? '#ffffff'} onChange={(fillColor) => updateShape({ fillColor })} /></label>
+            {single.fillColor && <button className="text-left text-[11px] text-muted" onClick={() => updateShape({ fillColor: undefined })}>Füllung entfernen</button>}
+          </>}
           {(single.t === 'rect' || single.t === 'text' || single.t === 'path') && (
             <NumField label="Drehung (°)" value={single.rot ?? 0} onCommit={(rot) => updateShape({ rot: ((rot % 360) + 360) % 360 || undefined })} />
           )}
