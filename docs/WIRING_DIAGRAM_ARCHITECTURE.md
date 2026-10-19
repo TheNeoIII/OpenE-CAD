@@ -29,7 +29,7 @@ Profile setzen darauf auf: `SchematicProfile` (bestehender Stromlaufplan) und `W
 
 | Stufe | Inhalt |
 |---|---|
-| W0 | Drawing Core vorbereiten/extrahieren, ohne sichtbare Verhaltensänderung. |
+| W0 | Drawing Core vorbereiten/extrahieren, ohne sichtbare Verhaltensänderung. **Erledigt:** `src/features/drawing/viewport.ts` und `src/features/drawing/geometry.ts`; Schematic re-exportiert diese Helfer, Verhalten unverändert (Tests: `tests/drawing.test.mjs`). |
 | W1 | `PageKind: 'wiring'`; Formate A0–A4 und Custom; Basisobjekte Rectangle, Ellipse, Polyline, Text, Image. |
 | W2 | `CadDiagramBlock`: Rechteck/Block, Text/Felder, Ports, frei skalierbar, on-the-fly erzeugbar. |
 | W3 | Generisches Port-System: `{id, parentObjectId, edge, offset, label, type, direction}`. Ports an Symbol, DiagramBlock, ggf. Rectangle, Container, Image. |
