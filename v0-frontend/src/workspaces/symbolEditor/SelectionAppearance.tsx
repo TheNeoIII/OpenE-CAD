@@ -1,6 +1,7 @@
 import { ColorPicker } from '@/components/ui/ColorPicker'
 import type { SymbolShape } from '@/types/cad'
 import { fieldCls } from './fields'
+import { ConductorColorSelect } from './ConductorColorSelect'
 
 function common<T>(values: T[]): T | undefined {
   return values.every((v) => v === values[0]) ? values[0] : undefined
@@ -16,6 +17,7 @@ export function SelectionAppearance({ shapes, onChange }: { shapes: SymbolShape[
   const fill = common(fills.map((s) => s.fillColor ?? '#ffffff'))
   return <section className="flex flex-col gap-3" aria-label="Gemeinsame Darstellung">
     <h4 className="text-[11px] text-muted">Gemeinsame Darstellung</h4>
+    {lines.length > 0 && <ConductorColorSelect color={common(lines.map((s) => s.color))} onChange={(color) => onChange((s) => s.t === 'line' ? { ...s, color } : s)} />}
     <label className="flex items-center justify-between text-[12px]">Farbe {color === undefined && <span className="text-muted">Gemischt</span>}<ColorPicker label="Auswahlfarbe" value={color === 'standard' || !color ? '#ffffff' : color} onChange={(color) => onChange((s) => ({ ...s, color }))} /></label>
     <button type="button" className="text-left text-[11px] text-muted" onClick={() => onChange((s) => ({ ...s, color: undefined }))}>Standardfarbe verwenden</button>
     {strokes.length > 0 && <label className="flex flex-col gap-1 text-[11px] text-muted">Linienstärke (0,1 mm)

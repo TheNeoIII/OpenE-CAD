@@ -1,5 +1,6 @@
 import { Circle, Crosshair, FlipHorizontal2, FlipVertical2, Group, Minus, MousePointer2, MoveRight, RotateCcw, RotateCw, Square, Trash2, Triangle, Type, Ungroup } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ConductorColorSelect } from './ConductorColorSelect'
 import { SelectionAppearance } from './SelectionAppearance'
 import { IconButton } from '@/components/ui/primitives'
 import { ColorPicker } from '@/components/ui/ColorPicker'
@@ -824,6 +825,7 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
         {count > 1 && selShapes.length > 0 && <SelectionAppearance shapes={selShapes} onChange={(change) => transformSelection('Darstellung der Auswahl geändert', change, (p) => p)} />}
 
         {single && <>
+          {single.t === 'line' && <ConductorColorSelect color={single.color} onChange={(color) => updateShape({ color })} />}
           <label className="flex items-center justify-between text-[12px]">{single.t === 'text' ? 'Textfarbe' : 'Außenlinienfarbe'}<ColorPicker label="Elementfarbe" value={single.color ?? '#ffffff'} onChange={(color) => updateShape({ color })} /></label>
           <button className="text-left text-[11px] text-muted" onClick={() => updateShape({ color: undefined })}>Standardfarbe verwenden</button>
           {single.t !== 'text' && <NumField label="Linienstärke (0,1 mm)" value={single.strokeWidth ?? 7} onCommit={(strokeWidth) => updateShape({ strokeWidth: Math.max(0.1, strokeWidth) })} />}
