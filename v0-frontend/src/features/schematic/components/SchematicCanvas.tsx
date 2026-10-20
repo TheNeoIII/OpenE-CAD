@@ -9,8 +9,7 @@ import { useToolStore } from '@/stores/toolStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useValidationStore } from '@/stores/validationStore'
 import { useCursorStore, useViewportStore } from '@/stores/viewportStore'
-import { pageShapes, type CadPage, type Point, type Rect } from '@/types/cad'
-import { addEllipse, addRectangle } from '@/features/wiring/actions'
+import type { CadPage, Point, Rect } from '@/types/cad'
 import { pageSequence } from '@/utils/pages'
 import { executionType, makerLines } from '../models/execution'
 import { COIL_KINDS, resolveXrefText, xrefDisplay } from '../models/xref'
@@ -19,7 +18,7 @@ import { extendRailEnd, relocateWireEnd } from '../actions'
 import { extendRailEndPage, relocateWireEndPage } from '../models/wireEdit'
 import { addLine, addSymbol, addText, addWire, moveJunction, moveObjects, moveWireSegment, relocateJunction, resizeRails, updateObject } from '../actions'
 import { detachJunction, junctionHost, movePage, moveSegmentPage, railEndLimits, relocateJunctionPage, routeModeAfter, routeModeForSnap } from '../models/wireEdit'
-import { CanvasScrollbars } from './CanvasScrollbars'
+import { CanvasScrollbars } from '@/features/drawing/components/CanvasScrollbars'
 import { symbolLabelPosition, terminalLabelGroups } from '../models/labels'
 import { conductorLabelPlacements, conductorLabelRef } from '../models/conductorLabels'
 import { normalizeRect, objectBounds, pageObjects, rectContains, routeOrthogonal, samePoint, simplifyPolyline, snapPoint, symbolBounds, symbolPins, TEXT_LINE } from '../models/geometry'
@@ -322,12 +321,6 @@ function CanvasInner({ page }: { page: CadPage }) {
       addLine(t.wireDraft[0], end)
       return t.setDraft([])
     }
-    if (tool === 'rect' || tool === 'ellipse') {
-      const t = useToolStore.getState()
-      if (!t.wireDraft.length) return t.setDraft([p], snap)
-      ;(tool === 'rect' ? addRectangle : addEllipse)(t.wireDraft[0], p)
-      return t.setDraft([])
-    }
     if (tool === 'place') return void addSymbol(placeKind, placePoles, settings.snap ? snapPoint(w, settings.gridSize) : p)
     if (tool === 'text') {
       return useUiStore.getState().openDialog({ type: 'prompt', title: 'Text einfügen', label: 'Text', value: '', confirmLabel: 'Einfügen', onSubmit: (v) => addText(p, v) })
@@ -393,7 +386,7 @@ function CanvasInner({ page }: { page: CadPage }) {
     lastWorld.current = w
     const snapped = snapAt(w, e.altKey)
     useCursorStore.getState().set(w, snapped.point, snapped.kind === 'pin', snapped)
-    if (tool === 'wire' || tool === 'place' || tool === 'line' || tool === 'rect' || tool === 'ellipse') setHover(snapped)
+    if (tool === 'wire' || tool === 'place' || tool === 'line') setHover(snapped)
     if (shift !== e.shiftKey) setShift(e.shiftKey)
     if (!gesture) return
     if (gesture.kind === 'label') return setGesture({ ...gesture, delta: { x: w.x - gesture.origin.x, y: w.y - gesture.origin.y } })
@@ -482,7 +475,7 @@ function CanvasInner({ page }: { page: CadPage }) {
     e.preventDefault()
     const t = useToolStore.getState()
     if (t.tool === 'wire' && t.wireDraft.length) return commitWire(t.wireDraft, null)
-    if ((t.tool === 'line' || t.tool === 'rect' || t.tool === 'ellipse') && t.wireDraft.length) return t.setDraft([])
+    if (t.tool === 'line' && t.wireDraft.length) return t.setDraft([])
     const id = hitId(e.target)
     const sel = useSelectionStore.getState()
     if (id && !sel.ids.includes(id)) sel.set([id])
@@ -562,17 +555,7 @@ const shownPage = gesture?.kind === 'wireEnd' && gesture.snap
             </g>
           )}
 
-          {(tool === 'rect' || tool === 'ellipse') && wireDraft.length > 0 && hover &&
-            (() => {
-              const r = normalizeRect(wireDraft[0], hover.point)
-              return tool === 'rect' ? (
-                <rect x={r.x} y={r.y} width={r.w} height={r.h} fill="none" stroke="var(--sheet-select)" strokeWidth={STROKE * 0.7} strokeDasharray="10 8" pointerEvents="none" />
-              ) : (
-                <ellipse cx={r.x + r.w / 2} cy={r.y + r.h / 2} rx={r.w / 2} ry={r.h / 2} fill="none" stroke="var(--sheet-select)" strokeWidth={STROKE * 0.7} strokeDasharray="10 8" pointerEvents="none" />
-              )
-            })()}
-
-          {(tool === 'wire' || tool === 'line' || tool === 'rect' || tool === 'ellipse') && hover && <SnapIndicator snap={hover} unit={hs} />}
+          {(tool === 'wire' || tool === 'line') && hover && <SnapIndicator snap={hover} unit={hs} />}
           {junctionDrag?.snap && <SnapIndicator snap={junctionDrag.snap} unit={hs} />}
   {gesture?.kind === 'wireEnd' && gesture.snap && <SnapIndicator snap={gesture.snap} unit={hs} />}
   {railDrag?.target && <SnapIndicator snap={railDrag.target} unit={hs} />}
@@ -667,33 +650,6 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
                       </g>
                     )
                   })}
-              </g>
-            )
-          })}
-
-          {pageShapes(shownPage).images.map((im) => (
-            <g key={im.id} data-id={im.id}>
-              <image href={im.src} x={im.x} y={im.y} width={im.width} height={im.height} preserveAspectRatio="xMidYMid meet">
-                {im.alt && <title>{im.alt}</title>}
-              </image>
-              <rect x={im.x} y={im.y} width={im.width} height={im.height} fill="transparent" stroke={selected.has(im.id) ? selColor : 'none'} strokeWidth={STROKE} strokeDasharray="12 6" />
-            </g>
-          ))}
-
-          {pageShapes(shownPage).rectangles.map((r) => {
-            const sel = selected.has(r.id)
-            return (
-              <g key={r.id} data-id={r.id}>
-                <rect x={r.x} y={r.y} width={r.width} height={r.height} rx={r.cornerRadius} fill={r.fill === 'none' ? 'transparent' : r.fill} stroke={sel ? selColor : r.stroke} strokeWidth={sel ? r.strokeWidth * 1.4 : r.strokeWidth} strokeDasharray={LINE_DASH[r.lineStyle]} />
-              </g>
-            )
-          })}
-
-          {pageShapes(shownPage).ellipses.map((el) => {
-            const sel = selected.has(el.id)
-            return (
-              <g key={el.id} data-id={el.id}>
-                <ellipse cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry} fill={el.fill === 'none' ? 'transparent' : el.fill} stroke={sel ? selColor : el.stroke} strokeWidth={sel ? el.strokeWidth * 1.4 : el.strokeWidth} strokeDasharray={LINE_DASH[el.lineStyle]} />
               </g>
             )
           })}

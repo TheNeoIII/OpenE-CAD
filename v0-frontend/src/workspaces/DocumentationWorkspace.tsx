@@ -3,6 +3,7 @@ import { useDocumentStore } from '@/stores/documentStore'
 import { pageSizeOf } from '@/types/cad'
 import { sortedGroups, sortedPages } from '@/utils/pages'
 import { SheetDrawing } from '@/features/schematic/components/SchematicCanvas'
+import { WiringDrawing } from '@/features/wiring/components/WiringDrawing'
 
 export function DocumentationWorkspace() {
   const doc = useDocumentStore(s => s.document)
@@ -25,7 +26,7 @@ export function DocumentationWorkspace() {
           const f = pageSizeOf(p)
           return <article key={p.id} ref={el => { if (el) nodes.current.set(p.id, el); else nodes.current.delete(p.id) }} aria-label={`${p.number} ${p.title}`} className="mx-auto mb-8 max-w-5xl scroll-mt-4">
             <h3 className="mb-2 text-xs text-muted">{p.number} · {p.title}</h3>
-            <svg viewBox={`0 0 ${f.width} ${f.height}`} className="block w-full shadow-lg" style={{ fontFamily: 'var(--font-sans)' }}><SheetDrawing page={p} clean /></svg>
+            <svg viewBox={`0 0 ${f.width} ${f.height}`} className="block w-full shadow-lg" style={{ fontFamily: 'var(--font-sans)' }}>{p.kind === 'wiring' ? <WiringDrawing page={p} clean /> : <SheetDrawing page={p} clean />}</svg>
           </article>
         })}
       </main>

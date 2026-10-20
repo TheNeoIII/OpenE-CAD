@@ -46,3 +46,18 @@ export function snapPoint(p: Point, grid: number): Point {
 export function translatePoint(p: Point, dx: number, dy: number): Point {
   return { x: p.x + dx, y: p.y + dy }
 }
+
+/** Line height factor of multi-line texts, relative to the font size. */
+export const TEXT_LINE = 1.25
+
+/** Constrains `to` to the nearest 45° direction from `from` (Shift while drawing graphical lines). */
+export function constrain45(from: Point, to: Point): Point {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const step = Math.PI / 4
+  const a = Math.round(Math.atan2(dy, dx) / step) * step
+  const len = Math.hypot(dx, dy)
+  return { x: Math.round(from.x + Math.cos(a) * len), y: Math.round(from.y + Math.sin(a) * len) }
+}
+
+export const polylinePath = (pts: Point[]) => 'M' + pts.map((p) => `${p.x} ${p.y}`).join(' L')

@@ -24,7 +24,8 @@ export {
   unionRects,
 } from '@/features/drawing/geometry'
 
-export const TEXT_LINE = 1.25
+import { TEXT_LINE } from '@/features/drawing/geometry'
+export { TEXT_LINE }
 
 export function textWidth(t: Pick<CadText, 'text' | 'size'>) {
   const longest = t.text.split('\n').reduce((m, l) => Math.max(m, l.length), 0)

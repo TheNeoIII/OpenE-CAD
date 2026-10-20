@@ -40,7 +40,8 @@ export const wireStroke = (color: WireColor) => /^#[0-9a-f]{6}$/i.test(color) ? 
 export const LINE_STYLE_LABELS: Record<LineStyle, string> = { solid: 'Durchgezogen', dashed: 'Gestrichelt', dashdot: 'Strichpunkt' }
 export const WIRE_WEIGHT_LABELS: Record<WireWeight, string> = { thin: 'Dünn', normal: 'Normal', thick: 'Dick' }
 
-export const LINE_DASH: Record<LineStyle, string | undefined> = { solid: undefined, dashed: '24 14', dashdot: '28 10 4 10' }
+import { LINE_DASH } from '@/features/drawing/styles'
+export { LINE_DASH }
 export const WEIGHT_FACTOR: Record<WireWeight, number> = { thin: 0.65, normal: 1, thick: 1.4 }
 
 export const presetsOf = (doc: Pick<CadDocument, 'wirePresets'> | null | undefined) => doc?.wirePresets ?? WIRE_PRESETS
