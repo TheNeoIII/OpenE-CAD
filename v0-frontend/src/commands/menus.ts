@@ -61,6 +61,8 @@ export const MENUS: { id: string; label: string; items: MenuEntry[] }[] = [
   { id: 'help', label: 'Hilfe', items: [c('help.palette'), c('help.shortcuts'), sep, c('help.about')] },
 ]
 
+export const GRAPHIC_CONTEXT_MENU: MenuEntry[] = [c('edit.cut'), c('edit.copy'), c('edit.paste'), c('edit.duplicate'), sep, c('view.fitSelection'), sep, c('edit.delete')]
+
 export const SYMBOL_CONTEXT_MENU: MenuEntry[] = [c('edit.cut'), c('edit.copy'), c('edit.paste'), c('edit.duplicate'), sep, c('edit.rotate'), c('view.fitSelection'), sep, c('edit.delete')]
 export const CONDUCTOR_CONTEXT_MENU: MenuEntry[] = [c('insert.xref', 'Querverweis anfügen …'), sep, ...SYMBOL_CONTEXT_MENU]
 export const xrefContextMenu = (id: string): MenuEntry[] => [c('xref.goto', undefined, id), sep, ...SYMBOL_CONTEXT_MENU]

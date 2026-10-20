@@ -1,5 +1,6 @@
 import type { CadDocument, CadPage, CadText } from '@/types/cad'
 import { groupNo, sortedPages } from './pages'
+import { migrateLegacyImages } from '@/features/wiring/models/shapes'
 
 /** Rail-embedded cross-references (legacy) become free, selectable xref objects attached to the rail ends. */
 function detachLegacyRailReferences(doc: CadDocument): CadDocument {
@@ -15,7 +16,7 @@ function detachLegacyRailReferences(doc: CadDocument): CadDocument {
 }
 
 export function normalizePages(doc: CadDocument): CadDocument {
-  doc = detachLegacyRailReferences(doc)
+  doc = migrateLegacyImages(detachLegacyRailReferences(doc))
   if (!doc.sheetSchemaVersion && doc.pages.some(p => p.id === 'pg-0-1')) {
     const base = doc.pages.find(p => p.id === 'pg-0-1')!
     const additions: CadPage[] = (['spec', 'cabinetSpec', 'layout'] as const).filter(report => !doc.pages.some(p => p.report === report)).map((report, i) => ({ ...base, id: `pg-generated-${report}`, number: `0.${i + 3}`, functionGroup: '=GA', title: ['Spezifikationen Allgemein', 'Spezifikationen Verteiler', 'Aufbauplan'][i], kind: 'report', report, symbols: [], wires: [], potentials: [], junctions: [], texts: [], lines: [] }))

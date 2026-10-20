@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
-import { SYMBOL_CONTEXT_MENU } from '@/commands/menus'
+import { GRAPHIC_CONTEXT_MENU } from '@/commands/menus'
 import { useActivePage } from '@/stores/documentStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -24,6 +24,7 @@ const PREVIEW = 'var(--sheet-select)'
 const HANDLE_PX = 8
 
 type Gesture =
+  | { kind: 'shapeCreate'; shape: 'rectangle' | 'ellipse'; start: Point; end: Point; snap: GraphicSnap }
   | { kind: 'pan'; x: number; y: number }
   | { kind: 'drag'; origin: Point; ids: string[]; dx: number; dy: number }
   | { kind: 'marquee'; a: Point; b: Point; additive: boolean }
@@ -48,7 +49,19 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   const draft = useToolStore((s) => s.wireDraft)
   const gridSize = useSettingsStore((s) => s.gridSize)
   const gridSnap = useSettingsStore((s) => s.snap)
-  const [gesture, setGesture] = useState<Gesture | null>(null)
+  const [gesture, renderGesture] = useState<Gesture | null>(null)
+  const gestureRef = useRef<Gesture | null>(null)
+  const pointerId = useRef<number | null>(null)
+  const setGesture = (next: Gesture | null) => {
+    gestureRef.current = next
+    renderGesture(next)
+    if (!next && pointerId.current !== null) {
+      if (ref.current?.hasPointerCapture(pointerId.current)) ref.current.releasePointerCapture(pointerId.current)
+      pointerId.current = null
+    }
+  }
+
+  useEffect(() => { setGesture(null) }, [rawTool])
   const [hover, setHover] = useState<GraphicSnap | null>(null)
   const [space, setSpace] = useState(false)
   const tool = WIRING_TOOLS.has(rawTool) ? rawTool : 'select'
@@ -64,12 +77,13 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       const t = useToolStore.getState()
       const swallow = () => (e.preventDefault(), e.stopImmediatePropagation())
       if (e.key === 'Escape') {
-        setGesture((g) => (g && g.kind !== 'pan' ? (swallow(), null) : g))
+        if (gestureRef.current) { swallow(); setGesture(null) }
         if (t.wireDraft.length) (swallow(), t.setDraft([]))
         return
       }
       if (t.tool === 'line' && t.wireDraft.length) {
         if (e.key === 'Enter') {
+          if (e.isComposing || e.keyCode === 229) return
           swallow()
           addPolyline(t.wireDraft)
           t.setDraft([])
@@ -103,7 +117,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   if (!view) return <div ref={ref} className="relative flex-1 overflow-hidden bg-[var(--sheet-desk)]" />
 
   const s = scaleOf(view)
-  const unit = 1 / Math.max(s, 0.35)
+  const unit = 1 / s
   const toWorld = (e: { clientX: number; clientY: number }) => {
     const r = ref.current!.getBoundingClientRect()
     return screenToWorld(view, e.clientX - r.left, e.clientY - r.top)
@@ -122,6 +136,8 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
   const onPointerDown = (e: RPointerEvent) => {
     if (e.button === 2) return
+    if (pointerId.current !== null) return
+    pointerId.current = e.pointerId
     ref.current!.setPointerCapture(e.pointerId)
     const w = toWorld(e)
     if (e.button === 1 || tool === 'pan' || space) return setGesture({ kind: 'pan', x: e.clientX, y: e.clientY })
@@ -131,9 +147,9 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
     if (tool === 'line') return t.setDraft([...t.wireDraft, p])
     if (tool === 'rect' || tool === 'ellipse') {
-      if (!t.wireDraft.length) return t.setDraft([p])
-      ;(tool === 'rect' ? addRectangle : addEllipse)(t.wireDraft[0], p)
-      return t.setDraft([])
+      const snap = resolvePoint(w, e)
+      setHover(null)
+      return setGesture({ kind: 'shapeCreate', shape: tool === 'rect' ? 'rectangle' : 'ellipse', start: snap.point, end: snap.point, snap })
     }
     if (tool === 'text') {
       return useUiStore.getState().openDialog({ type: 'prompt', title: 'Text einfügen', label: 'Text', value: '', confirmLabel: 'Einfügen', onSubmit: (v) => addWiringText(p, v) })
@@ -167,6 +183,10 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       panBy(e.clientX - gesture.x, e.clientY - gesture.y)
       return setGesture({ ...gesture, x: e.clientX, y: e.clientY })
     }
+    if (gesture.kind === 'shapeCreate') {
+      setHover(null)
+      return setGesture({ ...gesture, end: snap.point, snap })
+    }
     if (gesture.kind === 'drag') {
       const g = gridSnap && !e.altKey ? gridSize : 1
       const dx = Math.round((w.x - gesture.origin.x) / g) * g
@@ -184,6 +204,8 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   }
 
   const onPointerUp = () => {
+    const gesture = gestureRef.current
+    if (gesture?.kind === 'shapeCreate') (gesture.shape === 'rectangle' ? addRectangle : addEllipse)(gesture.start, gesture.end)
     if (gesture?.kind === 'drag' && (gesture.dx || gesture.dy)) moveWiringObjects(gesture.ids, gesture.dx, gesture.dy)
     if (gesture?.kind === 'resize' && !sameRect(gesture.rect, gesture.start)) resizeShape(gesture.id, gesture.rect)
     if (gesture?.kind === 'marquee') {
@@ -215,12 +237,11 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     e.preventDefault()
     const t = useToolStore.getState()
     if (t.tool === 'line' && t.wireDraft.length) return finishLine()
-    if ((t.tool === 'rect' || t.tool === 'ellipse') && t.wireDraft.length) return t.setDraft([])
+    if (gestureRef.current?.kind === 'shapeCreate') return setGesture(null)
     const id = hitId(e.target)
-    if (!id) return
     const sel = useSelectionStore.getState()
-    if (!sel.ids.includes(id)) sel.set([id])
-    useUiStore.getState().openContextMenu(e.clientX, e.clientY, SYMBOL_CONTEXT_MENU)
+    if (id && !sel.ids.includes(id)) sel.set([id])
+    useUiStore.getState().openContextMenu(e.clientX, e.clientY, GRAPHIC_CONTEXT_MENU)
   }
 
   const selected = new Set(selection)
@@ -232,7 +253,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
         : page
   const selectedShape = tool === 'select' && selection.length === 1 ? findShape(shownPage, selection[0]) : undefined
   const linePreview = tool === 'line' && draft.length ? (hover ? [...draft, hover.point] : draft) : null
-  const shapePreview = (tool === 'rect' || tool === 'ellipse') && draft.length && hover ? normalizeRect(draft[0], hover.point) : null
+  const shapePreview = gesture?.kind === 'shapeCreate' ? normalizeRect(gesture.start, gesture.end) : null
   const cursor = gesture?.kind === 'pan' ? 'grabbing' : tool === 'pan' || space ? 'grab' : gesture?.kind === 'resize' ? HANDLE_CURSORS[gesture.handle] : tool === 'select' ? 'default' : 'crosshair'
 
   return (
@@ -294,7 +315,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
             ))}
 
           {hover && <SnapIndicator snap={hover} unit={unit} />}
-          {gesture?.kind === 'resize' && gesture.snap && <SnapIndicator snap={gesture.snap} unit={unit} />}
+          {(gesture?.kind === 'resize' || gesture?.kind === 'shapeCreate') && gesture.snap && <SnapIndicator snap={gesture.snap} unit={unit} />}
 
           {gesture?.kind === 'marquee' &&
             (() => {

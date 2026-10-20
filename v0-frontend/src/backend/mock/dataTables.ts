@@ -71,11 +71,11 @@ function realRows(view: DataViewId, doc: CadDocument | null): DataRow[] {
   if (view === 'articles') return ARTICLES.map((a) => ({ id: a.id, cells: { manufacturer: a.manufacturer, articleNo: a.articleNo, type: a.type, description: a.description, category: a.category, widthTE: a.widthTE, price: a.price } }))
   if (!doc) return []
   const issues = validateDocument(doc)
-  const pageOf = (deviceId: string) => doc.pages.find((p) => p.symbols.some((s) => s.deviceId === deviceId))?.number ?? '—'
+  const pageOf = (deviceId: string) => doc.pages.find((p) => p.kind === 'schematic' && p.symbols.some((s) => s.deviceId === deviceId))?.number ?? '—'
   switch (view) {
     case 'devices':
       return doc.devices.map((d) => {
-        const own = issues.filter((i) => i.target.id === d.id || doc.pages.some((p) => p.symbols.some((s) => s.id === i.target.id && s.deviceId === d.id)))
+        const own = issues.filter((i) => i.target.id === d.id || doc.pages.some((p) => p.kind === 'schematic' && p.symbols.some((s) => s.id === i.target.id && s.deviceId === d.id)))
         return {
           id: d.id,
           deviceId: d.id,

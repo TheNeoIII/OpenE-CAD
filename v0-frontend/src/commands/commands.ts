@@ -65,7 +65,7 @@ import {
 } from '@/features/schematic/actions'
 import { pageObjects } from '@/features/schematic/models/geometry'
 import { symbolDef } from '@/features/schematic/models/symbolLibrary'
-import { isToolAllowed } from '@/features/editorProfiles'
+import { isObjectAllowed, isToolAllowed } from '@/features/editorProfiles'
 import { fitPage, fitSelection, fitWidth, setZoom, zoomAt } from '@/features/schematic/viewport'
 import { stepResult } from '@/features/validation/navigate'
 import { getActivePage, useDocumentStore } from '@/stores/documentStore'
@@ -82,12 +82,15 @@ import type { SymbolKind } from '@/types/cad'
 import { registerCommands, type Command } from './registry'
 
 const hasProject = () => !!useProjectStore.getState().current
-const hasSelection = () => useSelectionStore.getState().ids.length > 0
+const hasSelection = () => {
+  const page = getActivePage()
+  return !!page && pageObjects(page).some((o) => useSelectionStore.getState().ids.includes(o.id) && isObjectAllowed(page.kind, o))
+}
 const inSchematic = () => hasProject() && useUiStore.getState().workspace === 'schematic'
 const ui = () => useUiStore.getState()
 const SCH: Workspace[] = ['schematic']
 const allowed = (tool: Parameters<typeof isToolAllowed>[1]) => hasProject() && isToolAllowed(getActivePage()?.kind, tool)
-const onSchematicPage = () => hasProject() && getActivePage()?.kind !== 'wiring'
+const onSchematicPage = () => hasProject() && getActivePage()?.kind === 'schematic'
 
 function tableAvailable() {
   const s = ui()
@@ -213,7 +216,7 @@ const commands: Command[] = [
     icon: ClipboardPaste,
     shortcut: 'Ctrl+V',
     scope: SCH,
-    isEnabled: () => inSchematic() && (useClipboardStore.getState().objects.length > 0 || useClipboardStore.getState().pages.length > 0),
+    isEnabled: () => inSchematic() && (useClipboardStore.getState().objects.some((o) => isObjectAllowed(getActivePage()?.kind, o)) || useClipboardStore.getState().pages.length > 0),
     run: () => {
       if (useClipboardStore.getState().pages.length) {
         const n = pastePages()
@@ -280,10 +283,10 @@ const commands: Command[] = [
     category: 'Bearbeiten',
     shortcut: 'Ctrl+A',
     scope: SCH,
-    isEnabled: inSchematic,
+    isEnabled: () => inSchematic() && allowed('select'),
     run: () => {
       const p = getActivePage()
-      if (p) useSelectionStore.getState().set(pageObjects(p).filter((o) => o.type !== 'potential').map((o) => o.id))
+      if (p) useSelectionStore.getState().set(pageObjects(p).filter((o) => o.type !== 'potential' && isObjectAllowed(p.kind, o)).map((o) => o.id))
     },
   },
   {
@@ -299,7 +302,7 @@ const commands: Command[] = [
       useSelectionStore.getState().clear()
     },
   },
-  { id: 'edit.rotate', label: 'Drehen 90°', category: 'Bearbeiten', icon: RotateCw, shortcut: 'R', scope: SCH, isEnabled: () => inSchematic() && hasSelection(), run: () => rotateObjects(useSelectionStore.getState().ids) },
+  { id: 'edit.rotate', label: 'Drehen 90°', category: 'Bearbeiten', icon: RotateCw, shortcut: 'R', scope: SCH, isEnabled: () => inSchematic() && onSchematicPage() && hasSelection(), run: () => rotateObjects(useSelectionStore.getState().ids) },
   { id: 'edit.find', label: 'Suchen …', category: 'Bearbeiten', icon: Search, shortcut: 'Ctrl+F', allowInInput: true, run: () => ui().set({ paletteOpen: true }) },
 
   /* -------- Ansicht -------- */
@@ -346,7 +349,7 @@ const commands: Command[] = [
   { id: 'tool.rect', label: 'Rechteck', category: 'Werkzeug', icon: SquareIcon, scope: SCH, isEnabled: () => allowed('rect'), isChecked: () => useToolStore.getState().tool === 'rect', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('rect') } },
   { id: 'tool.ellipse', label: 'Ellipse', category: 'Werkzeug', icon: CircleIcon, scope: SCH, isEnabled: () => allowed('ellipse'), isChecked: () => useToolStore.getState().tool === 'ellipse', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('ellipse') } },
   { id: 'insert.image', label: 'Bild einfügen …', category: 'Einfügen', icon: ImageIcon, keywords: 'bild image logo foto', scope: SCH, future: true, run: () => {} },
-  { id: 'tool.routeMode', label: 'Leitungsführung umschalten (H→V / V→H)', category: 'Werkzeug', icon: CornerDownRight, shortcut: 'Tab', scope: SCH, isEnabled: hasProject, run: () => useToolStore.getState().toggleRouteMode() },
+  { id: 'tool.routeMode', label: 'Leitungsführung umschalten (H→V / V→H)', category: 'Werkzeug', icon: CornerDownRight, shortcut: 'Tab', scope: SCH, isEnabled: () => inSchematic() && onSchematicPage(), run: () => useToolStore.getState().toggleRouteMode() },
   { id: 'tool.text', label: 'Text', category: 'Werkzeug', icon: Type, shortcut: 'T', scope: SCH, isEnabled: () => allowed('text'), isChecked: () => useToolStore.getState().tool === 'text', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('text') } },
   { id: 'tool.pan', label: 'Ansicht verschieben', category: 'Werkzeug', icon: Hand, shortcut: 'H', scope: SCH, isChecked: () => useToolStore.getState().tool === 'pan', run: () => useToolStore.getState().setTool('pan') },
   { id: 'insert.symbol', label: 'Symbol einfügen …', category: 'Einfügen', icon: Plus, shortcut: 'I', scope: SCH, isEnabled: onSchematicPage, run: () => ui().openDialog({ type: 'symbolPicker' }) },
@@ -358,7 +361,7 @@ const commands: Command[] = [
   { id: 'insert.motor', label: 'Motor', category: 'Einfügen', keywords: 'M', isEnabled: onSchematicPage, run: () => placeAtCenter('motor', 3) },
   { id: 'insert.potential', label: 'Potential …', category: 'Einfügen', icon: ArrowDownToLine, isEnabled: () => inSchematic() && onSchematicPage(), run: () => ui().openDialog({ type: 'potential' }) },
   { id: 'insert.xref', label: 'Querverweis …', category: 'Einfügen', icon: Link2, isEnabled: () => inSchematic() && onSchematicPage(), run: () => ui().openDialog({ type: 'xref' }) },
-  { id: 'xref.goto', label: 'Gehe zu Verweisziel', category: 'Seite', icon: CornerDownRight, isEnabled: inSchematic, run: (id?: string) => goToCrossReference(id ?? useSelectionStore.getState().ids[0]) },
+  { id: 'xref.goto', label: 'Gehe zu Verweisziel', category: 'Seite', icon: CornerDownRight, isEnabled: () => inSchematic() && onSchematicPage(), run: (id?: string) => goToCrossReference(id ?? useSelectionStore.getState().ids[0]) },
   { id: 'insert.macro', label: 'Makro einfügen', category: 'Einfügen', future: true, run: () => {} },
 
   /* -------- Seite -------- */

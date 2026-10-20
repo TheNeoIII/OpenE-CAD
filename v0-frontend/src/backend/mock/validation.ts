@@ -7,7 +7,7 @@ export function validateDocument(doc: CadDocument): ValidationResult[] {
   const out: ValidationResult[] = []
   const deviceById = new Map(doc.devices.map((d) => [d.id, d]))
   const pageOfDevice = new Map<string, { pageId: string; symbolId: string }>()
-  for (const p of doc.pages) for (const s of p.symbols) if (s.deviceId && !pageOfDevice.has(s.deviceId)) pageOfDevice.set(s.deviceId, { pageId: p.id, symbolId: s.id })
+  for (const p of doc.pages.filter((p) => p.kind === 'schematic')) for (const s of p.symbols) if (s.deviceId && !pageOfDevice.has(s.deviceId)) pageOfDevice.set(s.deviceId, { pageId: p.id, symbolId: s.id })
 
   // Duplicate identifiers
   const byBmk = new Map<string, string[]>()

@@ -4,6 +4,11 @@ import { pointsBounds, TEXT_LINE, translatePoint } from '@/features/drawing/geom
 /** Minimum edge length of a resized rectangle/ellipse, in world units (0.1 mm). */
 export const MIN_SHAPE_SIZE = 10
 
+export function creationBounds(a: Point, b: Point): Rect | null {
+  const rect = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) }
+  return Object.values(rect).every(Number.isFinite) && rect.w >= MIN_SHAPE_SIZE && rect.h >= MIN_SHAPE_SIZE ? rect : null
+}
+
 export type WiringShape = CadRectangle | CadEllipse
 export type WiringGraphic = CadLine | CadRectangle | CadEllipse | CadImage | CadText
 
@@ -88,9 +93,9 @@ export function migrateLegacyImages(doc: CadDocument): CadDocument {
     if (!p.images?.length) return p
     const images = p.images.map((im) => {
       const { src, ...rest } = im as CadImage & { src?: unknown }
-      if (src === undefined) return im
+      if (!Object.prototype.hasOwnProperty.call(im, 'src')) return im
       changed = true
-      return typeof src === 'string' && !rest.legacySrc ? { ...rest, legacySrc: src } : rest
+      return typeof src === 'string' && /^data:image\//.test(src) && rest.legacySrc === undefined ? { ...rest, legacySrc: src } : rest
     })
     return { ...p, images }
   })
