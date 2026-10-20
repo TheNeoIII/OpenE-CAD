@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { terminalReportRows } from '../models/terminalReport'
 import { pageSizeOf, type CadDocument, type CadPage } from '@/types/cad'
 import { useProjectEditor } from '@/stores/userDirectoryStore'
 import type { Project } from '@/types/project'
@@ -149,15 +150,7 @@ export const SheetReport = memo(function SheetReport({ page, doc, project }: { p
   }
 
   if (page.report === 'terminals') {
-    const rows = doc.pages.flatMap((p) =>
-      p.symbols
-        .filter((s) => s.kind === 'terminal')
-        .map((s) => {
-          const dev = doc.devices.find((d) => d.id === s.deviceId)
-          return [dev?.bmk ?? '—', s.terminalNo ?? '?', dev?.function ?? '', dev?.articleNo || '—', `/${p.number}`]
-        }),
-    )
-    rows.sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1], undefined, { numeric: true }))
+    const rows = terminalReportRows(doc)
     const maxRows = Math.floor((yEnd - y0 - 120) / 40)
     return (
       <g pointerEvents="none">

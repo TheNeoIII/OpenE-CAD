@@ -45,6 +45,8 @@ Prefer small, targeted changes over broad rewrites or refactors.
 - Keep changes reviewable and commit logically related work together.
 
 ## Editor invariants
+- Electrical editor actions/derivations require `page.kind === 'schematic'`; Wiring drawing requires `page.kind === 'wiring'`. Cover/report/undefined never default to schematic tools.
+- Never generate new inline DataURL images in CadDocument. Preserve migrated `legacySrc` for old documents; new image storage must use the future asset API and `assetId`.
 - Geometry is represented in document/world coordinates; viewport zoom must not corrupt stored geometry.
 - Screen-space UI elements such as selection handles should remain visually usable across zoom levels rather than scaling blindly with document geometry.
 - Snapping must affect the committed geometry, not only the visual snap indicator.

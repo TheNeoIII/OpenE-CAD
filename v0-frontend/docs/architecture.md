@@ -19,12 +19,14 @@
 ## Directory map (only what matters)
 - `src/types/` – domain types. `cad.ts` = document model (CadDocument/CadPage/objects, PAGE_FORMATS).
 - `src/stores/` – zustand stores (see below).
-- `src/features/drawing/` – fachneutrale Primitive: `viewport.ts` (Transformation, Zoom/Fit, Toleranzen), `geometry.ts` (Punkte, Rechtecke, Grid-Snap). Drawing importiert niemals Schematic; Schematic und künftig Wiring verwenden Drawing unabhängig voneinander.
+- `src/features/drawing/` – fachneutraler Core: `viewport.ts`, `viewportActions.ts`, `useViewportHost.ts` (World/Screen, Zoom/Pan/Fit), `geometry.ts`, `snap.ts`, `resize.ts`, `styles.ts`; gemeinsame `CanvasScrollbars`, `SnapIndicator`, `ViewControls` (von beiden Toolbars verwendet). Abhängigkeiten: Schematic → Drawing ← Wiring, niemals Drawing → Fachprofil.
+- `src/features/wiring/` – `WiringCanvas` (lokale Drag/Create/Move/Resize-Gesten, klickbasierte Polyline), `WiringToolbar`, `WiringDrawing`, `WiringSheetFrame`; `actions.ts` (ein Commit pro Geste), `models/shapes.ts` (Bounds, Transformation, Legacy-Image-Migration), `profile.ts`. Keine elektrische Semantik. `editorProfiles.ts` gibt Cover/Report/undefined keine Zeichenwerkzeuge.
+- Übergangsausnahme: profilübergreifende Clipboard/Delete/Select/Fit-Commands liegen noch in Schematic Actions/Viewport. Wiring ruft diese über die Command Registry auf; elektrische Paste-Objekte werden abgewiesen und Delete bereinigt keine Wiring-Netze. Kein direkter Wiring-Canvas → Schematic-Canvas Import.
 - `src/features/schematic/`
   - `components/SchematicCanvas.tsx` – SVG editor canvas: pointer/keyboard handling, tools, rendering, handles, context menus.
   - `components/Inspector.tsx` – property panel for the selection (multi-selection aware).
   - `components/SheetFrame.tsx` – sheet border/columns; also renders cross-reference (xref) badges.
-  - `components/Navigator.tsx`, `SchematicToolbar.tsx`, `CanvasScrollbars.tsx`, `SymbolGlyph.tsx`, `SymbolLabel.tsx`, `useSheetDrag.ts`.
+  - `components/Navigator.tsx`, `SchematicToolbar.tsx`, `SymbolGlyph.tsx`, `SymbolLabel.tsx`, `useSheetDrag.ts`.
   - `actions.ts` – document-mutating schematic operations (push history). Reuse these.
   - `viewport.ts` – world/screen conversion, zoom/fit helpers.
   - `models/` – pure logic: `snap.ts` (resolveSnap), `geometry.ts` (bounds, text metrics, findObject),
@@ -43,12 +45,12 @@
 | `documentStore` | Current CadDocument + active page; `getActivePage()`, `useActivePage()`, `updatePage(doc, pageId, fn)` |
 | `historyStore` | Undo/redo of whole-document snapshots (`push(label, doc)`), bounded |
 | `selectionStore` | Selected object ids (+ active wire segment) |
-| `toolStore` | `CadTool` (`select`/`wire`/`line`/`place`/`text`/`pan`), wire draft, placement state |
+| `toolStore` | `CadTool` (`select`/`wire`/`line`/`rect`/`ellipse`/`place`/`text`/`pan`), wire draft, placement state |
 | `viewportStore` | Per-page view `{panX, panY, zoom}`, canvas size, zoom limits, `BASE_SCALE` |
 | `settingsStore` | Persisted settings (`openecad.settings`), e.g. `gridSize` 25/50/100 |
 | `projectStore`, `dataStore`, `validationStore`, `uiStore` | Projects, data tables, validation findings, UI/dialog/toast state |
 
-Mutations are immutable: build a new document (via `actions.ts` / `updatePage`), push history, set document.
+Mutations are immutable: build a new document (via `actions.ts` / `updatePage`), push history, set document. Wiring shape creation stores a local `shapeCreate` gesture, not `wireDraft`; both preview and release use its snapped endpoints. Minimum size is 10 world units, one commit per completed gesture; Escape/PointerCancel/tool changes discard it. `normalizePages` centrally migrates legacy image `src` to `legacySrc` on load/replace (idempotent, no new DataURLs). New image storage remains `assetId` via the future Rust asset API.
 
 ## Project data vs. shared library
 | Project data | Shared library |

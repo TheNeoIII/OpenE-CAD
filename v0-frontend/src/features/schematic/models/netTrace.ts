@@ -21,6 +21,7 @@ const PASS_THROUGH = new Set(['terminal'])
  * shared end points, T-junctions, rails and feed-through terminals. Switching devices break the net.
  */
 export function connectedConductors(page: CadPage, startId: string): string[] {
+  if (page.kind !== 'schematic') return []
   const wires = new Map(page.wires.map((w) => [w.id, w]))
   const rails = new Map(page.potentials.map((r) => [r.id, r]))
   if (!wires.has(startId) && !rails.has(startId)) return []

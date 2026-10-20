@@ -117,7 +117,12 @@ function CanvasInner({ page }: { page: CadPage }) {
   const size = useViewportStore((s) => s.size)
   const selection = useSelectionStore((s) => s.ids)
   const segment = useSelectionStore((s) => s.segment)
-  const { tool, placeKind, placePoles, wireDraft, routeMode } = useToolStore()
+  const { tool: rawTool, placeKind, placePoles, wireDraft, routeMode } = useToolStore()
+  const tool = page.kind === 'schematic' ? rawTool : rawTool === 'pan' ? 'pan' : 'select'
+  useEffect(() => {
+    const t = useToolStore.getState()
+    if (page.kind !== 'schematic' && t.tool !== 'select' && t.tool !== 'pan') t.setTool('select')
+  }, [page.kind, rawTool])
   const settings = useSettingsStore()
   const results = useValidationStore((s) => s.results)
   const [gesture, setGesture] = useState<Gesture | null>(null)

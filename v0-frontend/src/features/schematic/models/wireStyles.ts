@@ -64,7 +64,7 @@ export function syncPresets(doc: CadDocument, prevList: WirePreset[], next: Wire
   }
   return {
     ...doc,
-    pages: doc.pages.map((pg) => ({ ...pg, wires: pg.wires.map(sync), potentials: pg.potentials.map(sync) })),
+    pages: doc.pages.map((pg) => pg.kind === 'schematic' ? ({ ...pg, wires: pg.wires.map(sync), potentials: pg.potentials.map(sync) }) : pg),
   }
 }
 
@@ -131,17 +131,17 @@ export function renamePotentials(doc: CadDocument, renames: Map<string, string>)
   if (!renames.size) return doc
   return {
     ...doc,
-    pages: doc.pages.map((pg) => ({
+    pages: doc.pages.map((pg) => pg.kind === 'schematic' ? ({
       ...pg,
       wires: pg.wires.map((w) => (w.potential && renames.has(w.potential) ? { ...w, potential: renames.get(w.potential)! } : w)),
       potentials: pg.potentials.map((r) => (renames.has(r.name) ? { ...r, name: renames.get(r.name)! } : r)),
-    })),
+    }) : pg),
   }
 }
 
 export function potentialUsage(doc: CadDocument) {
   const m = new Map<string, number>()
-  for (const pg of doc.pages) {
+  for (const pg of doc.pages.filter((p) => p.kind === 'schematic')) {
     for (const w of pg.wires) if (w.potential) m.set(w.potential, (m.get(w.potential) ?? 0) + 1)
     for (const r of pg.potentials) m.set(r.name, (m.get(r.name) ?? 0) + 1)
   }
@@ -150,6 +150,6 @@ export function potentialUsage(doc: CadDocument) {
 
 export function presetUsage(doc: CadDocument) {
   const m = new Map<string, number>()
-  for (const pg of doc.pages) for (const o of [...pg.wires, ...pg.potentials]) if (o.preset) m.set(o.preset, (m.get(o.preset) ?? 0) + 1)
+  for (const pg of doc.pages.filter((p) => p.kind === 'schematic')) for (const o of [...pg.wires, ...pg.potentials]) if (o.preset) m.set(o.preset, (m.get(o.preset) ?? 0) + 1)
   return m
 }

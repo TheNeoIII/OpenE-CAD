@@ -122,7 +122,7 @@ export function Navigator() {
   const needle = q.trim().toLowerCase()
   const match = (...s: (string | undefined)[]) => !needle || s.some((x) => x?.toLowerCase().includes(needle))
 
-  const terminals = doc.pages.flatMap((p) => p.symbols.filter((s) => s.kind === 'terminal').map((s) => ({ page: p, sym: s, dev: doc.devices.find((d) => d.id === s.deviceId) })))
+  const terminals = doc.pages.filter((p) => p.kind === 'schematic').flatMap((p) => p.symbols.filter((s) => s.kind === 'terminal').map((s) => ({ page: p, sym: s, dev: doc.devices.find((d) => d.id === s.deviceId) })))
 
   return (
     <aside aria-label="Projektnavigator" className="flex w-60 shrink-0 flex-col border-r border-line bg-panel">

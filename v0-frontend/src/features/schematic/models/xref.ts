@@ -25,9 +25,10 @@ export function formatRef(doc: CadDocument, target: CadPage, p: Point, from?: Ca
 /** Page named in a written tag: group number ("/4.1", "/4.1.E2") or consecutive page number ("/7", "/7.E2"). */
 export function pageFromRefText(doc: CadDocument, text: string): CadPage | undefined {
   const group = text.match(/\/(\d+\.\d+)/)?.[1]
-  if (group) return doc.pages.find((p) => p.number === group)
+  if (group) return doc.pages.find((p) => p.kind === 'schematic' && p.number === group)
   const seq = text.match(/^\/(\d+)(?:\.[A-Z]|$)/)?.[1]
-  return seq ? sortedPages(doc)[Number(seq) - 1] : undefined
+  const target = seq ? sortedPages(doc)[Number(seq) - 1] : undefined
+  return target?.kind === 'schematic' ? target : undefined
 }
 
 /** Rail a free-standing tag sits on (tags detached from a rail keep its end coordinates). */
@@ -51,7 +52,7 @@ export function resolveXrefText(doc: CadDocument, text: string, railName: string
 
 /** Display text of a free cross-reference text object on `page`. */
 export function xrefDisplay(doc: CadDocument, page: CadPage, t: CadText): string {
-  const target = t.xref?.targetPageId ? doc.pages.find((p) => p.id === t.xref?.targetPageId) : undefined
+  const target = t.xref?.targetPageId ? doc.pages.find((p) => p.kind === 'schematic' && p.id === t.xref?.targetPageId) : undefined
   const peer = target?.texts.find((x) => x.id === t.xref?.peerId)
   return resolveXrefText(doc, t.text, railAt(page, t.position)?.name, t.xref?.side ?? 'right', target && peer ? { page: target, at: peer.position } : undefined)
 }

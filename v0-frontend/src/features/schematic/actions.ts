@@ -9,6 +9,7 @@ import { projectEditorLabel } from '@/stores/userDirectoryStore'
 import { useUiStore } from '@/stores/uiStore'
 import { useToolStore } from '@/stores/toolStore'
 import { groupNo, nextNumberInGroup, sortedPages } from '@/utils/pages'
+import { isObjectAllowed } from '@/features/editorProfiles'
 import { insertWire, pruneJunctions } from './models/connectivity'
 import { connectedConductors } from './models/netTrace'
 import { findObject, objectBounds, simplifyPolyline, translateObject } from './models/geometry'
@@ -44,10 +45,10 @@ export function detachRailReferences(railId: string) {
 
 /** Target page of a cross-reference: explicit link first, otherwise the page number written in the tag ("/2.2" or "/2.2.A1"). */
 export function crossReferenceTarget(doc: CadDocument, ref: CadText): CadPage | undefined {
-  const linked = ref.xref?.targetPageId ? doc.pages.find((p) => p.id === ref.xref!.targetPageId) : undefined
+  const linked = ref.xref?.targetPageId ? doc.pages.find((p) => p.kind === 'schematic' && p.id === ref.xref!.targetPageId) : undefined
   if (linked) return linked
   const no = ref.text.match(/\/(\d+\.\d+)/)?.[1]
-  return no ? doc.pages.find((p) => p.number === no) : undefined
+  return no ? doc.pages.find((p) => p.kind === 'schematic' && p.number === no) : undefined
 }
 
 export function goToCrossReference(id: string | undefined) {
@@ -70,7 +71,7 @@ export function addCrossReference(targetPageId: string, column: string, end: 'st
   commit('Querverweispaar eingefügt', (doc) => {
     const source = doc.pages.find((p) => p.id === sourceId)
     const target = doc.pages.find((p) => p.id === targetPageId)
-    if (!source || !target || source.id === target.id) return doc
+    if (source?.kind !== 'schematic' || target?.kind !== 'schematic' || source.id === target.id) return doc
     const object = findObject(source, selectedId)
     const position = object?.type === 'potential'
       ? { x: end === 'start' ? object.x1 : object.x2, y: object.y }
@@ -116,13 +117,14 @@ function newDevice(doc: CadDocument, kind: SymbolKind, poles: 1 | 3): Device {
 
 function withPage(label: string, fn: (p: CadPage, doc: CadDocument) => CadPage) {
   const pageId = activeId()
-  if (!pageId) return
+  const kind = getActivePage()?.kind
+  if (!pageId || (kind !== 'schematic' && kind !== 'wiring')) return
   commit(label, (doc) => updatePage(doc, pageId, (p) => fn(p, doc)))
 }
 
 export function addSymbol(kind: SymbolKind, poles: 1 | 3, position: Point) {
   const pageId = activeId()
-  if (!pageId) return
+  if (!pageId || getActivePage()?.kind !== 'schematic') return
   let createdId = ''
   commit(`${symbolMeta(kind, poles).label} platziert`, (doc) => {
     const base = newDevice(doc, kind, poles)
@@ -143,6 +145,7 @@ export function addSymbol(kind: SymbolKind, poles: 1 | 3, position: Point) {
  * coordinates are stored unchanged (only redundant collinear vertices are dropped).
  */
 export function addWire(points: Point[], start: SnapResult | null = null, end: SnapResult | null = null) {
+  if (getActivePage()?.kind !== 'schematic') return null
   const clean = simplifyPolyline(points)
   if (clean.length < 2) return null
   let result: { wireId: string; junctions: number } | null = null
@@ -168,6 +171,7 @@ export function addText(position: Point, text: string, style: TextStyle = 'note'
 }
 
 export function addPotential(name: string, y: number) {
+  if (getActivePage()?.kind !== 'schematic') return
   withPage(`Potential ${name} eingefügt`, (p) => ({ ...p, potentials: [...p.potentials, { id: uid('pot'), type: 'potential', name, y, x1: 200, x2: 4000 }] }))
 }
 
@@ -251,10 +255,13 @@ export function updateDevices(ids: string[], patch: Partial<Device>, label = 'Be
 }
 
 export function deleteObjects(ids: string[]) {
+  const page = getActivePage()
+  if (!page) return
+  ids = ids.filter((id) => { const object = findObject(page, id); return object && isObjectAllowed(page.kind, object) })
   if (!ids.length) return
   const set = new Set(ids)
   withPage(`${ids.length} Objekt(e) gelöscht`, (p) =>
-    pruneJunctions({
+    (p.kind === 'schematic' ? pruneJunctions : (page: CadPage) => page)({
       ...p,
       symbols: p.symbols.filter((o) => !set.has(o.id)),
       wires: p.wires.filter((o) => !set.has(o.id)),
@@ -293,7 +300,7 @@ export function copySelection() {
   const page = getActivePage()
   const doc = useDocumentStore.getState().document
   if (!page || !doc) return 0
-  const objects = useSelectionStore.getState().ids.map((id) => findObject(page, id)).filter((o): o is CadObject => !!o && o.type !== 'potential')
+  const objects = useSelectionStore.getState().ids.map((id) => findObject(page, id)).filter((o): o is CadObject => !!o && o.type !== 'potential' && isObjectAllowed(page.kind, o))
   const devIds = new Set(objects.flatMap((o) => (o.type === 'symbol' && o.deviceId ? [o.deviceId] : [])))
   useClipboardStore.setState({
     objects: structuredClone(objects),
@@ -391,7 +398,10 @@ export function pastePages() {
 }
 
 export function pasteClipboard(offset?: number) {
-  const { objects, devices, sourceProjectId, sourcePageId } = useClipboardStore.getState()
+  const { objects: copied, devices: copiedDevices, sourceProjectId, sourcePageId } = useClipboardStore.getState()
+  const objects = copied.filter((o) => isObjectAllowed(getActivePage()?.kind, o))
+  const deviceIds = new Set(objects.flatMap((o) => o.type === 'symbol' && o.deviceId ? [o.deviceId] : []))
+  const devices = copiedDevices.filter((d) => deviceIds.has(d.id))
   const pageId = activeId()
   if (!objects.length || !pageId) return
   offset ??= sourceProjectId === currentProjectId() && sourcePageId === pageId ? 100 : 0
