@@ -212,6 +212,8 @@ export interface CadLine {
   stroke?: string
   /** Stroke width in world units (0.1 mm). */
   strokeWidth?: number
+  /** Simple visible caption (wiring only); not a semantic field. */
+  label?: string
 }
 
 /** Shared graphic styling of wiring-diagram shapes. Purely visual, never electrical. */
@@ -221,10 +223,14 @@ export interface CadShapeStyle {
   lineStyle: LineStyle
   /** CSS colour or 'none'. */
   fill: string
+  /** 0 = fully transparent, 1 = opaque. Missing = 1 (legacy documents). */
+  fillOpacity?: number
 }
 
 export type CadPortEdge = 'top' | 'right' | 'bottom' | 'left'
 export type CadPortDirection = 'input' | 'output' | 'bidirectional' | 'passive'
+/** Side of the port point the label is drawn on; 'auto' = outside the owner, derived from the edge. */
+export type CadPortLabelPlacement = 'auto' | 'left' | 'right' | 'top' | 'bottom'
 
 export interface CadPort {
   id: string
@@ -232,6 +238,7 @@ export interface CadPort {
   /** Normalized edge position, 0..1; never world coordinates. */
   t: number
   label?: string
+  labelPlacement?: CadPortLabelPlacement
   portType?: string
   direction?: CadPortDirection
 }
@@ -264,6 +271,8 @@ export interface CadRectangle extends CadShapeStyle {
   width: number
   height: number
   cornerRadius?: number
+  /** Simple visible caption; not a semantic field. */
+  label?: string
 }
 
 export interface CadEllipse extends CadShapeStyle {
@@ -273,6 +282,8 @@ export interface CadEllipse extends CadShapeStyle {
   cy: number
   rx: number
   ry: number
+  /** Simple visible caption; not a semantic field. */
+  label?: string
 }
 
 export interface CadImage {

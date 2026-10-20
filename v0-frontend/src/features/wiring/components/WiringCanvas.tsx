@@ -15,10 +15,13 @@ import { pageRect, panBy } from '@/features/drawing/viewportActions'
 import { useViewportHost } from '@/features/drawing/useViewportHost'
 import { CanvasScrollbars } from '@/features/drawing/components/CanvasScrollbars'
 import { SnapIndicator } from '@/features/drawing/components/SnapIndicator'
-import { addDiagramBlock, addPort, updatePort, addEllipse, addPolyline, addRectangle, addWiringText, moveWiringObjects, resizeShape } from '../actions'
-import { findShape, graphicAnchors, graphicBounds, MIN_SHAPE_SIZE, resizeShapeOnPage, shapeBox, translateGraphics, wiringGraphics } from '../models/shapes'
+import { addDiagramBlock, addPort, updatePort, addEllipse, addPolyline, addRectangle, applyInlineEdit, moveLineVertex, moveWiringObjects, resizeShape } from '../actions'
+import { findShape, graphicAnchors, graphicBounds, MIN_SHAPE_SIZE, moveLineVertexOnPage, resizeShapeOnPage, shapeBox, translateGraphics, wiringGraphics } from '../models/shapes'
 import { WIRING_TOOLS } from '../profile'
 import { WiringDrawing } from './WiringDrawing'
+import { WiringInlineEditor } from './WiringInlineEditor'
+import type { InlineEditTarget } from '../models/inlineEdit'
+import { escapeAction, toolMatchesType, toolPointerIntent } from '../models/interaction'
 
 import { nearestPortAnchor, portOwnerBounds, selectedPortOwner, updatePortOnPage } from '../models/ports'
 import { WiringPorts } from './WiringPorts'
@@ -34,6 +37,7 @@ type Gesture =
   | { kind: 'drag'; origin: Point; ids: string[]; dx: number; dy: number }
   | { kind: 'marquee'; a: Point; b: Point; additive: boolean }
   | { kind: 'resize'; id: string; handle: ResizeHandle; start: Rect; rect: Rect; snap: GraphicSnap | null }
+  | { kind: 'vertex'; lineId: string; index: number; start: Point; point: Point; snap: GraphicSnap | null }
 
 const intersects = (a: Rect, b: Rect) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(t.tagName))
@@ -66,7 +70,9 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     }
   }
 
+  const [editing, setEditing] = useState<InlineEditTarget | null>(null)
   useEffect(() => { setGesture(null) }, [rawTool])
+  useEffect(() => { setEditing(null) }, [page.id])
   const [hover, setHover] = useState<GraphicSnap | null>(null)
   const [space, setSpace] = useState(false)
   const [portHover, setPortHover] = useState<ReturnType<typeof nearestPortAnchor> | null>(null)
@@ -84,9 +90,15 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       const t = useToolStore.getState()
       const swallow = () => (e.preventDefault(), e.stopImmediatePropagation())
       if (e.key === 'Escape') {
-        if (t.tool === 'port') { swallow(); setPortHover(null); t.setTool('select') }
-        if (gestureRef.current) { swallow(); setGesture(null) }
-        if (t.wireDraft.length) (swallow(), t.setDraft([]))
+        const sel = useSelectionStore.getState()
+        // The inline editor handles its own Escape (it lives in a textarea, filtered by typing()).
+        const action = escapeAction({ editing: false, gesture: !!gestureRef.current, drafting: t.wireDraft.length > 0, tool: t.tool, hasSelection: sel.ids.length > 0 })
+        if (action === 'none') return
+        swallow()
+        if (action === 'cancelGesture') setGesture(null)
+        else if (action === 'cancelDraft') t.setDraft([])
+        else if (action === 'clearSelection') sel.clear()
+        else if (action === 'exitTool') { setPortHover(null); t.setTool('select') }
         return
       }
       if (t.tool === 'line' && t.wireDraft.length) {
@@ -132,15 +144,16 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   }
 
   /** Single source of truth: indicator, preview and commit all use the point returned here. */
-  const resolvePoint = (w: Point, e: { altKey: boolean; shiftKey: boolean }, exclude?: string): GraphicSnap => {
-    const lines = exclude ? { ...page, lines: page.lines.filter((l) => l.id !== exclude) } : page
-    const snap = resolveGraphicSnap(w, { scale: s, grid: gridSize, gridSnap, disabled: e.altKey, anchors: graphicAnchors(lines, tool === 'line' ? draft : []) })
+  const resolvePoint = (w: Point, e: { altKey: boolean; shiftKey: boolean }, skip?: { lineId: string; index: number }): GraphicSnap => {
+    const snap = resolveGraphicSnap(w, { scale: s, grid: gridSize, gridSnap, disabled: e.altKey, anchors: graphicAnchors(page, tool === 'line' ? draft : [], skip) })
+    if (skip) return snap
     const last = draft[draft.length - 1]
     if (tool === 'line' && last && e.shiftKey) return { ...snap, point: constrain45(last, snap.point) }
     return snap
   }
 
   const hitId = (t: EventTarget) => (t as Element).closest?.('[data-id]')?.getAttribute('data-id') ?? null
+  const typeOf = (id: string) => wiringGraphics(page).find((o) => o.id === id)?.type
 
   const onPointerDown = (e: RPointerEvent) => {
     if (e.button === 2) return
@@ -164,24 +177,51 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       if (!portOwner || ownerId !== portOwner.id) return setGesture(null)
       return setGesture({ kind: 'portCreate', objectId: portOwner.id, anchor: nearestPortAnchor(portOwnerBounds(portOwner), w) })
     }
-    if (tool === 'line') return t.setDraft([...t.wireDraft, p])
-    if (tool === 'block' || tool === 'rect' || tool === 'ellipse') {
-      const snap = resolvePoint(w, e)
-      setHover(null)
-      return setGesture({ kind: 'shapeCreate', shape: tool === 'block' ? 'diagramBlock' : tool === 'rect' ? 'rectangle' : 'ellipse', start: snap.point, end: snap.point, snap })
-    }
-    if (tool === 'text') {
-      return useUiStore.getState().openDialog({ type: 'prompt', title: 'Text einfügen', label: 'Text', value: '', confirmLabel: 'Einfügen', onSubmit: (v) => addWiringText(p, v) })
-    }
 
     const sel = useSelectionStore.getState()
-    const handle = (e.target as Element).closest?.('[data-handle]')?.getAttribute('data-handle')
-    const shape = sel.ids.length === 1 ? findShape(page, sel.ids[0]) : undefined
-    if (shape && isResizeHandle(handle)) {
-      const start = shapeBox(shape)
-      return setGesture({ kind: 'resize', id: shape.id, handle, start, rect: start, snap: null })
+    const forceCreate = e.ctrlKey || e.metaKey
+    const drafting = tool === 'line' && t.wireDraft.length > 0
+    const selType = sel.ids.length === 1 ? typeOf(sel.ids[0]) : undefined
+    // Handles of a selected compatible object stay usable while its drawing tool is active.
+    const handlesLive = tool === 'select' || (!forceCreate && !drafting && toolMatchesType(tool, selType))
+    if (handlesLive) {
+      const vertex = (e.target as Element).closest?.('[data-vertex]')?.getAttribute('data-vertex')
+      const line = sel.ids.length === 1 ? page.lines.find((l) => l.id === sel.ids[0]) : undefined
+      if (line && vertex != null) {
+        const index = Number(vertex)
+        const start = line.points[index]
+        if (start) return setGesture({ kind: 'vertex', lineId: line.id, index, start, point: start, snap: null })
+      }
+      const handle = (e.target as Element).closest?.('[data-handle]')?.getAttribute('data-handle')
+      const shape = sel.ids.length === 1 ? findShape(page, sel.ids[0]) : undefined
+      if (shape && isResizeHandle(handle)) {
+        const start = shapeBox(shape)
+        return setGesture({ kind: 'resize', id: shape.id, handle, start, rect: start, snap: null })
+      }
     }
+
     const id = hitId(e.target)
+    if (tool !== 'select') {
+      const intent = toolPointerIntent({ tool, hitType: id ? typeOf(id) : undefined, forceCreate, drafting })
+      if (intent === 'select' && id) {
+        const ids = sel.ids.includes(id) ? sel.ids : [id]
+        if (!sel.ids.includes(id)) sel.set(ids)
+        setHover(null)
+        return setGesture({ kind: 'drag', origin: w, ids, dx: 0, dy: 0 })
+      }
+      if (tool === 'line') return t.setDraft([...t.wireDraft, p])
+      if (tool === 'block' || tool === 'rect' || tool === 'ellipse') {
+        const snap = resolvePoint(w, e)
+        setHover(null)
+        return setGesture({ kind: 'shapeCreate', shape: tool === 'block' ? 'diagramBlock' : tool === 'rect' ? 'rectangle' : 'ellipse', start: snap.point, end: snap.point, snap })
+      }
+      if (tool === 'text') {
+        setGesture(null)
+        sel.clear()
+        return setEditing({ kind: 'newText', at: p })
+      }
+    }
+
     if (id) {
       if (e.shiftKey || e.ctrlKey || e.metaKey) return sel.toggle(id)
       const ids = sel.ids.includes(id) ? sel.ids : [id]
@@ -219,6 +259,11 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       if (dx !== gesture.dx || dy !== gesture.dy) setGesture({ ...gesture, dx, dy })
       return
     }
+    if (gesture.kind === 'vertex') {
+      const vs = resolvePoint(w, e, { lineId: gesture.lineId, index: gesture.index })
+      if (vs.point.x !== gesture.point.x || vs.point.y !== gesture.point.y || gesture.snap?.kind !== vs.kind) setGesture({ ...gesture, point: vs.point, snap: vs })
+      return
+    }
     if (gesture.kind === 'resize') {
       const rs = resolvePoint(w, e)
       const rect = resizeRect(gesture.start, gesture.handle, rs.point, MIN_SHAPE_SIZE)
@@ -235,6 +280,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     if (gesture?.kind === 'shapeCreate') (gesture.shape === 'diagramBlock' ? addDiagramBlock : gesture.shape === 'rectangle' ? addRectangle : addEllipse)(gesture.start, gesture.end)
     if (gesture?.kind === 'drag' && (gesture.dx || gesture.dy)) moveWiringObjects(gesture.ids, gesture.dx, gesture.dy)
     if (gesture?.kind === 'resize' && !sameRect(gesture.rect, gesture.start)) resizeShape(gesture.id, gesture.rect)
+    if (gesture?.kind === 'vertex' && (gesture.point.x !== gesture.start.x || gesture.point.y !== gesture.start.y)) moveLineVertex(gesture.lineId, gesture.index, gesture.point)
     if (gesture?.kind === 'marquee') {
       const r = normalizeRect(gesture.a, gesture.b)
       if (r.w * s > 3 || r.h * s > 3) {
@@ -256,8 +302,30 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   }
 
   const onDoubleClick = (e: React.MouseEvent) => {
-    if (tool === 'line') return finishLine()
-    if (hitId(e.target)) useUiStore.getState().set({ inspectorTab: 'properties', panels: { ...useUiStore.getState().panels, inspector: true } })
+    if (tool === 'line' && useToolStore.getState().wireDraft.length) return finishLine()
+    const target = editTargetAt(e.target)
+    if (!target) return
+    setGesture(null)
+    useSelectionStore.getState().set([target.id])
+    setEditing(target)
+  }
+
+  /** Maps the double-clicked element to exactly one editable string (field, port label, title, caption). */
+  const editTargetAt = (t: EventTarget): Exclude<InlineEditTarget, { kind: 'newText' }> | null => {
+    const el = t as Element
+    const id = hitId(t)
+    if (!id) return null
+    const portId = el.closest?.('[data-port-id]')?.getAttribute('data-port-id')
+    if (portId) return { kind: 'portLabel', id, portId }
+    const part = el.closest?.('[data-edit]')
+    const kind = part?.getAttribute('data-edit')
+    const fieldId = part?.getAttribute('data-field-id')
+    if ((kind === 'fieldLabel' || kind === 'fieldValue') && fieldId) return { kind, id, fieldId }
+    const type = typeOf(id)
+    if (type === 'diagramBlock') return { kind: 'blockTitle', id }
+    if (type === 'text') return { kind: 'text', id }
+    if (type === 'rectangle' || type === 'ellipse' || type === 'line') return { kind: 'label', id }
+    return null
   }
 
   const onContextMenu = (e: React.MouseEvent) => {
@@ -279,8 +347,14 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       ? translateGraphics(page, gesture.ids, gesture.dx, gesture.dy)
       : gesture?.kind === 'resize'
         ? resizeShapeOnPage(page, gesture.id, gesture.rect)
-        : page
-  const selectedShape = tool === 'select' && selection.length === 1 ? findShape(shownPage, selection[0]) : undefined
+        : gesture?.kind === 'vertex'
+          ? moveLineVertexOnPage(page, gesture.lineId, gesture.index, gesture.point)
+          : page
+  const single = selection.length === 1 ? selection[0] : undefined
+  const handlesShown = !!single && (tool === 'select' || toolMatchesType(tool, typeOf(single))) && !(tool === 'line' && draft.length)
+  const selectedShape = handlesShown ? findShape(shownPage, single!) : undefined
+  const selectedLine = handlesShown ? shownPage.lines.find((l) => l.id === single) : undefined
+  const editingId = editing && editing.kind !== 'newText' && editing.kind !== 'portLabel' && editing.kind !== 'fieldLabel' && editing.kind !== 'fieldValue' ? editing.id : undefined
   const linePreview = tool === 'line' && draft.length ? (hover ? [...draft, hover.point] : draft) : null
   const shapePreview = gesture?.kind === 'shapeCreate' ? normalizeRect(gesture.start, gesture.end) : null
   const cursor = gesture?.kind === 'pan' ? 'grabbing' : tool === 'pan' || space ? 'grab' : gesture?.kind === 'resize' ? HANDLE_CURSORS[gesture.handle] : tool === 'select' ? 'default' : 'crosshair'
@@ -302,7 +376,18 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     >
       <svg width={size.w} height={size.h} className="absolute inset-0 block" style={{ fontFamily: 'var(--font-sans)' }}>
         <g transform={`translate(${view.panX} ${view.panY}) scale(${s})`}>
-          <WiringDrawing page={shownPage} selected={selected} s={s} />
+          <WiringDrawing page={shownPage} selected={selected} s={s} editing={editingId} />
+
+          {selectedLine && (
+            <g aria-label="Linienpunkte">
+              {selectedLine.points.map((p, i) => (
+                <g key={i} data-id={selectedLine.id} data-vertex={i} style={{ cursor: 'move' }}>
+                  <circle cx={p.x} cy={p.y} r={HANDLE_PX * unit} fill="transparent" />
+                  <rect x={p.x - (HANDLE_PX / 2) * unit} y={p.y - (HANDLE_PX / 2) * unit} width={HANDLE_PX * unit} height={HANDLE_PX * unit} fill="var(--sheet-paper, white)" stroke={PREVIEW} strokeWidth={1.5 * unit} />
+                </g>
+              ))}
+            </g>
+          )}
 
           {selectedShape && (
             <g>
@@ -327,7 +412,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
             </g>
           )}
 
-          <WiringPorts page={shownPage} s={s} />
+          <WiringPorts page={shownPage} s={s} editing={editing?.kind === 'portLabel' ? editing : undefined} />
           {(() => {
             const anchor = gesture?.kind === 'portCreate' ? gesture.anchor : tool === 'port' && portOwner ? portHover : null
             return anchor && <circle cx={anchor.point.x} cy={anchor.point.y} r={5 / s} fill={PREVIEW} pointerEvents="none" />
@@ -350,7 +435,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
             ))}
 
           {hover && <SnapIndicator snap={hover} unit={unit} />}
-          {(gesture?.kind === 'resize' || gesture?.kind === 'shapeCreate') && gesture.snap && <SnapIndicator snap={gesture.snap} unit={unit} />}
+          {(gesture?.kind === 'resize' || gesture?.kind === 'shapeCreate' || gesture?.kind === 'vertex') && gesture.snap && <SnapIndicator snap={gesture.snap} unit={unit} />}
 
           {gesture?.kind === 'marquee' &&
             (() => {
@@ -360,6 +445,16 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
             })()}
         </g>
       </svg>
+      {editing && (
+        <WiringInlineEditor
+          key={JSON.stringify(editing)}
+          page={page}
+          view={view}
+          target={editing}
+          onCommit={(value) => { setEditing(null); applyInlineEdit(editing, value) }}
+          onCancel={() => setEditing(null)}
+        />
+      )}
       <CanvasScrollbars view={view} size={size} sheet={pageRect(page)} />
     </div>
   )

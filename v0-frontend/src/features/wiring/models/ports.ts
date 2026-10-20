@@ -1,4 +1,4 @@
-import type { CadDiagramBlock, CadPage, CadPort, CadPortEdge, Point, Rect } from '@/types/cad'
+import type { CadDiagramBlock, CadPage, CadPort, CadPortEdge, CadPortLabelPlacement, Point, Rect } from '@/types/cad'
 
 export type PortOwner = CadDiagramBlock
 export const clampPortT = (t: number) => Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 0
@@ -35,6 +35,24 @@ export function updatePortOnPage(page: CadPage, objectId: string, portId: string
   return { ...page, diagramBlocks: (page.diagramBlocks ?? []).map((owner) => owner.id !== objectId ? owner : {
     ...owner, ports: (owner.ports ?? []).map((port) => port.id !== portId ? port : { ...port, ...patch, id: port.id, t: clampPortT(patch.t ?? port.t) }),
   }) }
+}
+
+export const PORT_LABEL_SIZE = 24
+const OUTSIDE: Record<CadPortEdge, Exclude<CadPortLabelPlacement, 'auto'>> = { top: 'top', right: 'right', bottom: 'bottom', left: 'left' }
+
+export const resolvePortLabelSide = (port: Pick<CadPort, 'edge' | 'labelPlacement'>) =>
+  !port.labelPlacement || port.labelPlacement === 'auto' ? OUTSIDE[port.edge] : port.labelPlacement
+
+/** Single source of truth for port label position: render and inline editor use it. `s` = screen px per world unit. */
+export function portLabelLayout(point: Point, port: Pick<CadPort, 'edge' | 'labelPlacement'>, s = 1) {
+  const gap = 10 / s
+  const side = resolvePortLabelSide(port)
+  switch (side) {
+    case 'left': return { side, x: point.x - gap, y: point.y, anchor: 'end' as const, baseline: 'middle' as const }
+    case 'right': return { side, x: point.x + gap, y: point.y, anchor: 'start' as const, baseline: 'middle' as const }
+    case 'top': return { side, x: point.x, y: point.y - gap, anchor: 'middle' as const, baseline: 'auto' as const }
+    case 'bottom': return { side, x: point.x, y: point.y + gap, anchor: 'middle' as const, baseline: 'hanging' as const }
+  }
 }
 
 export function wiringPortAnchors(page: CadPage) {
