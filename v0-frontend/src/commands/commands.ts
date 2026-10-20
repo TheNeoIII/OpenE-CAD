@@ -46,9 +46,11 @@ import {
   Zap,
   ZoomIn,
   ZoomOut,
+  Square as SquareIcon,
+  Circle as CircleIcon,
+  Image as ImageIcon,
 } from 'lucide-react'
 import {
-  addPage,
   copyPages,
   copySelection,
   pastePages,
@@ -63,6 +65,7 @@ import {
 } from '@/features/schematic/actions'
 import { pageObjects } from '@/features/schematic/models/geometry'
 import { symbolDef } from '@/features/schematic/models/symbolLibrary'
+import { pickImageFile } from '@/features/wiring/actions'
 import { fitPage, fitSelection, fitWidth, setZoom, zoomAt } from '@/features/schematic/viewport'
 import { stepResult } from '@/features/validation/navigate'
 import { getActivePage, useDocumentStore } from '@/stores/documentStore'
@@ -338,6 +341,9 @@ const commands: Command[] = [
   { id: 'tool.select', label: 'Auswahl', category: 'Werkzeug', icon: MousePointer2, shortcut: 'V', scope: SCH, isChecked: () => useToolStore.getState().tool === 'select', run: () => useToolStore.getState().setTool('select') },
   { id: 'tool.wire', label: 'Leitung zeichnen', category: 'Werkzeug', icon: Spline, shortcut: 'W', scope: SCH, isEnabled: hasProject, isChecked: () => useToolStore.getState().tool === 'wire', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('wire') } },
   { id: 'tool.line', label: 'Grafische Linie', category: 'Werkzeug', icon: PenLine, shortcut: 'L', scope: SCH, isEnabled: hasProject, isChecked: () => useToolStore.getState().tool === 'line', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('line') } },
+  { id: 'tool.rect', label: 'Rechteck', category: 'Werkzeug', icon: SquareIcon, scope: SCH, isEnabled: hasProject, isChecked: () => useToolStore.getState().tool === 'rect', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('rect') } },
+  { id: 'tool.ellipse', label: 'Ellipse', category: 'Werkzeug', icon: CircleIcon, scope: SCH, isEnabled: hasProject, isChecked: () => useToolStore.getState().tool === 'ellipse', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('ellipse') } },
+  { id: 'insert.image', label: 'Bild einfügen …', category: 'Einfügen', icon: ImageIcon, keywords: 'bild image logo foto', scope: SCH, isEnabled: () => hasProject() && getActivePage()?.kind === 'wiring', run: () => pickImageFile((m) => toast(m)) },
   { id: 'tool.routeMode', label: 'Leitungsführung umschalten (H→V / V→H)', category: 'Werkzeug', icon: CornerDownRight, shortcut: 'Tab', scope: SCH, isEnabled: hasProject, run: () => useToolStore.getState().toggleRouteMode() },
   { id: 'tool.text', label: 'Text', category: 'Werkzeug', icon: Type, shortcut: 'T', scope: SCH, isEnabled: hasProject, isChecked: () => useToolStore.getState().tool === 'text', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('text') } },
   { id: 'tool.pan', label: 'Ansicht verschieben', category: 'Werkzeug', icon: Hand, shortcut: 'H', scope: SCH, isChecked: () => useToolStore.getState().tool === 'pan', run: () => useToolStore.getState().setTool('pan') },
@@ -354,7 +360,7 @@ const commands: Command[] = [
   { id: 'insert.macro', label: 'Makro einfügen', category: 'Einfügen', future: true, run: () => {} },
 
   /* -------- Seite -------- */
-  { id: 'page.new', label: 'Neue Seite', category: 'Seite', icon: FilePlus2, shortcut: 'Ctrl+Shift+N', isEnabled: hasProject, run: () => { goWorkspace('schematic'); addPage() } },
+  { id: 'page.new', label: 'Neue Seite', category: 'Seite', icon: FilePlus2, shortcut: 'Ctrl+Shift+N', isEnabled: hasProject, run: () => { goWorkspace('schematic'); ui().openDialog({ type: 'pageNew' }) } },
   { id: 'page.duplicate', label: 'Seite duplizieren', category: 'Seite', isEnabled: hasProject, run: (id?: string) => duplicatePage(id ?? useDocumentStore.getState().activePageId!) },
   { id: 'page.properties', label: 'Seiteneigenschaften …', category: 'Seite', isEnabled: hasProject, run: (id?: string) => ui().openDialog({ type: 'pageProperties', pageId: id ?? useDocumentStore.getState().activePageId! }) },
   {

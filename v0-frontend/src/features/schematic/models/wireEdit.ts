@@ -335,7 +335,7 @@ export function refreshJunctions(page: CadPage): CadPage {
 
 function mapIds(p: CadPage, ids: Set<string>, fn: (o: CadObject) => CadObject): CadPage {
   const m = <T extends CadObject>(arr: T[]) => arr.map((o) => (ids.has(o.id) ? (fn(o) as T) : o))
-  return { ...p, symbols: m(p.symbols), wires: m(p.wires), junctions: m(p.junctions), texts: m(p.texts), potentials: m(p.potentials), lines: m(p.lines) }
+  return { ...p, symbols: m(p.symbols), wires: m(p.wires), junctions: m(p.junctions), texts: m(p.texts), potentials: m(p.potentials), lines: m(p.lines), rectangles: m(p.rectangles ?? []), ellipses: m(p.ellipses ?? []), images: m(p.images ?? []) }
 }
 
 /**

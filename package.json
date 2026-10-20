@@ -7,6 +7,7 @@
     "dev": "pnpm --dir v0-frontend dev",
     "build": "pnpm --dir v0-frontend build",
     "preview": "pnpm --dir v0-frontend preview",
-    "typecheck": "pnpm --dir v0-frontend typecheck"
+    "typecheck": "pnpm --dir v0-frontend typecheck",
+    "test": "pnpm --dir v0-frontend test"
   }
 }

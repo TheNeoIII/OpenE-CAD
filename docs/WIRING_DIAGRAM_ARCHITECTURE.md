@@ -30,7 +30,7 @@ Profile setzen darauf auf: `SchematicProfile` (bestehender Stromlaufplan) und `W
 | Stufe | Inhalt |
 |---|---|
 | W0 | Drawing Core vorbereiten/extrahieren, ohne sichtbare Verhaltensänderung. **Erledigt:** `src/features/drawing/viewport.ts` und `src/features/drawing/geometry.ts`; Schematic re-exportiert diese Helfer, Verhalten unverändert (Tests: `tests/drawing.test.mjs`). |
-| W1 | `PageKind: 'wiring'`; Formate A0–A4 und Custom; Basisobjekte Rectangle, Ellipse, Polyline, Text, Image. |
+| W1 | `PageKind: 'wiring'`; Formate A0–A4 und Custom; Basisobjekte Rectangle, Ellipse, Polyline, Text, Image. **Erledigt:** Seitenmodell und Formate, Wiring-Werkzeugleiste (Rechteck, Ellipse, Linie, Text, Bild) mit Inspector; elektrische Auswertung (Prüfung, Klemmen-/Verbindungstabellen, Kontaktspiegel) bleibt auf `kind: 'schematic'` begrenzt (Tests: `tests/wiring.test.mjs`). |
 | W2 | `CadDiagramBlock`: Rechteck/Block, Text/Felder, Ports, frei skalierbar, on-the-fly erzeugbar. |
 | W3 | Generisches Port-System: `{id, parentObjectId, edge, offset, label, type, direction}`. Ports an Symbol, DiagramBlock, ggf. Rectangle, Container, Image. |
 | W4 | `CadConnection` mit `type: cable \| network \| bus \| power \| signal \| generic`; Endpunkte `{objectId, portId}`; Sticky Connections bleiben beim Verschieben erhalten. |

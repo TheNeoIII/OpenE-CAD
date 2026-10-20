@@ -17,13 +17,30 @@ export const UNITS_PER_MM = 10
 
 export type Rotation = 0 | 90 | 180 | 270
 
-export type PageFormat = 'A4P' | 'A4L' | 'A3P' | 'A3L'
+export type PageFormat = 'A4P' | 'A4L' | 'A3P' | 'A3L' | 'A2P' | 'A2L' | 'A1P' | 'A1L' | 'A0P' | 'A0L' | 'CUSTOM'
 
-export const PAGE_FORMATS: Record<PageFormat, { label: string; width: number; height: number }> = {
+export const PAGE_FORMATS: Record<Exclude<PageFormat, 'CUSTOM'>, { label: string; width: number; height: number }> = {
   A4P: { label: 'A4 Hochformat', width: 2100, height: 2970 },
   A4L: { label: 'A4 Querformat', width: 2970, height: 2100 },
   A3P: { label: 'A3 Hochformat', width: 2970, height: 4200 },
   A3L: { label: 'A3 Querformat', width: 4200, height: 2970 },
+  A2P: { label: 'A2 Hochformat', width: 4200, height: 5940 },
+  A2L: { label: 'A2 Querformat', width: 5940, height: 4200 },
+  A1P: { label: 'A1 Hochformat', width: 5940, height: 8410 },
+  A1L: { label: 'A1 Querformat', width: 8410, height: 5940 },
+  A0P: { label: 'A0 Hochformat', width: 8410, height: 11890 },
+  A0L: { label: 'A0 Querformat', width: 11890, height: 8410 },
+}
+
+export type PageSize = { width: number; height: number }
+export function validPageSize(size: PageSize | undefined): size is PageSize {
+  return !!size && [size.width, size.height].every(v => Number.isFinite(v) && v >= 100 && v <= 50000)
+}
+
+/** Sizes are world units (0.1 mm); invalid imported custom sizes safely fall back to A4. */
+export function pageSizeOf(page: { format: PageFormat; customSize?: PageSize }): PageSize {
+  if (page.format === 'CUSTOM') return validPageSize(page.customSize) ? page.customSize : PAGE_FORMATS.A4P
+  return PAGE_FORMATS[page.format] ?? PAGE_FORMATS.A4P
 }
 
 export type BuiltinSymbolKind =
@@ -192,6 +209,50 @@ export interface CadLine {
   type: 'line'
   points: Point[]
   style: LineStyle
+  stroke?: string
+  /** Stroke width in world units (0.1 mm). */
+  strokeWidth?: number
+}
+
+/** Shared graphic styling of wiring-diagram shapes. Purely visual, never electrical. */
+export interface CadShapeStyle {
+  stroke: string
+  strokeWidth: number
+  lineStyle: LineStyle
+  /** CSS colour or 'none'. */
+  fill: string
+}
+
+export interface CadRectangle extends CadShapeStyle {
+  id: string
+  type: 'rectangle'
+  x: number
+  y: number
+  width: number
+  height: number
+  cornerRadius?: number
+}
+
+export interface CadEllipse extends CadShapeStyle {
+  id: string
+  type: 'ellipse'
+  cx: number
+  cy: number
+  rx: number
+  ry: number
+}
+
+export interface CadImage {
+  id: string
+  type: 'image'
+  x: number
+  y: number
+  width: number
+  height: number
+  /** Data URL of the embedded raster/SVG image. */
+  src: string
+  alt?: string
+  lockAspect?: boolean
 }
 
 export interface CadWireSegment {
@@ -243,10 +304,11 @@ export interface CadPotential {
   xrefRight?: string
 }
 
-export type CadObject = CadSymbol | CadWire | CadJunction | CadText | CadPotential | CadLine
+export type CadObject = CadSymbol | CadWire | CadJunction | CadText | CadPotential | CadLine | CadRectangle | CadEllipse | CadImage
 export type CadObjectType = CadObject['type']
+export type CadGraphic = CadLine | CadRectangle | CadEllipse | CadImage | CadText
 
-export type PageKind = 'schematic' | 'cover' | 'report'
+export type PageKind = 'schematic' | 'wiring' | 'cover' | 'report'
 
 export interface CadPage {
   id: string
@@ -254,6 +316,7 @@ export interface CadPage {
   title: string
   functionGroup: string
   format: PageFormat
+  customSize?: PageSize
   kind: PageKind
   /** For report pages: which generated report is drawn on the sheet. */
   report?: 'toc' | 'terminals' | 'spec' | 'cabinetSpec' | 'layout'
@@ -267,6 +330,15 @@ export interface CadPage {
   texts: CadText[]
   potentials: CadPotential[]
   lines: CadLine[]
+  /** Wiring-diagram graphics. Optional for older documents; read through `pageShapes`. */
+  rectangles?: CadRectangle[]
+  ellipses?: CadEllipse[]
+  images?: CadImage[]
+}
+
+/** Legacy-safe access to the optional wiring graphic lists. */
+export function pageShapes(page: Pick<CadPage, 'rectangles' | 'ellipses' | 'images'>) {
+  return { rectangles: page.rectangles ?? [], ellipses: page.ellipses ?? [], images: page.images ?? [] }
 }
 
 export interface FunctionGroup {

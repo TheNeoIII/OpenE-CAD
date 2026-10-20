@@ -4,12 +4,14 @@ import type { SnapResult } from '@/features/schematic/models/snap'
 import type { Point, SymbolKind } from '@/types/cad'
 import type { Article } from '@/types/device'
 
-export type CadTool = 'select' | 'wire' | 'line' | 'place' | 'text' | 'pan'
+export type CadTool = 'select' | 'wire' | 'line' | 'rect' | 'ellipse' | 'place' | 'text' | 'pan'
 
 export const TOOL_LABELS: Record<CadTool, string> = {
   select: 'Auswahl',
   wire: 'Leitung',
   line: 'Grafische Linie',
+  rect: 'Rechteck',
+  ellipse: 'Ellipse',
   place: 'Symbol platzieren',
   text: 'Text',
   pan: 'Verschieben',

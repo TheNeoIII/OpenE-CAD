@@ -8,7 +8,7 @@ import type {
   Rect,
   Rotation,
 } from '@/types/cad'
-import type { CadText } from '@/types/cad'
+import { pageShapes, type CadText } from '@/types/cad'
 import { pointsBounds, samePoint, translatePoint } from '@/features/drawing/geometry'
 import { symbolDef } from './symbolLibrary'
 
@@ -90,6 +90,11 @@ export function objectBounds(o: CadObject): Rect {
     }
     case 'potential':
       return { x: o.x1, y: o.y - 10, w: o.x2 - o.x1, h: 20 }
+    case 'rectangle':
+    case 'image':
+      return { x: o.x, y: o.y, w: o.width, h: o.height }
+    case 'ellipse':
+      return { x: o.cx - o.rx, y: o.cy - o.ry, w: o.rx * 2, h: o.ry * 2 }
   }
 }
 
@@ -150,11 +155,18 @@ export function translateObject<T extends CadObject>(o: T, dx: number, dy: numbe
       return { ...o, points: o.points.map((p) => translatePoint(p, dx, dy)) }
     case 'potential':
       return { ...o, x1: o.x1 + dx, x2: o.x2 + dx, y: o.y + dy }
+    case 'rectangle':
+    case 'image':
+      return { ...o, x: o.x + dx, y: o.y + dy }
+    case 'ellipse':
+      return { ...o, cx: o.cx + dx, cy: o.cy + dy }
   }
+  return o
 }
 
 export function pageObjects(page: CadPage): CadObject[] {
-  return [...page.lines, ...page.potentials, ...page.wires, ...page.junctions, ...page.symbols, ...page.texts]
+  const { rectangles, ellipses, images } = pageShapes(page)
+  return [...images, ...rectangles, ...ellipses, ...page.lines, ...page.potentials, ...page.wires, ...page.junctions, ...page.symbols, ...page.texts]
 }
 
 export function findObject(page: CadPage, id: string): CadObject | undefined {
@@ -164,7 +176,10 @@ export function findObject(page: CadPage, id: string): CadObject | undefined {
     page.texts.find((o) => o.id === id) ??
     page.junctions.find((o) => o.id === id) ??
     page.potentials.find((o) => o.id === id) ??
-    page.lines.find((o) => o.id === id)
+    page.lines.find((o) => o.id === id) ??
+    page.rectangles?.find((o) => o.id === id) ??
+    page.ellipses?.find((o) => o.id === id) ??
+    page.images?.find((o) => o.id === id)
   )
 }
 
@@ -177,6 +192,9 @@ export function geometryChecksum(page: CadPage): string {
   for (const t of page.texts) parts.push(`T${t.id}:${t.position.x},${t.position.y}`)
   for (const p of page.potentials) parts.push(`P${p.id}:${p.y},${p.x1},${p.x2}`)
   for (const l of page.lines) parts.push(`L${l.id}:${l.points.map((p) => `${p.x},${p.y}`).join(';')}`)
+  for (const r of page.rectangles ?? []) parts.push(`R${r.id}:${r.x},${r.y},${r.width},${r.height}`)
+  for (const e of page.ellipses ?? []) parts.push(`E${e.id}:${e.cx},${e.cy},${e.rx},${e.ry}`)
+  for (const i of page.images ?? []) parts.push(`I${i.id}:${i.x},${i.y},${i.width},${i.height}`)
   let h = 2166136261
   const str = parts.join('|')
   for (let i = 0; i < str.length; i++) {

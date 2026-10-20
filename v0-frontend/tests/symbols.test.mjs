@@ -11,7 +11,7 @@ try {
   const { symbolLabelPosition, terminalLabelGroups } = await server.ssrLoadModule('/src/features/schematic/models/labels.ts')
   const { symbolPins } = await server.ssrLoadModule('/src/features/schematic/models/geometry.ts')
   const variants = lib.symbolVariants()
-  assert.equal(variants.length, 17)
+  assert.equal(variants.length, lib.BUILTIN_SYMBOL_KINDS.reduce((count, kind) => count + (lib.symbolDef(kind).supportsPoles ? 2 : 1), 0))
   assert.equal(new Set(variants.map((v) => v.key)).size, variants.length)
   for (const variant of variants) {
     const shapes = lib.symbolShapes(variant.kind, variant.poles)
@@ -53,8 +53,9 @@ try {
   assert.equal(symbolLabelPosition({ ...custom, position: { x: 600, y: 700 }, rotation: 90 }).x, 780)
   assert.deepEqual(symbolPins(symbol), symbolPins(custom), 'label movement cannot change electrical pins')
   const terminals = [0, 100].map((x, i) => ({ ...symbol, id: `t${i}`, kind: 'terminal', deviceId: 'strip', position: { x, y: 500 } }))
-  assert.ok(terminalLabelGroups({ symbols: terminals }).has('t0'))
-  assert.equal(terminalLabelGroups({ symbols: terminals.map((s) => ({ ...s, labelSide: 'custom' })) }).size, 0)
+  assert.ok(terminalLabelGroups({ symbols: terminals }).grouped.has('t0'))
+  assert.ok(terminalLabelGroups({ symbols: terminals }).numberOnly.has('t1'))
+  assert.equal(terminalLabelGroups({ symbols: terminals.map((s) => ({ ...s, labelSide: 'custom' })) }).grouped.size, 0)
   const { ShapeList } = await server.ssrLoadModule('/src/features/schematic/components/SymbolGlyph.tsx')
   const styledShapes = [
     { t: 'line', x1: 0, y1: 0, x2: 100, y2: 25, color: '#ff0000', strokeWidth: 12, dashed: true, dash: '24 10 2 10' },
@@ -65,13 +66,13 @@ try {
   const styled = { customSymbols: [{ id: 'styled', label: 'Styled', description: '', bmkPrefix: 'X', category: 'Klemme', mount: 'rail', pins: [], shapes: styledShapes }] }
   lib.setProjectSymbols(JSON.parse(JSON.stringify(styled)))
   assert.deepEqual(lib.symbolShapes('custom:styled', 1), styledShapes)
-  assert.equal(lib.symbolVariants().length, 18)
+  assert.equal(lib.symbolVariants().length, variants.length + 1)
   const markup = renderToStaticMarkup(createElement(ShapeList, { shapes: styledShapes }))
   for (const attr of ['stroke="#ff0000"', 'stroke-width="12"', 'stroke-dasharray="24 10 2 10"', 'fill="#00ff00"', 'fill="#112233"', 'fill="#abcdef"']) assert.ok(markup.includes(attr), attr)
   const hits = renderToStaticMarkup(createElement(ShapeList, { shapes: styledShapes, hitArea: true }))
   assert.ok(!hits.includes('#'), 'hit targets must not overpaint styled geometry')
   lib.setProjectSymbols(null)
-  console.log('Passed: style rendering and round-trip, dynamic variant count, all 17 variants, exact duplicate primitives/pins, neutral poles, geometry overrides, snapshot/JSON round-trip, label anchors and terminal grouping.')
+  console.log('Passed: style rendering and round-trip, dynamic variant count, all built-in variants, exact duplicate primitives/pins, neutral poles, geometry overrides, snapshot/JSON round-trip, label anchors and terminal grouping.')
 } finally {
   await server.close()
 }

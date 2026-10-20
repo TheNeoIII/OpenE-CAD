@@ -83,6 +83,8 @@ Diese Pfade sind reservierte Zielverträge, werden vom Adapter noch nicht aufger
 }
 ```
 
+`category` bezeichnet den fachlichen Bereich (`auth`, `users`, `project`, `symbol`, `library`, `system`), `source` den Auslöser. Ein automatischer Backend-Vorgang kann `category=system, source=system` haben, ein Projekt-API-Aufruf `category=project, source=api`. Vorgesehene Systemaktionen: `system.startup`, `system.migration`, `system.configChanged`, `system.storageCleanup`, `system.backup`; noch keine Backend-Implementierung.
+
 `source` (`web` | `api` | `system`) ist Pflicht und wird vom Rust-Server bestimmt, nie vom Browser übernommen. `clientIp`, `clientHostname`, `userAgent`, `requestId` sind nullable (z. B. `null` bei Systemereignissen). Keine Secrets, Passwörter, Tokens, Faktor-Codes oder Dokumentinhalte ins Audit.
 
 **Client-IP hinter LiteSpeed (Browser → LiteSpeed → Rust):** Primär die Socket-Peer-IP verwenden. `X-Forwarded-For`, `X-Real-IP` oder `Forwarded` nur auswerten, wenn die direkte Verbindung aus einem konfigurierten vertrauenswürdigen Proxy stammt (z. B. `TRUSTED_PROXY_CIDRS=…`, `TRUST_PROXY_HEADERS=true`); niemals ungeprüfte Header aus dem Internet übernehmen. Konkrete Rust-Konfiguration folgt mit dem Server.

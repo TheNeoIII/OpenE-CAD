@@ -20,6 +20,8 @@ export function DialogHost() {
       return <ProjectSettingsDialog projectId={d.projectId} />
     case 'settings':
       return <SettingsDialog />
+    case 'pageNew':
+      return <PagePropertiesDialog />
     case 'pageProperties':
       return <PagePropertiesDialog pageId={d.pageId} />
     case 'functionGroups':

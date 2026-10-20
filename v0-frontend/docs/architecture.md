@@ -19,6 +19,7 @@
 ## Directory map (only what matters)
 - `src/types/` – domain types. `cad.ts` = document model (CadDocument/CadPage/objects, PAGE_FORMATS).
 - `src/stores/` – zustand stores (see below).
+- `src/features/drawing/` – fachneutrale Primitive: `viewport.ts` (Transformation, Zoom/Fit, Toleranzen), `geometry.ts` (Punkte, Rechtecke, Grid-Snap). Drawing importiert niemals Schematic; Schematic und künftig Wiring verwenden Drawing unabhängig voneinander.
 - `src/features/schematic/`
   - `components/SchematicCanvas.tsx` – SVG editor canvas: pointer/keyboard handling, tools, rendering, handles, context menus.
   - `components/Inspector.tsx` – property panel for the selection (multi-selection aware).
@@ -75,6 +76,6 @@ Mutations are immutable: build a new document (via `actions.ts` / `updatePage`),
 
 ## Coordinate system
 - World/document coordinates in 0.1 mm units, origin top-left of the sheet, y down.
-- Use only `screenToWorld` / `worldToScreen` from `features/schematic/viewport.ts`.
+- Source of truth for `screenToWorld` / `worldToScreen`: `features/drawing/viewport.ts`. Schematic retains its compatible re-export in `features/schematic/viewport.ts`.
 - Inspector displays mm; convert at the UI boundary only.
 - Symbol labels default to `labelSide: left`; right and custom are per-instance choices. `labelOffset` stores a world-axis offset from the symbol origin, independent of viewport zoom and symbol rotation. Custom anchor dragging previews without mutations and commits one undo step on release; Escape/pointer cancellation discard it. Custom terminal labels are not collapsed into grouped terminal numbers.
