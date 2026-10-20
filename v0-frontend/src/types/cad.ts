@@ -223,6 +223,39 @@ export interface CadShapeStyle {
   fill: string
 }
 
+export type CadPortEdge = 'top' | 'right' | 'bottom' | 'left'
+export type CadPortDirection = 'input' | 'output' | 'bidirectional' | 'passive'
+
+export interface CadPort {
+  id: string
+  edge: CadPortEdge
+  /** Normalized edge position, 0..1; never world coordinates. */
+  t: number
+  label?: string
+  portType?: string
+  direction?: CadPortDirection
+}
+
+export interface CadDiagramField {
+  id: string
+  label: string
+  value: string
+  visible?: boolean
+}
+
+export interface CadDiagramBlock extends CadShapeStyle {
+  id: string
+  type: 'diagramBlock'
+  x: number
+  y: number
+  width: number
+  height: number
+  title: string
+  description?: string
+  fields?: CadDiagramField[]
+  ports?: CadPort[]
+}
+
 export interface CadRectangle extends CadShapeStyle {
   id: string
   type: 'rectangle'
@@ -306,9 +339,9 @@ export interface CadPotential {
   xrefRight?: string
 }
 
-export type CadObject = CadSymbol | CadWire | CadJunction | CadText | CadPotential | CadLine | CadRectangle | CadEllipse | CadImage
+export type CadObject = CadSymbol | CadWire | CadJunction | CadText | CadPotential | CadLine | CadRectangle | CadEllipse | CadImage | CadDiagramBlock
 export type CadObjectType = CadObject['type']
-export type CadGraphic = CadLine | CadRectangle | CadEllipse | CadImage | CadText
+export type CadGraphic = CadLine | CadRectangle | CadEllipse | CadImage | CadDiagramBlock | CadText
 
 export type PageKind = 'schematic' | 'wiring' | 'cover' | 'report'
 
@@ -336,11 +369,12 @@ export interface CadPage {
   rectangles?: CadRectangle[]
   ellipses?: CadEllipse[]
   images?: CadImage[]
+  diagramBlocks?: CadDiagramBlock[]
 }
 
 /** Legacy-safe access to the optional wiring graphic lists. */
-export function pageShapes(page: Pick<CadPage, 'rectangles' | 'ellipses' | 'images'>) {
-  return { rectangles: page.rectangles ?? [], ellipses: page.ellipses ?? [], images: page.images ?? [] }
+export function pageShapes(page: Pick<CadPage, 'rectangles' | 'ellipses' | 'images' | 'diagramBlocks'>) {
+  return { rectangles: page.rectangles ?? [], ellipses: page.ellipses ?? [], images: page.images ?? [], diagramBlocks: page.diagramBlocks ?? [] }
 }
 
 export interface FunctionGroup {

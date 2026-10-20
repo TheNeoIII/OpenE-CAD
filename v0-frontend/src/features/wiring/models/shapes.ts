@@ -1,4 +1,4 @@
-import { pageShapes, type CadDocument, type CadEllipse, type CadImage, type CadLine, type CadPage, type CadRectangle, type CadText, type Point, type Rect } from '@/types/cad'
+import { pageShapes, type CadDiagramBlock, type CadDocument, type CadEllipse, type CadImage, type CadLine, type CadPage, type CadRectangle, type CadText, type Point, type Rect } from '@/types/cad'
 import { pointsBounds, TEXT_LINE, translatePoint } from '@/features/drawing/geometry'
 
 /** Minimum edge length of a resized rectangle/ellipse, in world units (0.1 mm). */
@@ -9,8 +9,8 @@ export function creationBounds(a: Point, b: Point): Rect | null {
   return Object.values(rect).every(Number.isFinite) && rect.w >= MIN_SHAPE_SIZE && rect.h >= MIN_SHAPE_SIZE ? rect : null
 }
 
-export type WiringShape = CadRectangle | CadEllipse
-export type WiringGraphic = CadLine | CadRectangle | CadEllipse | CadImage | CadText
+export type WiringShape = CadRectangle | CadEllipse | CadDiagramBlock
+export type WiringGraphic = CadLine | CadRectangle | CadEllipse | CadDiagramBlock | CadImage | CadText
 
 export function shapeBox(s: WiringShape | CadImage): Rect {
   if (s.type === 'ellipse') return { x: s.cx - s.rx, y: s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 }
@@ -25,12 +25,12 @@ export function withShapeBox<T extends WiringShape | CadImage>(s: T, r: Rect): T
 /** Render/hit order: images below shapes below lines below texts. */
 export function wiringGraphics(page: CadPage): WiringGraphic[] {
   const s = pageShapes(page)
-  return [...s.images, ...s.rectangles, ...s.ellipses, ...page.lines, ...page.texts]
+  return [...s.images, ...s.rectangles, ...s.ellipses, ...s.diagramBlocks, ...page.lines, ...page.texts]
 }
 
 export function findShape(page: CadPage, id: string): WiringShape | undefined {
   const s = pageShapes(page)
-  return s.rectangles.find((o) => o.id === id) ?? s.ellipses.find((o) => o.id === id)
+  return s.diagramBlocks.find((o) => o.id === id) ?? s.rectangles.find((o) => o.id === id) ?? s.ellipses.find((o) => o.id === id)
 }
 
 export function graphicBounds(o: WiringGraphic): Rect {
@@ -66,14 +66,14 @@ export function translateGraphics(page: CadPage, ids: readonly string[], dx: num
   const set = new Set(ids)
   const map = <T extends WiringGraphic>(arr: T[]) => arr.map((o) => (set.has(o.id) ? moved(o, dx, dy) : o))
   const s = pageShapes(page)
-  return { ...page, lines: map(page.lines), texts: map(page.texts), rectangles: map(s.rectangles), ellipses: map(s.ellipses), images: map(s.images) }
+  return { ...page, lines: map(page.lines), texts: map(page.texts), rectangles: map(s.rectangles), ellipses: map(s.ellipses), images: map(s.images), diagramBlocks: map(s.diagramBlocks) }
 }
 
 /** Shared by resize preview and commit, so both produce identical geometry. */
 export function resizeShapeOnPage(page: CadPage, id: string, rect: Rect): CadPage {
   const s = pageShapes(page)
   const fit = <T extends WiringShape>(arr: T[]) => arr.map((o) => (o.id === id ? withShapeBox(o, rect) : o))
-  return { ...page, rectangles: fit(s.rectangles), ellipses: fit(s.ellipses) }
+  return { ...page, rectangles: fit(s.rectangles), ellipses: fit(s.ellipses), diagramBlocks: fit(s.diagramBlocks) }
 }
 
 /** Vertices that attract graphic snapping: line points plus caller-supplied extras (e.g. draft points). */

@@ -1,13 +1,15 @@
 import { useDocumentStore } from '@/stores/documentStore'
 import { useSelectionStore } from '@/stores/selectionStore'
-import { pageShapes, type CadEllipse, type CadImage, type CadLine, type CadPage, type CadRectangle, type CadShapeStyle, type CadText, type LineStyle, type Point, type Rect } from '@/types/cad'
+import { pageShapes, type CadDiagramBlock, type CadPort, type CadEllipse, type CadImage, type CadLine, type CadPage, type CadRectangle, type CadShapeStyle, type CadText, type LineStyle, type Point, type Rect } from '@/types/cad'
 import { samePoint } from '@/features/drawing/geometry'
 import { uid } from '@/utils/format'
 import { creationBounds, findShape, resizeShapeOnPage, translateGraphics } from './models/shapes'
 
+import { clampPortT, selectedPortOwner, updatePortOnPage } from './models/ports'
+
 export const DEFAULT_SHAPE_STYLE: CadShapeStyle = { stroke: '#1f2937', strokeWidth: 3, lineStyle: 'solid', fill: 'none' }
 
-type Shape = CadRectangle | CadEllipse | CadImage
+type Shape = CadRectangle | CadEllipse | CadImage | CadDiagramBlock
 
 /** Every wiring action is exactly one commit = one undo step. */
 function withActivePage(label: string, fn: (p: CadPage) => CadPage) {
@@ -25,6 +27,34 @@ function activePage() {
 function cornerRect(a: Point, b: Point) {
   const r = creationBounds(a, b)
   return r ? { x: r.x, y: r.y, width: r.w, height: r.h } : null
+}
+
+export function addDiagramBlock(a: Point, b: Point) {
+  const r = cornerRect(a, b)
+  if (!r || activePage()?.kind !== 'wiring') return
+  const block: CadDiagramBlock = { id: uid('block'), type: 'diagramBlock', ...r, ...DEFAULT_SHAPE_STYLE, title: 'Baustein', fields: [], ports: [] }
+  withActivePage('Baustein gezeichnet', (p) => ({ ...p, diagramBlocks: [...pageShapes(p).diagramBlocks, block] }))
+  useSelectionStore.getState().set([block.id])
+}
+
+export function addPort(objectId: string, anchor: Pick<CadPort, 'edge' | 't'>) {
+  const page = activePage()
+  const owner = selectedPortOwner(page, useSelectionStore.getState().ids)
+  if (!owner || owner.id !== objectId) return
+  const port: CadPort = { id: uid('port'), edge: anchor.edge, t: clampPortT(anchor.t), label: '', portType: 'generic', direction: 'bidirectional' }
+  updateShape(objectId, { ports: [...(owner.ports ?? []), port] }, 'Port hinzugefügt')
+}
+
+export function updatePort(objectId: string, portId: string, patch: Partial<CadPort>) {
+  const port = activePage()?.diagramBlocks?.find((o) => o.id === objectId)?.ports?.find((p) => p.id === portId)
+  if (!port || Object.entries(patch).every(([key, value]) => port[key as keyof CadPort] === value)) return
+  withActivePage('Port geändert', (p) => updatePortOnPage(p, objectId, portId, patch))
+}
+
+export function deletePort(objectId: string, portId: string) {
+  const owner = activePage()?.diagramBlocks?.find((o) => o.id === objectId)
+  if (!owner?.ports?.some((p) => p.id === portId)) return
+  updateShape(objectId, { ports: owner.ports.filter((p) => p.id !== portId) }, 'Port gelöscht')
 }
 
 export function addRectangle(a: Point, b: Point) {
@@ -74,6 +104,6 @@ export function updateShape(id: string, patch: Partial<Shape>, label = 'Grafik g
   const apply = <T extends Shape>(arr: T[]) => arr.map((o) => (o.id === id ? ({ ...o, ...patch, id: o.id, type: o.type } as T) : o))
   withActivePage(label, (p) => {
     const s = pageShapes(p)
-    return { ...p, rectangles: apply(s.rectangles), ellipses: apply(s.ellipses), images: apply(s.images) }
+    return { ...p, rectangles: apply(s.rectangles), ellipses: apply(s.ellipses), images: apply(s.images), diagramBlocks: apply(s.diagramBlocks) }
   })
 }

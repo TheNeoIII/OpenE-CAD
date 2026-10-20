@@ -13,7 +13,7 @@ export function pageTools(kind: PageKind | undefined): ReadonlySet<CadTool> {
 export const isToolAllowed = (kind: PageKind | undefined, tool: CadTool) => pageTools(kind).has(tool)
 
 export function isObjectAllowed(kind: PageKind | undefined, object: CadObject): boolean {
-  if (kind === 'schematic') return true
+  if (kind === 'schematic') return object.type !== 'diagramBlock'
   if (kind !== 'wiring') return false
-  return ['line', 'rectangle', 'ellipse', 'image'].includes(object.type) || (object.type === 'text' && object.style !== 'xref')
+  return ['diagramBlock', 'line', 'rectangle', 'ellipse', 'image'].includes(object.type) || (object.type === 'text' && object.style !== 'xref')
 }
