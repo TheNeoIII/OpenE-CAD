@@ -1,10 +1,13 @@
-import { Circle, Hand, Image as ImageIcon, MousePointer2, PanelLeft, PanelRight, PenLine, Square, Trash2, Type, type LucideIcon } from 'lucide-react'
+import { Box, Plug, Circle, Hand, Image as ImageIcon, MousePointer2, PanelLeft, PanelRight, PenLine, Square, Trash2, Type, type LucideIcon } from 'lucide-react'
 import { runCommand, tooltip } from '@/commands/registry'
 import { IconButton } from '@/components/ui/primitives'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { useToolStore, type CadTool } from '@/stores/toolStore'
 import { useUiStore } from '@/stores/uiStore'
 import { ViewControls } from '@/features/drawing/components/ViewControls'
+
+import { useActivePage } from '@/stores/documentStore'
+import { selectedPortOwner } from '../models/ports'
 
 const TOOLS: { tool: CadTool; cmd: string; icon: LucideIcon }[] = [
   { tool: 'select', cmd: 'tool.select', icon: MousePointer2 },
@@ -13,6 +16,7 @@ const TOOLS: { tool: CadTool; cmd: string; icon: LucideIcon }[] = [
   { tool: 'text', cmd: 'tool.text', icon: Type },
   { tool: 'rect', cmd: 'tool.rect', icon: Square },
   { tool: 'ellipse', cmd: 'tool.ellipse', icon: Circle },
+  { tool: 'block', cmd: 'tool.block', icon: Box },
 ]
 
 function Sep() {
@@ -22,7 +26,9 @@ function Sep() {
 /** Toolbar of the graphic wiring editor – no conductors, rails or symbol placement. */
 export function WiringToolbar() {
   const tool = useToolStore((s) => s.tool)
-  const hasSel = useSelectionStore((s) => s.ids.length > 0)
+  const ids = useSelectionStore((s) => s.ids)
+  const hasSel = ids.length > 0
+  const owner = selectedPortOwner(useActivePage(), ids)
   const panels = useUiStore((s) => s.panels)
 
   return (
@@ -33,6 +39,7 @@ export function WiringToolbar() {
         {TOOLS.map((t) => (
           <IconButton key={t.tool} icon={t.icon} label={tooltip(t.cmd)} active={tool === t.tool} onClick={() => runCommand(t.cmd)} />
         ))}
+        <IconButton icon={Plug} label={tooltip('tool.port')} disabled={!owner} active={tool === 'port'} onClick={() => runCommand('tool.port')} />
         <IconButton icon={ImageIcon} label="Bild einfügen – Asset-Upload folgt über Rust API / STORAGE_PATH" disabled onClick={() => {}} />
         <Sep />
         <IconButton icon={Trash2} label={tooltip('edit.delete')} disabled={!hasSel} onClick={() => runCommand('edit.delete')} />

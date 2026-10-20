@@ -374,7 +374,7 @@ function Properties() {
         </ul>
       )}
 
-      {(obj.type === 'rectangle' || obj.type === 'ellipse' || obj.type === 'image') && <WiringProperties obj={obj} />}
+      {(obj.type === 'diagramBlock' || obj.type === 'rectangle' || obj.type === 'ellipse' || obj.type === 'image') && <WiringProperties obj={obj} />}
 
       {obj.type === 'symbol' && (
         <>

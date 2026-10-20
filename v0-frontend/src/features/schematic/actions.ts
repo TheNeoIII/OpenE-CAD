@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { getActivePage, updatePage, useDocumentStore } from '@/stores/documentStore'
 import { useSelectionStore } from '@/stores/selectionStore'
+import { cloneOwnedObject } from '@/features/drawing/clone'
 import { pageShapes, type CadDocument, type CadLine, type CadObject, type CadPage, type FunctionGroup, type CadSymbol, type CadText, type LineStyle, type Point, type Rotation, type SymbolKind, type TextStyle } from '@/types/cad'
 import type { Article, Device, Placement } from '@/types/device'
 import { uid } from '@/utils/format'
@@ -178,7 +179,7 @@ export function addPotential(name: string, y: number) {
 function mapObjects(p: CadPage, ids: Set<string>, fn: (o: CadObject) => CadObject): CadPage {
   const m = <T extends CadObject>(arr: T[]) => arr.map((o) => (ids.has(o.id) ? (fn(o) as T) : o))
   const s = pageShapes(p)
-  return { ...p, symbols: m(p.symbols), wires: m(p.wires), junctions: m(p.junctions), texts: m(p.texts), potentials: m(p.potentials), lines: m(p.lines), rectangles: m(s.rectangles), ellipses: m(s.ellipses), images: m(s.images) }
+  return { ...p, symbols: m(p.symbols), wires: m(p.wires), junctions: m(p.junctions), texts: m(p.texts), potentials: m(p.potentials), lines: m(p.lines), rectangles: m(s.rectangles), ellipses: m(s.ellipses), images: m(s.images), diagramBlocks: m(s.diagramBlocks) }
 }
 
 export function moveObjects(ids: string[], dx: number, dy: number) {
@@ -272,6 +273,7 @@ export function deleteObjects(ids: string[]) {
       rectangles: pageShapes(p).rectangles.filter((o) => !set.has(o.id)),
       ellipses: pageShapes(p).ellipses.filter((o) => !set.has(o.id)),
       images: pageShapes(p).images.filter((o) => !set.has(o.id)),
+      diagramBlocks: pageShapes(p).diagramBlocks.filter((o) => !set.has(o.id)),
     }),
   )
   useSelectionStore.getState().clear()
@@ -384,6 +386,7 @@ export function pastePages() {
         rectangles: re(pageShapes(src).rectangles, 'rect'),
         ellipses: re(pageShapes(src).ellipses, 'ell'),
         images: re(pageShapes(src).images, 'img'),
+        diagramBlocks: pageShapes(src).diagramBlocks.map((o) => cloneOwnedObject(o, 'block')),
       }
       newIds.push(page.id)
       working = { ...working, pages: [...working.pages, page] }
@@ -416,7 +419,7 @@ export function pasteClipboard(offset?: number) {
       working = { ...working, devices: [...working.devices, nd] }
     }
     const clones = objects.map((o) => {
-      const moved = translateObject({ ...o, id: uid(o.type) }, offset, offset)
+      const moved = translateObject(cloneOwnedObject(o, o.type), offset, offset)
       if (moved.type === 'symbol' && moved.deviceId) moved.deviceId = devMap.get(moved.deviceId)?.id ?? moved.deviceId
       newIds.push(moved.id)
       return moved
@@ -431,6 +434,7 @@ export function pasteClipboard(offset?: number) {
       rectangles: [...pageShapes(p).rectangles, ...clones.filter((o) => o.type === 'rectangle')],
       ellipses: [...pageShapes(p).ellipses, ...clones.filter((o) => o.type === 'ellipse')],
       images: [...pageShapes(p).images, ...clones.filter((o) => o.type === 'image')],
+      diagramBlocks: [...pageShapes(p).diagramBlocks, ...clones.filter((o) => o.type === 'diagramBlock')],
     }))
   })
   useSelectionStore.getState().set(newIds)
@@ -514,7 +518,7 @@ export function duplicatePage(pageId: string) {
   if (!doc || !src) return
   const id = uid('pg')
   const re = <T extends { id: string }>(arr: T[]) => arr.map((o) => ({ ...o, id: uid('o') }))
-  const copy: CadPage = { ...structuredClone(src), id, number: `${src.number}a`, title: `${src.title} (Kopie)`, symbols: re(src.symbols), wires: re(src.wires), junctions: re(src.junctions), texts: re(src.texts), potentials: re(src.potentials), lines: re(src.lines), rectangles: re(pageShapes(src).rectangles), ellipses: re(pageShapes(src).ellipses), images: re(pageShapes(src).images) }
+  const copy: CadPage = { ...structuredClone(src), id, number: `${src.number}a`, title: `${src.title} (Kopie)`, symbols: re(src.symbols), wires: re(src.wires), junctions: re(src.junctions), texts: re(src.texts), potentials: re(src.potentials), lines: re(src.lines), rectangles: re(pageShapes(src).rectangles), ellipses: re(pageShapes(src).ellipses), images: re(pageShapes(src).images), diagramBlocks: pageShapes(src).diagramBlocks.map((o) => cloneOwnedObject(o, 'block')) }
   commit('Seite dupliziert', (d) => {
     const idx = d.pages.findIndex((p) => p.id === pageId)
     const pages = [...d.pages]

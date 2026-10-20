@@ -5,6 +5,9 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { imageHref } from '../models/shapes'
 import { WiringSheetFrame } from './WiringSheetFrame'
 
+import { DiagramBlock } from './DiagramBlock'
+import { WiringPorts } from './WiringPorts'
+
 const SEL = 'var(--sheet-select)'
 const LINE_STROKE = 2.5
 
@@ -56,6 +59,8 @@ export function WiringDrawing({ page, selected = new Set<string>(), s = 1, clean
         )
       })}
 
+      {(page.diagramBlocks ?? []).map((block) => <DiagramBlock key={block.id} block={block} selected={selected.has(block.id)} />)}
+
       {page.lines.map((l) => {
         const sel = selected.has(l.id)
         const d = polylinePath(l.points)
@@ -79,6 +84,7 @@ export function WiringDrawing({ page, selected = new Set<string>(), s = 1, clean
           </text>
         )
       })}
+      {clean && <WiringPorts page={page} s={s} />}
     </>
   )
 }

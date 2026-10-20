@@ -15,16 +15,21 @@ import { pageRect, panBy } from '@/features/drawing/viewportActions'
 import { useViewportHost } from '@/features/drawing/useViewportHost'
 import { CanvasScrollbars } from '@/features/drawing/components/CanvasScrollbars'
 import { SnapIndicator } from '@/features/drawing/components/SnapIndicator'
-import { addEllipse, addPolyline, addRectangle, addWiringText, moveWiringObjects, resizeShape } from '../actions'
+import { addDiagramBlock, addPort, updatePort, addEllipse, addPolyline, addRectangle, addWiringText, moveWiringObjects, resizeShape } from '../actions'
 import { findShape, graphicAnchors, graphicBounds, MIN_SHAPE_SIZE, resizeShapeOnPage, shapeBox, translateGraphics, wiringGraphics } from '../models/shapes'
 import { WIRING_TOOLS } from '../profile'
 import { WiringDrawing } from './WiringDrawing'
+
+import { nearestPortAnchor, portOwnerBounds, selectedPortOwner, updatePortOnPage } from '../models/ports'
+import { WiringPorts } from './WiringPorts'
 
 const PREVIEW = 'var(--sheet-select)'
 const HANDLE_PX = 8
 
 type Gesture =
-  | { kind: 'shapeCreate'; shape: 'rectangle' | 'ellipse'; start: Point; end: Point; snap: GraphicSnap }
+  | { kind: 'portMove'; objectId: string; portId: string; anchor: ReturnType<typeof nearestPortAnchor> }
+  | { kind: 'portCreate'; objectId: string; anchor: ReturnType<typeof nearestPortAnchor> }
+  | { kind: 'shapeCreate'; shape: 'rectangle' | 'ellipse' | 'diagramBlock'; start: Point; end: Point; snap: GraphicSnap }
   | { kind: 'pan'; x: number; y: number }
   | { kind: 'drag'; origin: Point; ids: string[]; dx: number; dy: number }
   | { kind: 'marquee'; a: Point; b: Point; additive: boolean }
@@ -64,6 +69,8 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   useEffect(() => { setGesture(null) }, [rawTool])
   const [hover, setHover] = useState<GraphicSnap | null>(null)
   const [space, setSpace] = useState(false)
+  const [portHover, setPortHover] = useState<ReturnType<typeof nearestPortAnchor> | null>(null)
+  const portOwner = selectedPortOwner(page, selection)
   const tool = WIRING_TOOLS.has(rawTool) ? rawTool : 'select'
 
   useEffect(() => {
@@ -77,6 +84,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       const t = useToolStore.getState()
       const swallow = () => (e.preventDefault(), e.stopImmediatePropagation())
       if (e.key === 'Escape') {
+        if (t.tool === 'port') { swallow(); setPortHover(null); t.setTool('select') }
         if (gestureRef.current) { swallow(); setGesture(null) }
         if (t.wireDraft.length) (swallow(), t.setDraft([]))
         return
@@ -145,11 +153,22 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     const t = useToolStore.getState()
     const p = resolvePoint(w, e).point
 
+    const portId = (e.target as Element).closest?.('[data-port-id]')?.getAttribute('data-port-id')
+    const ownerId = hitId(e.target)
+    const hitOwner = page.diagramBlocks?.find((o) => o.id === ownerId)
+    if (tool === 'select' && portId && hitOwner) {
+      useSelectionStore.getState().set([hitOwner.id])
+      return setGesture({ kind: 'portMove', objectId: hitOwner.id, portId, anchor: nearestPortAnchor(portOwnerBounds(hitOwner), w) })
+    }
+    if (tool === 'port') {
+      if (!portOwner || ownerId !== portOwner.id) return setGesture(null)
+      return setGesture({ kind: 'portCreate', objectId: portOwner.id, anchor: nearestPortAnchor(portOwnerBounds(portOwner), w) })
+    }
     if (tool === 'line') return t.setDraft([...t.wireDraft, p])
-    if (tool === 'rect' || tool === 'ellipse') {
+    if (tool === 'block' || tool === 'rect' || tool === 'ellipse') {
       const snap = resolvePoint(w, e)
       setHover(null)
-      return setGesture({ kind: 'shapeCreate', shape: tool === 'rect' ? 'rectangle' : 'ellipse', start: snap.point, end: snap.point, snap })
+      return setGesture({ kind: 'shapeCreate', shape: tool === 'block' ? 'diagramBlock' : tool === 'rect' ? 'rectangle' : 'ellipse', start: snap.point, end: snap.point, snap })
     }
     if (tool === 'text') {
       return useUiStore.getState().openDialog({ type: 'prompt', title: 'Text einfügen', label: 'Text', value: '', confirmLabel: 'Einfügen', onSubmit: (v) => addWiringText(p, v) })
@@ -178,7 +197,13 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     const snap = resolvePoint(w, e)
     useCursorStore.getState().set(w, snap.point, false)
     setHover(tool === 'line' || tool === 'rect' || tool === 'ellipse' ? snap : null)
+    setPortHover(tool === 'port' && portOwner && hitId(e.target) === portOwner.id ? nearestPortAnchor(portOwnerBounds(portOwner), w) : null)
     if (!gesture) return
+    if (gesture.kind === 'portMove' || gesture.kind === 'portCreate') {
+      const owner = page.diagramBlocks?.find((o) => o.id === gesture.objectId)
+      if (!owner) return setGesture(null)
+      return setGesture({ ...gesture, anchor: nearestPortAnchor(portOwnerBounds(owner), w) })
+    }
     if (gesture.kind === 'pan') {
       panBy(e.clientX - gesture.x, e.clientY - gesture.y)
       return setGesture({ ...gesture, x: e.clientX, y: e.clientY })
@@ -205,7 +230,9 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
   const onPointerUp = () => {
     const gesture = gestureRef.current
-    if (gesture?.kind === 'shapeCreate') (gesture.shape === 'rectangle' ? addRectangle : addEllipse)(gesture.start, gesture.end)
+    if (gesture?.kind === 'portCreate') addPort(gesture.objectId, gesture.anchor)
+    if (gesture?.kind === 'portMove') updatePort(gesture.objectId, gesture.portId, { edge: gesture.anchor.edge, t: gesture.anchor.t })
+    if (gesture?.kind === 'shapeCreate') (gesture.shape === 'diagramBlock' ? addDiagramBlock : gesture.shape === 'rectangle' ? addRectangle : addEllipse)(gesture.start, gesture.end)
     if (gesture?.kind === 'drag' && (gesture.dx || gesture.dy)) moveWiringObjects(gesture.ids, gesture.dx, gesture.dy)
     if (gesture?.kind === 'resize' && !sameRect(gesture.rect, gesture.start)) resizeShape(gesture.id, gesture.rect)
     if (gesture?.kind === 'marquee') {
@@ -246,7 +273,9 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
   const selected = new Set(selection)
   const shownPage =
-    gesture?.kind === 'drag' && (gesture.dx || gesture.dy)
+    gesture?.kind === 'portMove'
+      ? updatePortOnPage(page, gesture.objectId, gesture.portId, { edge: gesture.anchor.edge, t: gesture.anchor.t })
+      : gesture?.kind === 'drag' && (gesture.dx || gesture.dy)
       ? translateGraphics(page, gesture.ids, gesture.dx, gesture.dy)
       : gesture?.kind === 'resize'
         ? resizeShapeOnPage(page, gesture.id, gesture.rect)
@@ -298,6 +327,12 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
             </g>
           )}
 
+          <WiringPorts page={shownPage} s={s} />
+          {(() => {
+            const anchor = gesture?.kind === 'portCreate' ? gesture.anchor : tool === 'port' && portOwner ? portHover : null
+            return anchor && <circle cx={anchor.point.x} cy={anchor.point.y} r={5 / s} fill={PREVIEW} pointerEvents="none" />
+          })()}
+
           {linePreview && linePreview.length > 0 && (
             <g pointerEvents="none">
               {linePreview.length > 1 && <path d={polylinePath(linePreview)} fill="none" stroke={PREVIEW} strokeWidth={2.5} strokeDasharray="10 8" strokeLinejoin="round" />}
@@ -308,7 +343,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
           )}
 
           {shapePreview &&
-            (tool === 'rect' ? (
+            (tool === 'rect' || tool === 'block' ? (
               <rect x={shapePreview.x} y={shapePreview.y} width={shapePreview.w} height={shapePreview.h} fill="none" stroke={PREVIEW} strokeWidth={2.5} strokeDasharray="10 8" pointerEvents="none" />
             ) : (
               <ellipse cx={shapePreview.x + shapePreview.w / 2} cy={shapePreview.y + shapePreview.h / 2} rx={shapePreview.w / 2} ry={shapePreview.h / 2} fill="none" stroke={PREVIEW} strokeWidth={2.5} strokeDasharray="10 8" pointerEvents="none" />

@@ -91,6 +91,7 @@ export function objectBounds(o: CadObject): Rect {
     }
     case 'potential':
       return { x: o.x1, y: o.y - 10, w: o.x2 - o.x1, h: 20 }
+    case 'diagramBlock':
     case 'rectangle':
     case 'image':
       return { x: o.x, y: o.y, w: o.width, h: o.height }
@@ -156,6 +157,7 @@ export function translateObject<T extends CadObject>(o: T, dx: number, dy: numbe
       return { ...o, points: o.points.map((p) => translatePoint(p, dx, dy)) }
     case 'potential':
       return { ...o, x1: o.x1 + dx, x2: o.x2 + dx, y: o.y + dy }
+    case 'diagramBlock':
     case 'rectangle':
     case 'image':
       return { ...o, x: o.x + dx, y: o.y + dy }
@@ -167,11 +169,12 @@ export function translateObject<T extends CadObject>(o: T, dx: number, dy: numbe
 
 export function pageObjects(page: CadPage): CadObject[] {
   const { rectangles, ellipses, images } = pageShapes(page)
-  return [...images, ...rectangles, ...ellipses, ...page.lines, ...page.potentials, ...page.wires, ...page.junctions, ...page.symbols, ...page.texts]
+  return [...(page.kind === 'wiring' ? page.diagramBlocks ?? [] : []), ...images, ...rectangles, ...ellipses, ...page.lines, ...page.potentials, ...page.wires, ...page.junctions, ...page.symbols, ...page.texts]
 }
 
 export function findObject(page: CadPage, id: string): CadObject | undefined {
   return (
+    (page.kind === 'wiring' ? page.diagramBlocks?.find((o) => o.id === id) : undefined) ??
     page.symbols.find((o) => o.id === id) ??
     page.wires.find((o) => o.id === id) ??
     page.texts.find((o) => o.id === id) ??

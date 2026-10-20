@@ -15,7 +15,7 @@ const geo = loadModule('../src/features/drawing/geometry.ts')
 const vp = loadModule('../src/features/drawing/viewport.ts')
 const snap = loadModule('../src/features/drawing/snap.ts', { './geometry': geo, './viewport': vp })
 const resize = loadModule('../src/features/drawing/resize.ts')
-const cad = { pageShapes: (p) => ({ rectangles: p.rectangles ?? [], ellipses: p.ellipses ?? [], images: p.images ?? [] }) }
+const cad = loadModule('../src/types/cad.ts')
 const shapes = loadModule('../src/features/wiring/models/shapes.ts', { '@/types/cad': cad, '@/features/drawing/geometry': geo })
 const wiringProfile = loadModule('../src/features/wiring/profile.ts')
 

@@ -65,6 +65,7 @@ import {
 } from '@/features/schematic/actions'
 import { pageObjects } from '@/features/schematic/models/geometry'
 import { symbolDef } from '@/features/schematic/models/symbolLibrary'
+import { selectedPortOwner } from '@/features/wiring/models/ports'
 import { isObjectAllowed, isToolAllowed } from '@/features/editorProfiles'
 import { fitPage, fitSelection, fitWidth, setZoom, zoomAt } from '@/features/schematic/viewport'
 import { stepResult } from '@/features/validation/navigate'
@@ -343,6 +344,8 @@ const commands: Command[] = [
   { id: 'ws.documentation', label: 'Dokumentation', category: 'Arbeitsbereich', icon: BookOpen, shortcut: 'Alt+5', allowInInput: true, isChecked: () => ui().workspace === 'documentation', run: () => goWorkspace('documentation') },
 
   /* -------- Werkzeuge / Einfügen -------- */
+  { id: 'tool.block', label: 'Baustein', category: 'Werkzeug', icon: SquareIcon, scope: SCH, isEnabled: () => allowed('block'), isChecked: () => useToolStore.getState().tool === 'block', run: () => { if (allowed('block')) useToolStore.getState().setTool('block') } },
+  { id: 'tool.port', label: 'Port hinzufügen', category: 'Werkzeug', icon: CircleIcon, scope: SCH, isEnabled: () => allowed('port') && !!selectedPortOwner(getActivePage(), useSelectionStore.getState().ids), isChecked: () => useToolStore.getState().tool === 'port', run: () => { if (allowed('port') && selectedPortOwner(getActivePage(), useSelectionStore.getState().ids)) useToolStore.getState().setTool('port') } },
   { id: 'tool.select', label: 'Auswahl', category: 'Werkzeug', icon: MousePointer2, shortcut: 'V', scope: SCH, isChecked: () => useToolStore.getState().tool === 'select', run: () => useToolStore.getState().setTool('select') },
   { id: 'tool.wire', label: 'Leitung zeichnen', category: 'Werkzeug', icon: Spline, shortcut: 'W', scope: SCH, isEnabled: () => allowed('wire'), isChecked: () => useToolStore.getState().tool === 'wire', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('wire') } },
   { id: 'tool.line', label: 'Grafische Linie', category: 'Werkzeug', icon: PenLine, shortcut: 'L', scope: SCH, isEnabled: () => allowed('line'), isChecked: () => useToolStore.getState().tool === 'line', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('line') } },

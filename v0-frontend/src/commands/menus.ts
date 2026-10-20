@@ -48,6 +48,8 @@ export const MENUS: { id: string; label: string; items: MenuEntry[] }[] = [
       c('tool.wire'),
       c('tool.routeMode'),
       c('tool.line'),
+      c('tool.block'),
+      c('tool.port'),
       c('tool.text'),
       c('insert.potential'),
       c('insert.xref'),

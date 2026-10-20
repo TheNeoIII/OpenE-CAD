@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Field, Input, Select } from '@/components/ui/primitives'
-import type { CadEllipse, CadImage, CadRectangle, LineStyle } from '@/types/cad'
+import type { CadDiagramBlock, CadEllipse, CadImage, CadRectangle, LineStyle } from '@/types/cad'
 import { updateShape } from '../actions'
+import { BlockProperties } from './BlockProperties'
+import { MIN_SHAPE_SIZE } from '../models/shapes'
 
-type Shape = CadRectangle | CadEllipse | CadImage
+type Shape = CadRectangle | CadEllipse | CadImage | CadDiagramBlock
 
-const TYPE_LABELS: Record<Shape['type'], string> = { rectangle: 'Rechteck', ellipse: 'Ellipse', image: 'Bild' }
+const TYPE_LABELS: Record<Shape['type'], string> = { diagramBlock: 'Baustein', rectangle: 'Rechteck', ellipse: 'Ellipse', image: 'Bild' }
 const STYLE_LABELS: Record<LineStyle, string> = { solid: 'Durchgezogen', dashed: 'Gestrichelt', dashdot: 'Strichpunkt' }
 
 function NumberInput({ id, value, onCommit }: { id: string; value: number; onCommit: (v: number) => void }) {
@@ -48,7 +50,7 @@ export function WiringProperties({ obj }: { obj: Shape }) {
       ? { x: obj.cx - obj.rx, y: obj.cy - obj.ry, w: obj.rx * 2, h: obj.ry * 2 }
       : { x: obj.x, y: obj.y, w: obj.width, h: obj.height }
   const setBox = (next: Partial<typeof box>) => {
-    const b = { ...box, ...next, w: Math.max(1, next.w ?? box.w), h: Math.max(1, next.h ?? box.h) }
+    const b = { ...box, ...next, w: Math.max(MIN_SHAPE_SIZE, next.w ?? box.w), h: Math.max(MIN_SHAPE_SIZE, next.h ?? box.h) }
     if (obj.type === 'ellipse') set({ cx: b.x + b.w / 2, cy: b.y + b.h / 2, rx: b.w / 2, ry: b.h / 2 })
     else set({ x: b.x, y: b.y, width: b.w, height: b.h })
   }
@@ -83,6 +85,7 @@ export function WiringProperties({ obj }: { obj: Shape }) {
           </Field>
         </Section>
       )}
+      {obj.type === 'diagramBlock' && <BlockProperties key={obj.id} block={obj} />}
     </>
   )
 }
