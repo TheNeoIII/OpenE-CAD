@@ -3,6 +3,8 @@ import { Inspector } from '@/features/schematic/components/Inspector'
 import { Navigator } from '@/features/schematic/components/Navigator'
 import { SchematicCanvas } from '@/features/schematic/components/SchematicCanvas'
 import { SchematicToolbar } from '@/features/schematic/components/SchematicToolbar'
+import { WiringCanvas } from '@/features/wiring/components/WiringCanvas'
+import { WiringToolbar } from '@/features/wiring/components/WiringToolbar'
 import { useActivePage } from '@/stores/documentStore'
 import { useUiStore } from '@/stores/uiStore'
 
@@ -33,14 +35,17 @@ function EdgePanel({ side, pinned, children }: { side: 'left' | 'right'; pinned:
 export function SchematicWorkspace() {
   const panels = useUiStore((s) => s.panels)
   const page = useActivePage()
+  const wiring = page?.kind === 'wiring'
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1">
       <EdgePanel side="left" pinned={panels.navigator}>
         <Navigator />
       </EdgePanel>
-      <main className="flex min-w-0 flex-1 flex-col" aria-label="Stromlaufplan">
-        <SchematicToolbar />
-        <div className="relative flex min-h-0 flex-1">{page ? <SchematicCanvas key={page.id} /> : <div className="p-6 text-[12px] text-muted">Keine Seite gewählt.</div>}</div>
+      <main className="flex min-w-0 flex-1 flex-col" aria-label={wiring ? 'Verkabelungsschema' : 'Stromlaufplan'}>
+        {wiring ? <WiringToolbar /> : <SchematicToolbar />}
+        <div className="relative flex min-h-0 flex-1">
+          {!page ? <div className="p-6 text-[12px] text-muted">Keine Seite gewählt.</div> : wiring ? <WiringCanvas key={page.id} /> : <SchematicCanvas key={page.id} />}
+        </div>
       </main>
       <EdgePanel side="right" pinned={panels.inspector}>
         <Inspector />

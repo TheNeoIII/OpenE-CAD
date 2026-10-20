@@ -1,16 +1,24 @@
 import { useDocumentStore } from '@/stores/documentStore'
 import { useSelectionStore } from '@/stores/selectionStore'
-import { pageShapes, type CadEllipse, type CadImage, type CadPage, type CadRectangle, type CadShapeStyle, type Point } from '@/types/cad'
+import { pageShapes, type CadEllipse, type CadImage, type CadLine, type CadPage, type CadRectangle, type CadShapeStyle, type CadText, type LineStyle, type Point, type Rect } from '@/types/cad'
+import { samePoint } from '@/features/drawing/geometry'
 import { uid } from '@/utils/format'
+import { findShape, resizeShapeOnPage, translateGraphics } from './models/shapes'
 
 export const DEFAULT_SHAPE_STYLE: CadShapeStyle = { stroke: '#1f2937', strokeWidth: 3, lineStyle: 'solid', fill: 'none' }
 
 type Shape = CadRectangle | CadEllipse | CadImage
 
+/** Every wiring action is exactly one commit = one undo step. */
 function withActivePage(label: string, fn: (p: CadPage) => CadPage) {
   const store = useDocumentStore.getState()
   const pageId = store.activePageId
   store.commit(label, (d) => ({ ...d, pages: d.pages.map((p) => (p.id === pageId ? fn(p) : p)) }))
+}
+
+function activePage() {
+  const st = useDocumentStore.getState()
+  return st.document?.pages.find((p) => p.id === st.activePageId)
 }
 
 function cornerRect(a: Point, b: Point) {
@@ -33,51 +41,31 @@ export function addEllipse(a: Point, b: Point) {
   useSelectionStore.getState().set([shape.id])
 }
 
-export function addImage(at: Point, src: string, width: number, height: number, alt = '') {
-  const shape: CadImage = { id: uid('img'), type: 'image', x: at.x, y: at.y, width, height, src, alt }
-  withActivePage('Bild eingefügt', (p) => ({ ...p, images: [...pageShapes(p).images, shape] }))
-  useSelectionStore.getState().set([shape.id])
+/** Commits a graphic polyline exactly as given (consecutive duplicates removed). */
+export function addPolyline(points: Point[], style: LineStyle = 'solid') {
+  const pts = points.filter((p, i) => i === 0 || !samePoint(p, points[i - 1]))
+  if (pts.length < 2) return
+  const line: CadLine = { id: uid('ln'), type: 'line', points: pts, style }
+  withActivePage('Linie gezeichnet', (p) => ({ ...p, lines: [...p.lines, line] }))
+  useSelectionStore.getState().set([line.id])
 }
 
-const MAX_IMAGE_SIZE = 300
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024
-
-function readAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
+export function addWiringText(at: Point, text: string) {
+  if (!text.trim()) return
+  const t: CadText = { id: uid('txt'), type: 'text', position: at, text, size: 28, style: 'note', anchor: 'start' }
+  withActivePage('Text eingefügt', (p) => ({ ...p, texts: [...p.texts, t] }))
+  useSelectionStore.getState().set([t.id])
 }
 
-function naturalSize(src: string) {
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve({ width: img.naturalWidth || MAX_IMAGE_SIZE, height: img.naturalHeight || MAX_IMAGE_SIZE })
-    img.onerror = () => reject(new Error('Bild konnte nicht geladen werden'))
-    img.src = src
-  })
+export function moveWiringObjects(ids: readonly string[], dx: number, dy: number) {
+  if (!ids.length || (!dx && !dy)) return
+  withActivePage(ids.length > 1 ? `${ids.length} Grafiken verschoben` : 'Grafik verschoben', (p) => translateGraphics(p, ids, dx, dy))
 }
 
-export async function insertImageFile(file: File, at: Point = { x: 40, y: 40 }) {
-  if (!file.type.startsWith('image/')) throw new Error('Nur Bilddateien sind erlaubt')
-  if (file.size > MAX_IMAGE_BYTES) throw new Error('Bild ist größer als 5 MB')
-  const src = await readAsDataUrl(file)
-  const size = await naturalSize(src)
-  const scale = Math.min(1, MAX_IMAGE_SIZE / Math.max(size.width, size.height))
-  addImage(at, src, Math.round(size.width * scale), Math.round(size.height * scale), file.name)
-}
-
-export function pickImageFile(onError: (message: string) => void) {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = 'image/png,image/jpeg,image/svg+xml,image/webp,image/gif'
-  input.onchange = () => {
-    const file = input.files?.[0]
-    if (file) insertImageFile(file).catch((e: Error) => onError(e.message))
-  }
-  input.click()
+export function resizeShape(id: string, rect: Rect) {
+  const page = activePage()
+  if (!page || !findShape(page, id)) return
+  withActivePage('Grafik skaliert', (p) => resizeShapeOnPage(p, id, rect))
 }
 
 export function updateShape(id: string, patch: Partial<Shape>, label = 'Grafik geändert') {

@@ -249,8 +249,10 @@ export interface CadImage {
   y: number
   width: number
   height: number
-  /** Data URL of the embedded raster/SVG image. */
-  src: string
+  /** Reference into the project asset store (W5). New images are only stored this way. */
+  assetId?: string
+  /** Read-only data URL migrated from documents that embedded images inline. */
+  legacySrc?: string
   alt?: string
   lockAspect?: boolean
 }

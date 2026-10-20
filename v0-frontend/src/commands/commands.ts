@@ -65,7 +65,7 @@ import {
 } from '@/features/schematic/actions'
 import { pageObjects } from '@/features/schematic/models/geometry'
 import { symbolDef } from '@/features/schematic/models/symbolLibrary'
-import { pickImageFile } from '@/features/wiring/actions'
+import { isToolAllowed } from '@/features/editorProfiles'
 import { fitPage, fitSelection, fitWidth, setZoom, zoomAt } from '@/features/schematic/viewport'
 import { stepResult } from '@/features/validation/navigate'
 import { getActivePage, useDocumentStore } from '@/stores/documentStore'
@@ -86,6 +86,8 @@ const hasSelection = () => useSelectionStore.getState().ids.length > 0
 const inSchematic = () => hasProject() && useUiStore.getState().workspace === 'schematic'
 const ui = () => useUiStore.getState()
 const SCH: Workspace[] = ['schematic']
+const allowed = (tool: Parameters<typeof isToolAllowed>[1]) => hasProject() && isToolAllowed(getActivePage()?.kind, tool)
+const onSchematicPage = () => hasProject() && getActivePage()?.kind !== 'wiring'
 
 function tableAvailable() {
   const s = ui()
@@ -339,23 +341,23 @@ const commands: Command[] = [
 
   /* -------- Werkzeuge / Einfügen -------- */
   { id: 'tool.select', label: 'Auswahl', category: 'Werkzeug', icon: MousePointer2, shortcut: 'V', scope: SCH, isChecked: () => useToolStore.getState().tool === 'select', run: () => useToolStore.getState().setTool('select') },
-  { id: 'tool.wire', label: 'Leitung zeichnen', category: 'Werkzeug', icon: Spline, shortcut: 'W', scope: SCH, isEnabled: hasProject, isChecked: () => useToolStore.getState().tool === 'wire', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('wire') } },
-  { id: 'tool.line', label: 'Grafische Linie', category: 'Werkzeug', icon: PenLine, shortcut: 'L', scope: SCH, isEnabled: hasProject, isChecked: () => useToolStore.getState().tool === 'line', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('line') } },
-  { id: 'tool.rect', label: 'Rechteck', category: 'Werkzeug', icon: SquareIcon, scope: SCH, isEnabled: hasProject, isChecked: () => useToolStore.getState().tool === 'rect', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('rect') } },
-  { id: 'tool.ellipse', label: 'Ellipse', category: 'Werkzeug', icon: CircleIcon, scope: SCH, isEnabled: hasProject, isChecked: () => useToolStore.getState().tool === 'ellipse', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('ellipse') } },
-  { id: 'insert.image', label: 'Bild einfügen …', category: 'Einfügen', icon: ImageIcon, keywords: 'bild image logo foto', scope: SCH, isEnabled: () => hasProject() && getActivePage()?.kind === 'wiring', run: () => pickImageFile((m) => toast(m)) },
+  { id: 'tool.wire', label: 'Leitung zeichnen', category: 'Werkzeug', icon: Spline, shortcut: 'W', scope: SCH, isEnabled: () => allowed('wire'), isChecked: () => useToolStore.getState().tool === 'wire', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('wire') } },
+  { id: 'tool.line', label: 'Grafische Linie', category: 'Werkzeug', icon: PenLine, shortcut: 'L', scope: SCH, isEnabled: () => allowed('line'), isChecked: () => useToolStore.getState().tool === 'line', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('line') } },
+  { id: 'tool.rect', label: 'Rechteck', category: 'Werkzeug', icon: SquareIcon, scope: SCH, isEnabled: () => allowed('rect'), isChecked: () => useToolStore.getState().tool === 'rect', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('rect') } },
+  { id: 'tool.ellipse', label: 'Ellipse', category: 'Werkzeug', icon: CircleIcon, scope: SCH, isEnabled: () => allowed('ellipse'), isChecked: () => useToolStore.getState().tool === 'ellipse', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('ellipse') } },
+  { id: 'insert.image', label: 'Bild einfügen …', category: 'Einfügen', icon: ImageIcon, keywords: 'bild image logo foto', scope: SCH, future: true, run: () => {} },
   { id: 'tool.routeMode', label: 'Leitungsführung umschalten (H→V / V→H)', category: 'Werkzeug', icon: CornerDownRight, shortcut: 'Tab', scope: SCH, isEnabled: hasProject, run: () => useToolStore.getState().toggleRouteMode() },
-  { id: 'tool.text', label: 'Text', category: 'Werkzeug', icon: Type, shortcut: 'T', scope: SCH, isEnabled: hasProject, isChecked: () => useToolStore.getState().tool === 'text', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('text') } },
+  { id: 'tool.text', label: 'Text', category: 'Werkzeug', icon: Type, shortcut: 'T', scope: SCH, isEnabled: () => allowed('text'), isChecked: () => useToolStore.getState().tool === 'text', run: () => { goWorkspace('schematic'); useToolStore.getState().setTool('text') } },
   { id: 'tool.pan', label: 'Ansicht verschieben', category: 'Werkzeug', icon: Hand, shortcut: 'H', scope: SCH, isChecked: () => useToolStore.getState().tool === 'pan', run: () => useToolStore.getState().setTool('pan') },
-  { id: 'insert.symbol', label: 'Symbol einfügen …', category: 'Einfügen', icon: Plus, shortcut: 'I', scope: SCH, isEnabled: hasProject, run: () => ui().openDialog({ type: 'symbolPicker' }) },
-  { id: 'insert.contactor', label: 'Schütz 3-polig', category: 'Einfügen', keywords: 'K schütz', isEnabled: hasProject, run: () => placeAtCenter('contactor', 3) },
-  { id: 'insert.breaker', label: 'Schutzschalter 3-polig', category: 'Einfügen', keywords: 'F LS', isEnabled: hasProject, run: () => placeAtCenter('breaker', 3) },
-  { id: 'insert.coil', label: 'Spule', category: 'Einfügen', isEnabled: hasProject, run: () => placeAtCenter('coil', 1) },
-  { id: 'insert.contactNO', label: 'Schließer', category: 'Einfügen', isEnabled: hasProject, run: () => placeAtCenter('contactNO', 1) },
-  { id: 'insert.terminal', label: 'Klemme', category: 'Einfügen', keywords: 'X', isEnabled: hasProject, run: () => placeAtCenter('terminal', 1) },
-  { id: 'insert.motor', label: 'Motor', category: 'Einfügen', keywords: 'M', isEnabled: hasProject, run: () => placeAtCenter('motor', 3) },
-  { id: 'insert.potential', label: 'Potential …', category: 'Einfügen', icon: ArrowDownToLine, isEnabled: inSchematic, run: () => ui().openDialog({ type: 'potential' }) },
-  { id: 'insert.xref', label: 'Querverweis …', category: 'Einfügen', icon: Link2, isEnabled: inSchematic, run: () => ui().openDialog({ type: 'xref' }) },
+  { id: 'insert.symbol', label: 'Symbol einfügen …', category: 'Einfügen', icon: Plus, shortcut: 'I', scope: SCH, isEnabled: onSchematicPage, run: () => ui().openDialog({ type: 'symbolPicker' }) },
+  { id: 'insert.contactor', label: 'Schütz 3-polig', category: 'Einfügen', keywords: 'K schütz', isEnabled: onSchematicPage, run: () => placeAtCenter('contactor', 3) },
+  { id: 'insert.breaker', label: 'Schutzschalter 3-polig', category: 'Einfügen', keywords: 'F LS', isEnabled: onSchematicPage, run: () => placeAtCenter('breaker', 3) },
+  { id: 'insert.coil', label: 'Spule', category: 'Einfügen', isEnabled: onSchematicPage, run: () => placeAtCenter('coil', 1) },
+  { id: 'insert.contactNO', label: 'Schließer', category: 'Einfügen', isEnabled: onSchematicPage, run: () => placeAtCenter('contactNO', 1) },
+  { id: 'insert.terminal', label: 'Klemme', category: 'Einfügen', keywords: 'X', isEnabled: onSchematicPage, run: () => placeAtCenter('terminal', 1) },
+  { id: 'insert.motor', label: 'Motor', category: 'Einfügen', keywords: 'M', isEnabled: onSchematicPage, run: () => placeAtCenter('motor', 3) },
+  { id: 'insert.potential', label: 'Potential …', category: 'Einfügen', icon: ArrowDownToLine, isEnabled: () => inSchematic() && onSchematicPage(), run: () => ui().openDialog({ type: 'potential' }) },
+  { id: 'insert.xref', label: 'Querverweis …', category: 'Einfügen', icon: Link2, isEnabled: () => inSchematic() && onSchematicPage(), run: () => ui().openDialog({ type: 'xref' }) },
   { id: 'xref.goto', label: 'Gehe zu Verweisziel', category: 'Seite', icon: CornerDownRight, isEnabled: inSchematic, run: (id?: string) => goToCrossReference(id ?? useSelectionStore.getState().ids[0]) },
   { id: 'insert.macro', label: 'Makro einfügen', category: 'Einfügen', future: true, run: () => {} },
 

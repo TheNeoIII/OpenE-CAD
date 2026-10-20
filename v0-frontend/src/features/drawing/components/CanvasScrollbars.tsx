@@ -1,6 +1,7 @@
 import { useRef, type PointerEvent as RPointerEvent } from 'react'
 import type { CadViewportState, Rect } from '@/types/cad'
-import { panBy, scaleOf } from '../viewport'
+import { scaleOf } from '../viewport'
+import { panBy } from '../viewportActions'
 
 const BAR = 12
 const MIN_THUMB = 28
