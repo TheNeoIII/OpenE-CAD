@@ -24,6 +24,24 @@ const page = () => ({
   diagramBlocks: [{ id: 'b', x: 0, y: 0, width: 200, height: 100, title: 'Switch', fields: [{ id: 'f', label: 'IP', value: '10.0.0.1' }], ports: [{ id: 'p', edge: 'left', t: 0.5, label: 'LAN' }] }],
 })
 
+test('port anchors override grid and endpoints, while Alt disables snapping', () => {
+  const viewport = load('features/drawing/viewport')
+  const { resolveGraphicSnap } = load('features/drawing/snap', { './geometry': geometry, './viewport': viewport })
+  const options = { scale: 1, grid: 20, gridSnap: true, ports: ports.wiringPortAnchors(page()).map((a) => a.point), anchors: [{ x: 2, y: 52 }] }
+  assert.deepEqual(resolveGraphicSnap({ x: 2, y: 52 }, options), { point: { x: 0, y: 50 }, kind: 'port', label: 'Port' })
+  assert.equal(resolveGraphicSnap({ x: 2, y: 52 }, { ...options, disabled: true }).kind, 'free')
+})
+
+test('port label placement defaults outside and preserves explicit sides when the edge changes', () => {
+  for (const edge of ['left', 'right', 'top', 'bottom']) {
+    assert.equal(ports.resolvePortLabelSide({ edge }), edge)
+    assert.equal(ports.resolvePortLabelSide({ edge, labelPlacement: 'auto' }), edge)
+    for (const labelPlacement of ['left', 'right', 'top', 'bottom']) {
+      assert.equal(ports.portLabelLayout({ x: 0, y: 0 }, { edge, labelPlacement }).side, labelPlacement)
+    }
+  }
+})
+
 test('same-type hit selects, other hits create, Ctrl and drafts force creation', () => {
   const { toolPointerIntent } = interaction
   assert.equal(toolPointerIntent({ tool: 'rect', hitType: 'rectangle' }), 'select')

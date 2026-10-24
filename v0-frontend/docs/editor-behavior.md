@@ -71,6 +71,8 @@ Durable rules. Invariants in `../AGENTS.md` take precedence; this file adds code
 - Deleting a used custom symbol requires confirmation and leaves its placed instances with an unknown-symbol fallback; it does not delete the instances.
 
 ## Wiring editor interactions (`features/wiring`)
+- Graphic snapping uses world-space port positions before line vertices and grid points, including vertex drags. Alt disables snapping. Snapping stores geometry only, never an electrical connection or binding.
+- Port label position is selectable in the block inspector: automatic (outside, derived from the edge), left, right, top, or bottom. Missing values retain the automatic layout for older documents.
 - Same-tool selection (`models/interaction.ts`): with a drawing tool active, pressing on an object of the type that tool creates selects/moves it instead of creating a new one. Ctrl/Cmd forces creation over it; a running line draft always adds points. Handles of a selected matching object stay usable while its tool is active.
 - Escape ladder (`escapeAction`): inline edit, running gesture, line draft, port tool, selection, active tool. One level per press.
 - Inline editing (`models/inlineEdit.ts`, `WiringInlineEditor`): double-click edits exactly one string: text, shape/line label, block title, field label or value, port label. The text tool opens the editor at the click point instead of a dialog; empty new text creates nothing. Enter commits, Shift+Enter inserts a newline, Escape cancels, blur commits. Undo-deleted targets close the editor without writing.
