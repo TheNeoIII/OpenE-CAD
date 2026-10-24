@@ -23,7 +23,7 @@ import { WiringInlineEditor } from './WiringInlineEditor'
 import type { InlineEditTarget } from '../models/inlineEdit'
 import { escapeAction, toolMatchesType, toolPointerIntent } from '../models/interaction'
 
-import { nearestPortAnchor, portOwnerBounds, selectedPortOwner, updatePortOnPage } from '../models/ports'
+import { nearestPortAnchor, portOwnerBounds, selectedPortOwner, updatePortOnPage, wiringPortAnchors } from '../models/ports'
 import { WiringPorts } from './WiringPorts'
 
 const PREVIEW = 'var(--sheet-select)'
@@ -145,7 +145,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
   /** Single source of truth: indicator, preview and commit all use the point returned here. */
   const resolvePoint = (w: Point, e: { altKey: boolean; shiftKey: boolean }, skip?: { lineId: string; index: number }): GraphicSnap => {
-    const snap = resolveGraphicSnap(w, { scale: s, grid: gridSize, gridSnap, disabled: e.altKey, anchors: graphicAnchors(page, tool === 'line' ? draft : [], skip) })
+    const snap = resolveGraphicSnap(w, { scale: s, grid: gridSize, gridSnap, disabled: e.altKey, ports: wiringPortAnchors(page).map((anchor) => anchor.point), anchors: graphicAnchors(page, tool === 'line' ? draft : [], skip) })
     if (skip) return snap
     const last = draft[draft.length - 1]
     if (tool === 'line' && last && e.shiftKey) return { ...snap, point: constrain45(last, snap.point) }

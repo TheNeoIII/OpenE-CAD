@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Field, Input, Select } from '@/components/ui/primitives'
 import { runCommand } from '@/commands/registry'
-import type { CadDiagramBlock, CadPortDirection, CadPortEdge } from '@/types/cad'
+import type { CadDiagramBlock, CadPortDirection, CadPortEdge, CadPortLabelPlacement } from '@/types/cad'
 import { uid } from '@/utils/format'
 import { deletePort, updatePort, updateShape } from '../actions'
 
@@ -41,6 +41,9 @@ export function BlockProperties({ block }: { block: CadDiagramBlock }) {
       <h3 className="text-xs font-semibold">Ports</h3>
       {(block.ports ?? []).map((port, i) => <div key={port.id} className="space-y-2 rounded border border-line p-2">
         <CommitInput label={`Port ${i + 1} Label`} value={port.label ?? ''} onCommit={(label) => updatePort(block.id, port.id, { label })} />
+        <Field label="Labelposition"><Select aria-label={`Port ${i + 1} Labelposition`} value={port.labelPlacement ?? 'auto'} onChange={(e) => updatePort(block.id, port.id, { labelPlacement: e.target.value as CadPortLabelPlacement })}>
+          <option value="auto">Automatisch (außen)</option><option value="left">Links</option><option value="right">Rechts</option><option value="top">Oben</option><option value="bottom">Unten</option>
+        </Select></Field>
         <CommitInput label={`Port ${i + 1} Typ`} value={port.portType ?? 'generic'} onCommit={(portType) => updatePort(block.id, port.id, { portType })} />
         <Field label="Richtung"><Select aria-label={`Port ${i + 1} Richtung`} value={port.direction ?? 'bidirectional'} onChange={(e) => updatePort(block.id, port.id, { direction: e.target.value as CadPortDirection })}>
           <option value="input">Eingang</option><option value="output">Ausgang</option><option value="bidirectional">Bidirektional</option><option value="passive">Passiv</option>
