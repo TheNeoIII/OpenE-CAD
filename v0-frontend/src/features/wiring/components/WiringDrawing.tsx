@@ -1,18 +1,31 @@
-import { pageShapes, type CadPage } from '@/types/cad'
+import { pageShapes, type CadEllipse, type CadLine, type CadPage, type CadRectangle } from '@/types/cad'
 import { polylinePath, TEXT_LINE } from '@/features/drawing/geometry'
 import { LINE_DASH } from '@/features/drawing/styles'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { imageHref } from '../models/shapes'
+import { graphicLabelPoint, imageHref, shapeFill } from '../models/shapes'
+import { LABEL_SIZE } from '../models/inlineEdit'
 import { WiringSheetFrame } from './WiringSheetFrame'
 
 import { DiagramBlock } from './DiagramBlock'
 import { WiringPorts } from './WiringPorts'
 
 const SEL = 'var(--sheet-select)'
-const LINE_STROKE = 2.5
+const INK = 'var(--sheet-ink)'
+export const LINE_STROKE = 2.5
+
+/** Centred caption of a simple graphic. Hidden while being inline-edited so the editor is the only visible copy. */
+function GraphicLabel({ obj, hidden }: { obj: CadRectangle | CadEllipse | CadLine; hidden: boolean }) {
+  if (!obj.label || hidden) return null
+  const c = graphicLabelPoint(obj)
+  return (
+    <text data-edit="label" x={c.x} y={c.y} fontSize={LABEL_SIZE} textAnchor="middle" dominantBaseline="middle" fill={INK}>
+      {obj.label}
+    </text>
+  )
+}
 
 /** Pure render of a wiring page. Shared by the editor canvas and print/documentation views. */
-export function WiringDrawing({ page, selected = new Set<string>(), s = 1, clean = false }: { page: CadPage; selected?: ReadonlySet<string>; s?: number; clean?: boolean }) {
+export function WiringDrawing({ page, selected = new Set<string>(), s = 1, clean = false, editing }: { page: CadPage; selected?: ReadonlySet<string>; s?: number; clean?: boolean; editing?: string }) {
   const grid = useSettingsStore((st) => st.gridSize)
   const showGrid = useSettingsStore((st) => st.showGrid)
   const { images, rectangles, ellipses } = pageShapes(page)
@@ -20,7 +33,7 @@ export function WiringDrawing({ page, selected = new Set<string>(), s = 1, clean
   return (
     <>
       <g style={clean ? undefined : { filter: 'drop-shadow(0 2px 10px rgb(0 0 0 / 0.18))' }}>
-        <WiringSheetFrame page={page} grid={grid} showGrid={!clean && showGrid} />
+        <WiringSheetFrame page={page} grid={grid} showGrid={!clean && showGrid} s={s} />
       </g>
 
       {images.map((im) => {
@@ -48,34 +61,43 @@ export function WiringDrawing({ page, selected = new Set<string>(), s = 1, clean
       {rectangles.map((r) => {
         const sel = selected.has(r.id)
         return (
-          <rect key={r.id} data-id={r.id} x={r.x} y={r.y} width={r.width} height={r.height} rx={r.cornerRadius} fill={r.fill === 'none' ? 'transparent' : r.fill} stroke={sel ? SEL : r.stroke} strokeWidth={sel ? r.strokeWidth * 1.4 : r.strokeWidth} strokeDasharray={LINE_DASH[r.lineStyle]} />
+          <g key={r.id} data-id={r.id}>
+            <rect x={r.x} y={r.y} width={r.width} height={r.height} rx={r.cornerRadius} {...shapeFill(r)} stroke={sel ? SEL : r.stroke} strokeWidth={sel ? r.strokeWidth * 1.4 : r.strokeWidth} strokeDasharray={LINE_DASH[r.lineStyle]} />
+            <GraphicLabel obj={r} hidden={editing === r.id} />
+          </g>
         )
       })}
 
       {ellipses.map((el) => {
         const sel = selected.has(el.id)
         return (
-          <ellipse key={el.id} data-id={el.id} cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry} fill={el.fill === 'none' ? 'transparent' : el.fill} stroke={sel ? SEL : el.stroke} strokeWidth={sel ? el.strokeWidth * 1.4 : el.strokeWidth} strokeDasharray={LINE_DASH[el.lineStyle]} />
+          <g key={el.id} data-id={el.id}>
+            <ellipse cx={el.cx} cy={el.cy} rx={el.rx} ry={el.ry} {...shapeFill(el)} stroke={sel ? SEL : el.stroke} strokeWidth={sel ? el.strokeWidth * 1.4 : el.strokeWidth} strokeDasharray={LINE_DASH[el.lineStyle]} />
+            <GraphicLabel obj={el} hidden={editing === el.id} />
+          </g>
         )
       })}
 
-      {(page.diagramBlocks ?? []).map((block) => <DiagramBlock key={block.id} block={block} selected={selected.has(block.id)} />)}
+      {(page.diagramBlocks ?? []).map((block) => <DiagramBlock key={block.id} block={block} selected={selected.has(block.id)} editing={editing === block.id} />)}
 
       {page.lines.map((l) => {
         const sel = selected.has(l.id)
         const d = polylinePath(l.points)
+        const width = l.strokeWidth ?? LINE_STROKE
         return (
           <g key={l.id} data-id={l.id}>
-            <path d={d} fill="none" stroke="transparent" strokeWidth={hitW * 2} />
-            <path d={d} fill="none" stroke={sel ? SEL : 'var(--sheet-ink)'} strokeWidth={sel ? LINE_STROKE * 1.6 : LINE_STROKE} strokeDasharray={LINE_DASH[l.style]} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={d} fill="none" stroke="transparent" strokeWidth={Math.max(hitW * 2, width)} />
+            <path d={d} fill="none" stroke={sel ? SEL : l.stroke ?? INK} strokeWidth={sel ? width * 1.6 : width} strokeDasharray={LINE_DASH[l.style]} strokeLinecap="round" strokeLinejoin="round" />
+            <GraphicLabel obj={l} hidden={editing === l.id} />
           </g>
         )
       })}
 
       {page.texts.map((t) => {
+        if (editing === t.id) return null
         const sel = selected.has(t.id)
         return (
-          <text key={t.id} data-id={t.id} x={t.position.x} y={t.position.y} fontSize={t.size} textAnchor={t.anchor} fill={sel ? SEL : 'var(--sheet-ink)'} textDecoration={sel ? 'underline' : undefined}>
+          <text key={t.id} data-id={t.id} data-edit="text" x={t.position.x} y={t.position.y} fontSize={t.size} textAnchor={t.anchor} fill={sel ? SEL : INK} textDecoration={sel ? 'underline' : undefined}>
             {t.text.split('\n').map((line, i) => (
               <tspan key={i} x={t.position.x} dy={i === 0 ? 0 : t.size * TEXT_LINE}>
                 {line || ' '}

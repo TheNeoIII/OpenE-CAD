@@ -9,6 +9,13 @@ export function SnapIndicator({ snap, unit }: { snap: { point: Point; kind: stri
   switch (snap.kind) {
     case 'pin':
       return <circle cx={x} cy={y} r={r * 1.5} stroke="var(--ok)" {...common} />
+    case 'port':
+      return (
+        <g pointerEvents="none">
+          <circle cx={x} cy={y} r={r * 1.3} stroke="var(--ok)" fill="none" strokeWidth={sw} />
+          <path d={`M${x - r * 1.8} ${y} H${x + r * 1.8} M${x} ${y - r * 1.8} V${y + r * 1.8}`} stroke="var(--ok)" strokeWidth={sw * 0.75} />
+        </g>
+      )
     case 'endpoint':
       return <rect x={x - r} y={y - r} width={r * 2} height={r * 2} stroke="var(--ok)" {...common} />
     case 'junction':

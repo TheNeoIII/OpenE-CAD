@@ -70,6 +70,12 @@ Durable rules. Invariants in `../AGENTS.md` take precedence; this file adds code
 - JSON library import merges by id and can replace a definition used on existing sheets. Export includes all custom symbols, not built-in metadata overrides.
 - Deleting a used custom symbol requires confirmation and leaves its placed instances with an unknown-symbol fallback; it does not delete the instances.
 
+## Wiring editor interactions (`features/wiring`)
+- Same-tool selection (`models/interaction.ts`): with a drawing tool active, pressing on an object of the type that tool creates selects/moves it instead of creating a new one. Ctrl/Cmd forces creation over it; a running line draft always adds points. Handles of a selected matching object stay usable while its tool is active.
+- Escape ladder (`escapeAction`): inline edit, running gesture, line draft, port tool, selection, active tool. One level per press.
+- Inline editing (`models/inlineEdit.ts`, `WiringInlineEditor`): double-click edits exactly one string: text, shape/line label, block title, field label or value, port label. The text tool opens the editor at the click point instead of a dialog; empty new text creates nothing. Enter commits, Shift+Enter inserts a newline, Escape cancels, blur commits. Undo-deleted targets close the editor without writing.
+- Line vertices: a selected line shows one handle per point; dragging moves that point with grid/endpoint snap (excluding the moved point itself) and commits once on release.
+
 ## History
 - Every user-visible document change goes through `historyStore.push(label, doc)` (done in `actions.ts`).
   Drags preview live and commit once on pointer up.

@@ -76,9 +76,36 @@ export function resizeShapeOnPage(page: CadPage, id: string, rect: Rect): CadPag
   return { ...page, rectangles: fit(s.rectangles), ellipses: fit(s.ellipses), diagramBlocks: fit(s.diagramBlocks) }
 }
 
-/** Vertices that attract graphic snapping: line points plus caller-supplied extras (e.g. draft points). */
-export function graphicAnchors(page: CadPage, extra: readonly Point[] = []): Point[] {
-  return [...page.lines.flatMap((l) => l.points), ...extra]
+/**
+ * Vertices that attract graphic snapping: line points plus caller-supplied extras (e.g. draft points).
+ * `skip` excludes one vertex (the one being dragged) so it never snaps to itself.
+ */
+export function graphicAnchors(page: CadPage, extra: readonly Point[] = [], skip?: { lineId: string; index: number }): Point[] {
+  return [...page.lines.flatMap((l) => l.points.filter((_, i) => !(skip && l.id === skip.lineId && i === skip.index))), ...extra]
+}
+
+export const findLine = (page: CadPage, id: string) => page.lines.find((l) => l.id === id)
+
+/** Shared by vertex-drag preview and commit. Out-of-range indices leave the page unchanged. */
+export function moveLineVertexOnPage(page: CadPage, id: string, index: number, point: Point): CadPage {
+  const line = findLine(page, id)
+  if (!line || index < 0 || index >= line.points.length) return page
+  return { ...page, lines: page.lines.map((l) => (l.id !== id ? l : { ...l, points: l.points.map((p, i) => (i === index ? { x: point.x, y: point.y } : p)) })) }
+}
+
+export const clampOpacity = (v: number | undefined) => (v === undefined || !Number.isFinite(v) ? 1 : Math.max(0, Math.min(1, v)))
+
+/** SVG fill props. 'none' or 0 opacity stays hit-testable (transparent) so the interior can still be grabbed. */
+export function shapeFill(style: { fill: string; fillOpacity?: number }) {
+  const opacity = clampOpacity(style.fillOpacity)
+  if (style.fill === 'none' || opacity === 0) return { fill: 'transparent' as const }
+  return opacity === 1 ? { fill: style.fill } : { fill: style.fill, fillOpacity: opacity }
+}
+
+/** Captions of rectangles, ellipses and lines are centred on their bounds. */
+export function graphicLabelPoint(o: CadRectangle | CadEllipse | CadLine): Point {
+  const b = graphicBounds(o)
+  return { x: b.x + b.w / 2, y: b.y + b.h / 2 }
 }
 
 /** Only inline raster/SVG data URLs are accepted from legacy documents. */

@@ -3,7 +3,8 @@ import { useSelectionStore } from '@/stores/selectionStore'
 import { pageShapes, type CadDiagramBlock, type CadPort, type CadEllipse, type CadImage, type CadLine, type CadPage, type CadRectangle, type CadShapeStyle, type CadText, type LineStyle, type Point, type Rect } from '@/types/cad'
 import { samePoint } from '@/features/drawing/geometry'
 import { uid } from '@/utils/format'
-import { creationBounds, findShape, resizeShapeOnPage, translateGraphics } from './models/shapes'
+import { creationBounds, findLine, findShape, moveLineVertexOnPage, resizeShapeOnPage, translateGraphics } from './models/shapes'
+import { applyEditOnPage, EDIT_LABELS, readEditValue, type InlineEditTarget } from './models/inlineEdit'
 
 import { clampPortT, selectedPortOwner, updatePortOnPage } from './models/ports'
 
@@ -98,6 +99,29 @@ export function resizeShape(id: string, rect: Rect) {
   const page = activePage()
   if (!page || !findShape(page, id)) return
   withActivePage('Grafik skaliert', (p) => resizeShapeOnPage(p, id, rect))
+}
+
+/** One inline edit = one commit. Unchanged values and vanished targets commit nothing. */
+export function applyInlineEdit(target: InlineEditTarget, value: string) {
+  const page = activePage()
+  if (!page || page.kind !== 'wiring') return
+  if (target.kind === 'newText') return addWiringText(target.at, value)
+  const current = readEditValue(page, target)
+  if (current === undefined || current === value) return
+  if (target.kind === 'text' && !value.trim()) return
+  withActivePage(EDIT_LABELS[target.kind], (p) => applyEditOnPage(p, target, value))
+}
+
+export function updateLine(id: string, patch: Partial<Pick<CadLine, 'stroke' | 'strokeWidth' | 'style' | 'label'>>, label = 'Linie geändert') {
+  const line = activePage() && findLine(activePage()!, id)
+  if (!line || Object.entries(patch).every(([k, v]) => line[k as keyof CadLine] === v)) return
+  withActivePage(label, (p) => ({ ...p, lines: p.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)) }))
+}
+
+export function moveLineVertex(id: string, index: number, point: Point) {
+  const line = activePage() && findLine(activePage()!, id)
+  if (!line || !line.points[index] || samePoint(line.points[index], point)) return
+  withActivePage('Linienpunkt verschoben', (p) => moveLineVertexOnPage(p, id, index, point))
 }
 
 export function updateShape(id: string, patch: Partial<Shape>, label = 'Grafik geändert') {
