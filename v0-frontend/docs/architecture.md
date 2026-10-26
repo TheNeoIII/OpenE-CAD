@@ -20,7 +20,9 @@
 - `src/types/` – domain types. `cad.ts` = document model (CadDocument/CadPage/objects, PAGE_FORMATS).
 - `src/stores/` – zustand stores (see below).
 - `src/features/drawing/` – fachneutraler Core: `viewport.ts`, `viewportActions.ts`, `useViewportHost.ts` (World/Screen, Zoom/Pan/Fit), `geometry.ts`, `snap.ts`, `resize.ts`, `styles.ts`; gemeinsame `CanvasScrollbars`, `SnapIndicator`, `ViewControls` (von beiden Toolbars verwendet). Abhängigkeiten: Schematic → Drawing ← Wiring, niemals Drawing → Fachprofil.
-- `src/features/wiring/` – `WiringCanvas` (lokale Drag/Create/Move/Resize-Gesten, klickbasierte Polyline), `WiringToolbar`, `WiringDrawing`, `WiringSheetFrame`; `actions.ts` (ein Commit pro Geste), `models/shapes.ts` (Bounds, Transformation, Legacy-Image-Migration), `profile.ts`. Keine elektrische Semantik. `editorProfiles.ts` gibt Cover/Report/undefined keine Zeichenwerkzeuge.
+- `src/features/wiring/` – `WiringCanvas` (lokale Create/Move/Resize/Vertex-/Port-Gesten, klickbasierte Polyline), `WiringToolbar`, `WiringDrawing`, `WiringSheetFrame`, `WiringPorts`, `WiringInlineEditor`, `WiringProperties`, `BlockProperties`, `DiagramBlock`; `actions.ts` (ein Commit pro Geste/Edit), `profile.ts`. Modelle: `shapes.ts` (Bounds, Transformation, Graphic Labels, Fill Opacity, Legacy-Image-Migration), `ports.ts` (Owner/Edge/t, World-Anker, gemeinsames Portlabel-Layout), `interaction.ts` (Same-tool Selection, Ctrl/Cmd Force Create, Escape Ladder), `inlineEdit.ts` (gezielte Strings und Editoranker). Keine elektrische Semantik. `editorProfiles.ts` gibt Cover/Report/undefined keine Zeichenwerkzeuge.
+- Wiring-Domain: `CadDiagramBlock` mit Titel/Feldern und owner-scoped `CadPort` (`edge`, normalisiertes `t`, `labelPlacement`, `portType`, `direction`). Rectangle/Ellipse/CadLine haben grafische Labels; Rectangle/Ellipse/Block speichern `fillOpacity` in 0..1, fehlend bedeutet 1. Port Snap bindet CadLine nicht an den Owner.
+- `drawing/grid.ts` hält sichtbare Punkte auf dem World-Lattice, dünnt bei niedrigem Zoom nur die Anzeige aus. `drawing/snap.ts`: Port > Endpoint > Grid > Free; `resolveConstrainedLinePoint` schützt harte Anker vor Shift-Winkelconstraints. Canvas verwendet denselben finalen Snap für Preview, Indikator und Commit. Vertex Editing verwendet den gemeinsamen Resolver ohne Eigenfang des verschobenen Punkts.
 - Übergangsausnahme: profilübergreifende Clipboard/Delete/Select/Fit-Commands liegen noch in Schematic Actions/Viewport. Wiring ruft diese über die Command Registry auf; elektrische Paste-Objekte werden abgewiesen und Delete bereinigt keine Wiring-Netze. Kein direkter Wiring-Canvas → Schematic-Canvas Import.
 - `src/features/schematic/`
   - `components/SchematicCanvas.tsx` – SVG editor canvas: pointer/keyboard handling, tools, rendering, handles, context menus.
@@ -45,7 +47,7 @@
 | `documentStore` | Current CadDocument + active page; `getActivePage()`, `useActivePage()`, `updatePage(doc, pageId, fn)` |
 | `historyStore` | Undo/redo of whole-document snapshots (`push(label, doc)`), bounded |
 | `selectionStore` | Selected object ids (+ active wire segment) |
-| `toolStore` | `CadTool` (`select`/`wire`/`line`/`rect`/`ellipse`/`place`/`text`/`pan`), wire draft, placement state |
+| `toolStore` | `CadTool` (`select`/`wire`/`line`/`rect`/`ellipse`/`block`/`port`/`place`/`text`/`pan`), wire draft, placement state |
 | `viewportStore` | Per-page view `{panX, panY, zoom}`, canvas size, zoom limits, `BASE_SCALE` |
 | `settingsStore` | Persisted settings (`openecad.settings`), e.g. `gridSize` 25/50/100 |
 | `projectStore`, `dataStore`, `validationStore`, `uiStore` | Projects, data tables, validation findings, UI/dialog/toast state |
