@@ -308,7 +308,10 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
   const onDoubleClick = (e: React.MouseEvent) => {
     if (tool === 'line' && useToolStore.getState().wireDraft.length) return finishLine()
-    const target = editTargetAt(e.target)
+    // Pointer capture retargets native double-clicks to the canvas after selection drags.
+    const hit = e.target === e.currentTarget ? document.elementFromPoint(e.clientX, e.clientY) : e.target
+    if (!(hit instanceof Element) || !e.currentTarget.contains(hit)) return
+    const target = editTargetAt(hit)
     if (!target) return
     setGesture(null)
     useSelectionStore.getState().set([target.id])
