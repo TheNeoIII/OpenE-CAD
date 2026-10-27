@@ -1,5 +1,6 @@
 import { pageShapes, type CadPage, type Point, type Rect } from '@/types/cad'
 import { graphicBounds, graphicLabelPoint } from './shapes'
+import { connectionBounds, connectionLabelPoint } from './connections'
 import { PORT_LABEL_SIZE, portLabelLayout, portOwnerBounds, portWorldPosition } from './ports'
 
 /** What an inline editor writes to. Every target maps to exactly one string field. */
@@ -23,7 +24,7 @@ export const blockFieldBaseline = (y: number, visibleIndex: number) => y + 78 + 
 const block = (page: CadPage, id: string) => pageShapes(page).diagramBlocks.find((b) => b.id === id)
 const labelled = (page: CadPage, id: string) => {
   const s = pageShapes(page)
-  return s.rectangles.find((o) => o.id === id) ?? s.ellipses.find((o) => o.id === id) ?? page.lines.find((o) => o.id === id)
+  return s.rectangles.find((o) => o.id === id) ?? s.ellipses.find((o) => o.id === id) ?? page.lines.find((o) => o.id === id) ?? page.connections?.find((o) => o.id === id)
 }
 
 /** Current value, or undefined if the target no longer exists (e.g. deleted by undo). */
@@ -49,7 +50,7 @@ export function applyEditOnPage(page: CadPage, t: InlineEditTarget, value: strin
   const s = pageShapes(page)
   if (t.kind === 'label') {
     const set = <T extends { id: string; label?: string }>(arr: T[]) => arr.map((o) => (o.id === t.id ? { ...o, label: value } : o))
-    return { ...page, rectangles: set(s.rectangles), ellipses: set(s.ellipses), lines: set(page.lines) }
+    return { ...page, rectangles: set(s.rectangles), ellipses: set(s.ellipses), lines: set(page.lines), ...(page.connections && { connections: set(page.connections) }) }
   }
   return {
     ...page,
@@ -83,8 +84,10 @@ export function editAnchor(page: CadPage, t: InlineEditTarget, s = 1): { box: Re
     case 'label': {
       const o = labelled(page, t.id)
       if (!o) return null
-      const c = graphicLabelPoint(o)
-      return line(c.x, c.y + LABEL_SIZE / 2, Math.max(graphicBounds(o).w, 200), LABEL_SIZE, 'middle')
+      const c = o.type === 'connection' ? connectionLabelPoint(page, o) : graphicLabelPoint(o)
+      if (!c) return null
+      const bounds = o.type === 'connection' ? connectionBounds(page, o) : graphicBounds(o)
+      return line(c.x, c.y + LABEL_SIZE / 2, Math.max(bounds?.w ?? 0, 200), LABEL_SIZE, 'middle')
     }
     case 'blockTitle': {
       const b = block(page, t.id)

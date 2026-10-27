@@ -2,6 +2,7 @@ import type { CadTool } from '@/stores/toolStore'
 
 /** Object type a drawing tool creates. Clicking an existing object of that type selects it instead. */
 export const TOOL_OBJECT_TYPE: Partial<Record<CadTool, string>> = {
+  connection: 'connection',
   rect: 'rectangle',
   ellipse: 'ellipse',
   block: 'diagramBlock',

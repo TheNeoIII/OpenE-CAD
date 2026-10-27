@@ -1,4 +1,4 @@
-import { Box, Plug, Circle, Hand, Image as ImageIcon, MousePointer2, PanelLeft, PanelRight, PenLine, Square, Trash2, Type, type LucideIcon } from 'lucide-react'
+import { Cable, Box, Plug, Circle, Hand, Image as ImageIcon, MousePointer2, PanelLeft, PanelRight, PenLine, Square, Trash2, Type, type LucideIcon } from 'lucide-react'
 import { runCommand, tooltip } from '@/commands/registry'
 import { IconButton } from '@/components/ui/primitives'
 import { useSelectionStore } from '@/stores/selectionStore'
@@ -13,6 +13,7 @@ const TOOLS: { tool: CadTool; cmd: string; icon: LucideIcon }[] = [
   { tool: 'select', cmd: 'tool.select', icon: MousePointer2 },
   { tool: 'pan', cmd: 'tool.pan', icon: Hand },
   { tool: 'line', cmd: 'tool.line', icon: PenLine },
+  { tool: 'connection', cmd: 'tool.connection', icon: Cable },
   { tool: 'text', cmd: 'tool.text', icon: Type },
   { tool: 'rect', cmd: 'tool.rect', icon: Square },
   { tool: 'ellipse', cmd: 'tool.ellipse', icon: Circle },

@@ -11,6 +11,7 @@ import type {
 import { pageShapes, type CadText } from '@/types/cad'
 import { pointsBounds, samePoint, translatePoint } from '@/features/drawing/geometry'
 import { symbolDef } from './symbolLibrary'
+import { connectionBounds } from '@/features/wiring/models/connections'
 
 export {
   normalizeRect,
@@ -74,7 +75,8 @@ export function symbolBounds(s: CadSymbol): Rect {
   return { x: s.position.x + x, y: s.position.y + y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }
 }
 
-export function objectBounds(o: CadObject): Rect {
+export function objectBounds(o: CadObject, page?: CadPage): Rect {
+  if (o.type === 'connection') return page ? connectionBounds(page, o) ?? { x: 0, y: 0, w: 0, h: 0 } : { x: 0, y: 0, w: 0, h: 0 }
   switch (o.type) {
     case 'symbol':
       return symbolBounds(o)
@@ -147,6 +149,7 @@ export function isOrthogonal(points: Point[]) {
 }
 
 export function translateObject<T extends CadObject>(o: T, dx: number, dy: number): T {
+  if (o.type === 'connection') return { ...o, start: o.start.kind === 'point' ? { kind: 'point', point: translatePoint(o.start.point, dx, dy) } : o.start, end: o.end.kind === 'point' ? { kind: 'point', point: translatePoint(o.end.point, dx, dy) } : o.end, routePoints: o.routePoints?.map((p) => translatePoint(p, dx, dy)) }
   switch (o.type) {
     case 'symbol':
     case 'junction':
@@ -169,12 +172,12 @@ export function translateObject<T extends CadObject>(o: T, dx: number, dy: numbe
 
 export function pageObjects(page: CadPage): CadObject[] {
   const { rectangles, ellipses, images } = pageShapes(page)
-  return [...(page.kind === 'wiring' ? page.diagramBlocks ?? [] : []), ...images, ...rectangles, ...ellipses, ...page.lines, ...page.potentials, ...page.wires, ...page.junctions, ...page.symbols, ...page.texts]
+  return [...(page.kind === 'wiring' ? [...(page.diagramBlocks ?? []), ...(page.connections ?? [])] : []), ...images, ...rectangles, ...ellipses, ...page.lines, ...page.potentials, ...page.wires, ...page.junctions, ...page.symbols, ...page.texts]
 }
 
 export function findObject(page: CadPage, id: string): CadObject | undefined {
   return (
-    (page.kind === 'wiring' ? page.diagramBlocks?.find((o) => o.id === id) : undefined) ??
+    (page.kind === 'wiring' ? page.connections?.find((o) => o.id === id) ?? page.diagramBlocks?.find((o) => o.id === id) : undefined) ??
     page.symbols.find((o) => o.id === id) ??
     page.wires.find((o) => o.id === id) ??
     page.texts.find((o) => o.id === id) ??

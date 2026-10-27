@@ -216,6 +216,27 @@ export interface CadLine {
   label?: string
 }
 
+export type CadConnectionType = 'generic' | 'cable' | 'network' | 'bus' | 'power' | 'signal'
+
+export type CadConnectionEndpoint =
+  | { kind: 'port'; objectId: string; portId: string }
+  | { kind: 'point'; point: Point }
+
+/** Wiring-only semantic connector; never participates in electrical networks. */
+export interface CadConnection {
+  id: string
+  type: 'connection'
+  connectionType: CadConnectionType
+  start: CadConnectionEndpoint
+  end: CadConnectionEndpoint
+  /** Manual intermediate points only. Bound endpoint coordinates are resolved live. */
+  routePoints?: Point[]
+  style: LineStyle
+  stroke?: string
+  strokeWidth?: number
+  label?: string
+}
+
 /** Shared graphic styling of wiring-diagram shapes. Purely visual, never electrical. */
 export interface CadShapeStyle {
   stroke: string
@@ -350,7 +371,7 @@ export interface CadPotential {
   xrefRight?: string
 }
 
-export type CadObject = CadSymbol | CadWire | CadJunction | CadText | CadPotential | CadLine | CadRectangle | CadEllipse | CadImage | CadDiagramBlock
+export type CadObject = CadSymbol | CadWire | CadJunction | CadText | CadPotential | CadLine | CadRectangle | CadEllipse | CadImage | CadDiagramBlock | CadConnection
 export type CadObjectType = CadObject['type']
 export type CadGraphic = CadLine | CadRectangle | CadEllipse | CadImage | CadDiagramBlock | CadText
 
@@ -381,7 +402,10 @@ export interface CadPage {
   ellipses?: CadEllipse[]
   images?: CadImage[]
   diagramBlocks?: CadDiagramBlock[]
+  connections?: CadConnection[]
 }
+
+export const pageConnections = (page: Pick<CadPage, 'connections'>): CadConnection[] => page.connections ?? []
 
 /** Legacy-safe access to the optional wiring graphic lists. */
 export function pageShapes(page: Pick<CadPage, 'rectangles' | 'ellipses' | 'images' | 'diagramBlocks'>) {
