@@ -34,15 +34,16 @@ Lokale Vite-Preview, Desktop 1135 × 853, Dark Mode. Die Wiring-Matrix nutzt ein
 | --- | --- | --- |
 | Shift + Port | Exakt `(700,650)`; Unit- und Browserprüfung | Browser prüft den Draftpunkt |
 | Shift + Endpoint | Exakt `(1050,700)`; Unit- und Browserprüfung | Browser prüft den Draftpunkt |
-| Shift + Grid | Winkelconstraint angewendet, Metadaten `free`; Tests bestanden | Nicht jede Zoomstufe interaktiv geprüft |
+| Shift + Grid | Winkelconstraint angewendet, Metadaten `free`; Tests bestanden. Browser bei 50/100/200 %: Start `(600,550)`, Ziel nahe `(1003,553)` → `(1000,550)` | Synthetische Modifier-Events |
+| Modifier × Zoom | Bei 50/100/200 % identisch: Shift+Port `(700,650)`, Shift+Endpoint `(1050,700)`, Alt+Shift frei `(707,657)` | agent-browser kann Modifier nicht während Mausklicks halten; Pointer-Events mit Modifier-Flags auf echten Bildschirmkoordinaten |
 | Alt + Shift | Fang deaktiviert, Winkelconstraint bleibt; Browserpunkt `(617,717)` | Synthetische Modifier-Events |
 | SnapIndicator = Commit | Vertex-Port: Preview, SVG-Marker und Commit `(700,650)`; Grid `(1200,1100)`; Alt `(702,652)` | Vollständige visuelle Linien-Modifier-Matrix noch offen |
 | Grid | Alle 15 Kombinationen aus 20/50/75/100/200 % und 25/50/100 World Units in Tests und Browser-SVG geprüft | Screenshotaufnahme allein ist keine vollständige visuelle Abnahme |
 | Portlabel Placement | Vier Kanten × auto/left/right/top/bottom; Renderer und Inline-Ausrichtung geprüft | Vollständige visuelle Abnahme bei allen Zoomstufen offen |
-| Inline-Zieltypen | Freitext, Rectangle-/Ellipse-/Line-Label, Blocktitel, Feldlabel/-wert, Portlabel; Enter und Escape geprüft; IME: Enter während Komposition hält den Editor offen, Enter danach schließt ihn (Commit-Zähler unverändert 1) | Shift+Enter-Bedienung weiterhin nicht per echter Tastatureingabe belegt |
-| Inline-History | Kein Commit beim Tippen, ein Commit bei Änderung, unverändert kein Commit; Blur, Undo/Redo, gelöschtes Ziel geprüft | Multiline-Wert wurde auch programmatisch eingesetzt; das belegt nicht die Shift+Enter-Bedienung |
-| Same-tool | Rect, Ellipse, Block, Line, Text: Auswahl und Move bei unverändert aktivem Tool geprüft | Vollständige additive Auswahlmatrix offen |
-| Ctrl/Cmd ForceCreate | Rectangle, Ellipse, Block jeweils mit beiden Modifiern geprüft; Resize geprüft | Line/Text nicht vollständig als Browsermatrix belegt |
+| Inline-Zieltypen | Freitext, Rectangle-/Ellipse-/Line-Label, Blocktitel, Feldlabel/-wert, Portlabel; Enter und Escape geprüft; IME: Enter während Komposition hält den Editor offen, Enter danach schließt ihn (Commit-Zähler unverändert 1). Shift+Enter per echter Tastatur (Doppelklick, `keyboard type`, `press Shift+Enter`): Editor bleibt offen, Wert `Zeile1\nZeile2`, 0 Commits; Enter schließt mit genau 1 Commit | — |
+| Inline-History | Kein Commit beim Tippen, ein Commit bei Änderung, unverändert kein Commit; Blur, Undo/Redo, gelöschtes Ziel geprüft | — |
+| Same-tool | Rect, Ellipse, Block, Line, Text: Auswahl und Move bei unverändert aktivem Tool geprüft. Additiv: Shift-Klick auf typgleiches Ziel ergänzt eine bestehende fremde Auswahl, erneuter Shift-Klick entfernt es wieder; Tool bleibt aktiv, 0 Commits. Typfremde Ziele werden bewusst nicht ausgewählt | Synthetische Modifier-Events |
+| Ctrl/Cmd ForceCreate | Rectangle, Ellipse, Block jeweils mit beiden Modifiern geprüft; Resize geprüft. Line: Ctrl/Cmd auf bestehender Linie setzt Draftpunkt statt Auswahl. Text: Ctrl/Cmd auf bestehendem Text öffnet leeren Neutext-Editor; Escape erzeugt nichts (0 Commits) | Synthetische Modifier-Events |
 | Escape Ladder | Geste → Draft → Port-Tool → Auswahl → anderes Tool → No-op einzeln geprüft; Inline-Escape separat geprüft | Synthetische Keyboard-Events mit DOM-Ziel |
 | ColorPicker | Gemeinsamer Picker bedient, Hex `#3b82f6` übernommen; keine nativen `input[type=color]` in den geprüften Wiring-Inspectoren | Nicht jeder Farbkanal einzeln bedient |
 | Fill Opacity | Rectangle, Ellipse, Block bei 0/25/50/75/100 %: Modell und SVG stimmen überein; 0 transparent | `none`, Default und Clamping zusätzlich per Unit-Test |
@@ -74,7 +75,7 @@ Aktualisiert: `docs/WIRING_DIAGRAM_ARCHITECTURE.md`, `v0-frontend/docs/architect
 
 1. Geschützte Deployment-Preview im autorisierten Browser vollständig prüfen.
 2. Optional: Potential-Trefferflächen bei starker Verkleinerung (überlappende Ziele) als UX-Thema bewerten. Text, Potential, Pin Snap und Wire-Editing sind bei 100 % bestanden.
-3. Fehlende manuelle/visuelle Prüfungen aus der Matrix abschließen, insbesondere Modifier/Zoom, additive Auswahl, ForceCreate für Line/Text und Shift+Enter per echter Tastatur.
+3. Modifier/Zoom, additive Auswahl und ForceCreate für Line/Text sind funktional belegt, Shift+Enter auch per echter Tastatur. Eine manuelle Gegenprobe mit physisch gehaltenen Modifier-Tasten steht noch aus, ebenso die visuelle Portlabel-Abnahme bei allen Zoomstufen.
 4. PR erstellen und diese Teilabnahme samt offenen Punkten in die PR-Beschreibung übernehmen.
 
 Keine pauschale Behauptung „Browser QA vollständig grün“. Die bereits isolierten Wiring-Fehler wurden behoben; verbleibende Nachweislücken sind keine Freigabe für W4.
