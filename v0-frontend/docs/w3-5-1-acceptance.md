@@ -39,7 +39,7 @@ Lokale Vite-Preview, Desktop 1135 × 853, Dark Mode. Die Wiring-Matrix nutzt ein
 | SnapIndicator = Commit | Vertex-Port: Preview, SVG-Marker und Commit `(700,650)`; Grid `(1200,1100)`; Alt `(702,652)` | Vollständige visuelle Linien-Modifier-Matrix noch offen |
 | Grid | Alle 15 Kombinationen aus 20/50/75/100/200 % und 25/50/100 World Units in Tests und Browser-SVG geprüft | Screenshotaufnahme allein ist keine vollständige visuelle Abnahme |
 | Portlabel Placement | Vier Kanten × auto/left/right/top/bottom; Renderer und Inline-Ausrichtung geprüft | Vollständige visuelle Abnahme bei allen Zoomstufen offen |
-| Inline-Zieltypen | Freitext, Rectangle-/Ellipse-/Line-Label, Blocktitel, Feldlabel/-wert, Portlabel; Enter und Escape geprüft | Vollständige IME-/Multiline-Tastaturmatrix offen |
+| Inline-Zieltypen | Freitext, Rectangle-/Ellipse-/Line-Label, Blocktitel, Feldlabel/-wert, Portlabel; Enter und Escape geprüft; IME: Enter während Komposition hält den Editor offen, Enter danach schließt ihn (Commit-Zähler unverändert 1) | Shift+Enter-Bedienung weiterhin nicht per echter Tastatureingabe belegt |
 | Inline-History | Kein Commit beim Tippen, ein Commit bei Änderung, unverändert kein Commit; Blur, Undo/Redo, gelöschtes Ziel geprüft | Multiline-Wert wurde auch programmatisch eingesetzt; das belegt nicht die Shift+Enter-Bedienung |
 | Same-tool | Rect, Ellipse, Block, Line, Text: Auswahl und Move bei unverändert aktivem Tool geprüft | Vollständige additive Auswahlmatrix offen |
 | Ctrl/Cmd ForceCreate | Rectangle, Ellipse, Block jeweils mit beiden Modifiern geprüft; Resize geprüft | Line/Text nicht vollständig als Browsermatrix belegt |
@@ -47,7 +47,7 @@ Lokale Vite-Preview, Desktop 1135 × 853, Dark Mode. Die Wiring-Matrix nutzt ein
 | ColorPicker | Gemeinsamer Picker bedient, Hex `#3b82f6` übernommen; keine nativen `input[type=color]` in den geprüften Wiring-Inspectoren | Nicht jeder Farbkanal einzeln bedient |
 | Fill Opacity | Rectangle, Ellipse, Block bei 0/25/50/75/100 %: Modell und SVG stimmen überein; 0 transparent | `none`, Default und Clamping zusätzlich per Unit-Test |
 | Vertex Edit | Preview ohne Commit, Port/Grid/Alt, Cancel und PointerCancel; ein Commit, Undo/Redo geprüft | Browser: 3 Punkte; Tests: 2/3/5 Punkte |
-| Schematic | Symbolauswahl/-Nudge, Undo/Redo, grafische Linie und orthogonale elektrische Leitung erfolgreich | Potential-/Text-Hitprüfung nicht erfolgreich abgeschlossen; vollständige Pin-/Wire-/Snap-Regressionsmatrix offen |
+| Schematic | Symbolauswahl/-Nudge, Undo/Redo, grafische Linie und orthogonale elektrische Leitung erfolgreich; bei 100 % Text und Potential ausgewählt und verschoben, Leitungssegment bearbeitet inkl. Undo, Leitungsstart rastet exakt am Symbolpin | Frühere Potential-Fehlschläge: überlappende Trefferflächen bei starker Verkleinerung, kein Produktfehler bei 100 % |
 
 ## Automatisierte Validierung
 
@@ -73,8 +73,8 @@ Aktualisiert: `docs/WIRING_DIAGRAM_ARCHITECTURE.md`, `v0-frontend/docs/architect
 ## Offene Punkte vor Freigabe
 
 1. Geschützte Deployment-Preview im autorisierten Browser vollständig prüfen.
-2. Vollständige Schematic-Regression einschließlich Potential/Text-Hitflächen, Pin Snap und Wire-Editing abschließen. Fehlgeschlagene Zielauswahl ist bislang weder als Produktfehler noch als bestanden klassifiziert.
-3. Fehlende manuelle/visuelle Prüfungen aus der Matrix abschließen, insbesondere Modifier/Zoom, additive Auswahl, ForceCreate für Line/Text, IME und Shift+Enter.
+2. Optional: Potential-Trefferflächen bei starker Verkleinerung (überlappende Ziele) als UX-Thema bewerten. Text, Potential, Pin Snap und Wire-Editing sind bei 100 % bestanden.
+3. Fehlende manuelle/visuelle Prüfungen aus der Matrix abschließen, insbesondere Modifier/Zoom, additive Auswahl, ForceCreate für Line/Text und Shift+Enter per echter Tastatur.
 4. PR erstellen und diese Teilabnahme samt offenen Punkten in die PR-Beschreibung übernehmen.
 
 Keine pauschale Behauptung „Browser QA vollständig grün“. Die bereits isolierten Wiring-Fehler wurden behoben; verbleibende Nachweislücken sind keine Freigabe für W4.
