@@ -1,5 +1,5 @@
 import type { Point } from '@/types/cad'
-import { snapPoint } from './geometry'
+import { constrain45, samePoint, snapPoint } from './geometry'
 import { screenToWorldTolerance } from './viewport'
 
 /**
@@ -12,6 +12,13 @@ export interface GraphicSnap {
   point: Point
   kind: GraphicSnapKind
   label: string
+}
+
+/** Hard anchors win over angles. A displaced grid point is no longer a grid snap. */
+export function resolveConstrainedLinePoint(snap: GraphicSnap, origin: Point | undefined, shift: boolean): GraphicSnap {
+  if (!shift || !origin || snap.kind === 'port' || snap.kind === 'endpoint') return snap
+  const point = constrain45(origin, snap.point)
+  return samePoint(point, snap.point) ? snap : { point, kind: 'free', label: '45°' }
 }
 
 export const GRAPHIC_ENDPOINT_TOLERANCE_PX = 12

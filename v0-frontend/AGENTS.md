@@ -51,6 +51,9 @@ Prefer small, targeted changes over broad rewrites or refactors.
 - Screen-space UI elements such as selection handles should remain visually usable across zoom levels rather than scaling blindly with document geometry.
 - Snapping must affect the committed geometry, not only the visual snap indicator.
 - The visual snap indicator and the actual committed point must always agree.
+- Hard graphic anchors (port/endpoint) must never be displaced by angle constraints. Displaced soft snaps must not retain misleading snap metadata.
+- Visible grid dots may thin at low zoom; the snap lattice remains world-stable at gridSize.
+- Wiring CadLine stays purely graphical: snapping to a port creates no semantic connection or binding.
 - Rectangle creation must commit the snapped release/end point when snapping is active, not the raw pointer position.
 - Line/wire creation must preserve its existing click-based workflow and snapping behaviour.
 - Existing zoom, pan, selection and drawing interactions must not regress when changing a single tool.

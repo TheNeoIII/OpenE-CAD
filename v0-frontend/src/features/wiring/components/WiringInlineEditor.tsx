@@ -23,6 +23,13 @@ export function WiringInlineEditor({ page, view, target, onCommit, onCancel }: {
     el.select()
   }, [])
 
+  useEffect(() => {
+    if (!anchor && !done.current) {
+      done.current = true
+      onCancel()
+    }
+  }, [anchor, onCancel])
+
   if (!anchor) return null
   const finish = (commit: boolean) => {
     if (done.current) return
@@ -32,6 +39,9 @@ export function WiringInlineEditor({ page, view, target, onCommit, onCancel }: {
   }
   const multiline = target.kind === 'text' || target.kind === 'newText'
   const tl = worldToScreen(view, { x: anchor.box.x, y: anchor.box.y })
+  const width = Math.max(80, anchor.box.w * s + 8)
+  const extraWidth = width - (anchor.box.w * s + 8)
+  const alignmentOffset = anchor.align === 'end' ? extraWidth : anchor.align === 'middle' ? extraWidth / 2 : 0
   const fontPx = anchor.size * s
   const rows = multiline ? Math.max(1, value.split('\n').length) : 1
 
@@ -61,9 +71,9 @@ export function WiringInlineEditor({ page, view, target, onCommit, onCancel }: {
       }}
       className="absolute z-20 resize-none overflow-hidden rounded-sm border border-[var(--sheet-select)] bg-[var(--sheet-paper,white)] px-1 leading-tight text-[var(--sheet-ink)] shadow-md outline-none"
       style={{
-        left: tl.x - 4,
+        left: tl.x - 4 - alignmentOffset,
         top: tl.y - 2,
-        width: Math.max(80, anchor.box.w * s + 8),
+        width,
         fontSize: Math.max(10, fontPx),
         textAlign: anchor.align === 'middle' ? 'center' : anchor.align === 'end' ? 'right' : 'left',
         fontFamily: 'var(--font-sans)',
