@@ -8,7 +8,7 @@ Stand: 2026-10-27. **Teilabnahme, keine vollständige Freigabe für W4.** Unterb
 - Base: `5105f1d`
 - Implementierung und Architekturänderungen: `ec6ebe7`
 - Buildrevision: `a72df92` (877); automatisch erzeugte spätere Buildrevisionen sind keine funktionalen Änderungen.
-- PR: Bei der letzten GitHub-Abfrage kein PR für diesen Branch vorhanden. Der verfügbare GitHub-Zugang unterstützt keine PR-Erstellung; diese bleibt über die Repository-Einstellungen in v0 offen.
+- PR: Erstellung übernimmt der Nutzer ausdrücklich nach Abschluss der Arbeiten; kein automatischer PR-Versuch.
 - Deployment der Implementierung: https://opene-cad-i3-2ebi26dgg-neoiiis-projects.vercel.app
 - Vercel-Status für `ec6ebe7`: success, Deployment `dpl_6PYpoUTeRkBVgaZuPa5r1Povnkvs`.
 
@@ -39,7 +39,7 @@ Lokale Vite-Preview, Desktop 1135 × 853, Dark Mode. Die Wiring-Matrix nutzt ein
 | Alt + Shift | Fang deaktiviert, Winkelconstraint bleibt; Browserpunkt `(617,717)` | Synthetische Modifier-Events |
 | SnapIndicator = Commit | Vertex-Port: Preview, SVG-Marker und Commit `(700,650)`; Grid `(1200,1100)`; Alt `(702,652)` | Vollständige visuelle Linien-Modifier-Matrix noch offen |
 | Grid | Alle 15 Kombinationen aus 20/50/75/100/200 % und 25/50/100 World Units in Tests und Browser-SVG geprüft | Screenshotaufnahme allein ist keine vollständige visuelle Abnahme |
-| Portlabel Placement | Vier Kanten × auto/left/right/top/bottom; Renderer und Inline-Ausrichtung geprüft | Vollständige visuelle Abnahme bei allen Zoomstufen offen |
+| Portlabel Placement | Vier Kanten × auto/left/right/top/bottom; Renderer und Inline-Ausrichtung geprüft. Screenshots bei 20/50/75/100 %, Detailausschnitte bei 200 % gesichtet. Dabei überlagerte die Blockkante seitlich platzierte Labels; schmale Kontur in Blattfarbe behebt dies, bei 200 % visuell nachgeprüft. Echter Label-Doppelklick und Escape lassen Portposition und Text unverändert | Bei 20 % ist Schrift weiterhin sehr klein; 200-%-Screenshots zeigen Ausschnitte, keine vollständige visuelle 20-Kombinationen-Matrix |
 | Inline-Zieltypen | Freitext, Rectangle-/Ellipse-/Line-Label, Blocktitel, Feldlabel/-wert, Portlabel; Enter und Escape geprüft; IME: Enter während Komposition hält den Editor offen, Enter danach schließt ihn (Commit-Zähler unverändert 1). Shift+Enter per echter Tastatur (Doppelklick, `keyboard type`, `press Shift+Enter`): Editor bleibt offen, Wert `Zeile1\nZeile2`, 0 Commits; Enter schließt mit genau 1 Commit | — |
 | Inline-History | Kein Commit beim Tippen, ein Commit bei Änderung, unverändert kein Commit; Blur, Undo/Redo, gelöschtes Ziel geprüft | — |
 | Same-tool | Rect, Ellipse, Block, Line, Text: Auswahl und Move bei unverändert aktivem Tool geprüft. Additiv: Shift-Klick auf typgleiches Ziel ergänzt eine bestehende fremde Auswahl, erneuter Shift-Klick entfernt es wieder; Tool bleibt aktiv, 0 Commits. Typfremde Ziele werden bewusst nicht ausgewählt | Synthetische Modifier-Events |
@@ -59,7 +59,7 @@ Auf dem Implementierungsstand erfolgreich ausgeführt:
 - `pnpm typecheck`: erfolgreich.
 - `pnpm build`: erfolgreich (TypeScript + Vite). Bestehende Warnung: JavaScript-Chunk größer als 500 kB; kein Buildfehler.
 
-Die hier nachträglich ergänzte Dokumentation verändert kein Laufzeitverhalten. Die Prüfungen werden nicht als neu ausgeführt ausgegeben.
+Nach dem Portlabel-Konturfix erneut ausgeführt: `pnpm test` (79 bestanden), `pnpm typecheck`, `pnpm run build` (TypeScript + Vite) und `git diff --check` erfolgreich. Browser: Kontur bei 200 % geprüft; Label-Doppelklick öffnet Inline-Editor, Escape schließt ohne Portänderung. Die Kontur verändert weder Datenmodell noch Labelanker oder Snapping.
 
 ## Vercel Preview
 
