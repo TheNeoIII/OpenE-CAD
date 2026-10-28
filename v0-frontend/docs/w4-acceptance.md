@@ -52,18 +52,31 @@ Resumed session (fresh browser runtime):
 - Returned to the original Schematic page: two symbols and six wires rendered; native symbol selection succeeded; no connection handles or connection Inspector leaked into Schematic. Browser error list empty at this checkpoint.
 - Original test document restored before Schematic smoke check. This is a narrow regression smoke test, not exhaustive Schematic acceptance.
 
+Additional acceptance session:
+- Native `agent-browser drag` from the free start endpoint to the block port passed at 50%, 100% and 200% zoom. The resulting endpoint stores the expected owner/port IDs; the first drag created exactly one history entry.
+- Native internal-segment drag changed route geometry in one transaction and retained the port binding.
+- Native mouse-down/move, Escape, mouse-up sequence preserved the complete page and history count.
+- Pointer-event modifier matrix passed at 50%, 100% and 200%: without Alt, the endpoint binds to the port; with Alt, it remains a free point. Modifier rows are handler-level checks, not native held-key tests.
+- Original document restored without saving. Browser error list empty.
+
 ## Vercel and PR status
 
 GitHub commit status for implementation `4abe402` reports Vercel **success**:
 https://vercel.com/neoiiis-projects/opene-cad-i3/7gPn7UdA8E14YGPZKGn8JpC9XzQk
 
-A deployed Vercel browser flow has not been verified; local preview evidence must not be presented as deployed-preview evidence. No PR existed for the source branch when checked. The available GitHub CLI credential cannot create PRs; use the pushed W4 branch to open a PR against main. Do not merge automatically.
+The W4 branch preview was inspected and opened directly:
+https://opene-cad-i3-jc9jp25qh-neoiiis-projects.vercel.app
+Branch alias: https://opene-cad-i3-git-v0-w4-semantic-connections-neoiiis-projects.vercel.app
+
+Vercel lists the deployment as Ready. Browser navigation redirects to Vercel Login (deployment protection), blocking application interaction. `vercel curl` with redirects returns HTTP 200; that HTTP result alone does not establish that the editor loaded or that deployed interactions passed. Protection was not disabled. A deployed browser flow remains unverified and requires an authorized browser session; local evidence is not deployed evidence.
+
+No PR existed for the source branch when previously checked. The available GitHub CLI credential cannot create PRs; use the pushed W4 branch to open a PR against main. Do not merge automatically.
 
 ## Known limits / remaining acceptance
 
 - Deterministic routing, not obstacle-avoiding routing; owner crossings and manual-route backtracking are possible.
 - Only internal segments have segment handles. Straight or single-elbow free routes have no internal segment to drag; endpoints remain editable.
 - Missing external references are retained as unresolved; no fabricated origin coordinate is persisted. Fully unresolved connections have no known geometry to render.
-- Full zoom/modifier/native-drag matrix, exhaustive Schematic regression and deployed Vercel browser QA remain open.
+- Native endpoint binding at three zoom levels, segment dragging and Escape cancellation are now checked. Exhaustive gesture/modifier combinations (including native held-key modifiers), exhaustive Schematic regression and authenticated deployed Vercel browser QA remain open.
 - PR creation and review remain open; historical W3.5.1 acceptance gaps are not implicitly closed by this report.
 - Asset upload, electrical semantics for connections, automatic obstacle routing and grouping/locking are outside this implementation.
