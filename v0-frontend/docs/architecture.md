@@ -11,6 +11,12 @@
 - `vite.config.ts` plugin increments `src/build-version.json` on build start and on HMR of `.ts/.tsx/.css`
   (shown in the status bar). Diffs in that file are expected noise.
 
+## W4 connection domain
+- `CadConnection` and `CadConnectionEndpoint` live in `types/cad.ts`; `CadPage.connections` is optional for legacy documents. Bound endpoints store owner/port IDs only; free endpoints store world coordinates. Types: generic, cable, network, bus, power, signal.
+- `features/wiring/models/connections.ts` resolves bindings, hit geometry, bounds, label anchors and detach-on-delete. `connectionRouting.ts` owns pure orthogonal routing/normalization/segment edits. `connectionClone.ts` remaps graph identities for object and page clipboard operations.
+- `WiringConnection` renders resolved routes; `WiringCanvas` owns transient drafts/gestures; Wiring actions own mutations/history. Shared lookup, bounds, selection and clipboard entry points recognize connections without adding electrical behavior. Drawing Core stays domain-neutral.
+- See `w4-acceptance.md` for actual checks and remaining limits; W3.5.1 acceptance is retained as historical evidence rather than retroactively rewritten.
+
 ## Entry points
 - `index.html` -> `src/main.tsx` -> `src/App.tsx` (shell: menu bar, project tabs, workspace switch, dialogs, status bar).
 - Workspaces (`src/workspaces/`): `SchematicWorkspace` (main editor), `CabinetWorkspace`, `DataWorkspace`,
