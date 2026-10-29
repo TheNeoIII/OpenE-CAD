@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { getActivePage, updatePage, useDocumentStore } from '@/stores/documentStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { cloneOwnedObject } from '@/features/drawing/clone'
+import { detachConnectionEndpoints } from '@/features/wiring/models/connections'
+import { cloneConnectionGraph, clonePageConnections, prepareConnectionCopy } from '@/features/wiring/models/connectionClone'
 import { pageShapes, type CadDocument, type CadLine, type CadObject, type CadPage, type FunctionGroup, type CadSymbol, type CadText, type LineStyle, type Point, type Rotation, type SymbolKind, type TextStyle } from '@/types/cad'
 import type { Article, Device, Placement } from '@/types/device'
 import { uid } from '@/utils/format'
@@ -274,6 +276,7 @@ export function deleteObjects(ids: string[]) {
       ellipses: pageShapes(p).ellipses.filter((o) => !set.has(o.id)),
       images: pageShapes(p).images.filter((o) => !set.has(o.id)),
       diagramBlocks: pageShapes(p).diagramBlocks.filter((o) => !set.has(o.id)),
+      ...(p.connections && { connections: detachConnectionEndpoints(p, (e) => set.has(e.objectId)).connections?.filter((c) => !set.has(c.id)) }),
     }),
   )
   useSelectionStore.getState().clear()
@@ -305,7 +308,7 @@ export function copySelection() {
   const objects = useSelectionStore.getState().ids.map((id) => findObject(page, id)).filter((o): o is CadObject => !!o && o.type !== 'potential' && isObjectAllowed(page.kind, o))
   const devIds = new Set(objects.flatMap((o) => (o.type === 'symbol' && o.deviceId ? [o.deviceId] : [])))
   useClipboardStore.setState({
-    objects: structuredClone(objects),
+    objects: objects.some((o) => o.type === 'connection') ? prepareConnectionCopy(page, objects) : structuredClone(objects),
     devices: structuredClone(doc.devices.filter((d) => devIds.has(d.id))),
     pages: [],
     groups: [],
@@ -386,7 +389,7 @@ export function pastePages() {
         rectangles: re(pageShapes(src).rectangles, 'rect'),
         ellipses: re(pageShapes(src).ellipses, 'ell'),
         images: re(pageShapes(src).images, 'img'),
-        diagramBlocks: pageShapes(src).diagramBlocks.map((o) => cloneOwnedObject(o, 'block')),
+        ...clonePageConnections(src),
       }
       newIds.push(page.id)
       working = { ...working, pages: [...working.pages, page] }
@@ -418,8 +421,9 @@ export function pasteClipboard(offset?: number) {
       devMap.set(d.id, nd)
       working = { ...working, devices: [...working.devices, nd] }
     }
-    const clones = objects.map((o) => {
-      const moved = translateObject(cloneOwnedObject(o, o.type), offset, offset)
+    const copies = objects.some((o) => o.type === 'connection') ? cloneConnectionGraph(objects) : objects.map((o) => cloneOwnedObject(o, o.type))
+    const clones = copies.map((o) => {
+      const moved = translateObject(o, offset, offset)
       if (moved.type === 'symbol' && moved.deviceId) moved.deviceId = devMap.get(moved.deviceId)?.id ?? moved.deviceId
       newIds.push(moved.id)
       return moved
@@ -435,6 +439,7 @@ export function pasteClipboard(offset?: number) {
       ellipses: [...pageShapes(p).ellipses, ...clones.filter((o) => o.type === 'ellipse')],
       images: [...pageShapes(p).images, ...clones.filter((o) => o.type === 'image')],
       diagramBlocks: [...pageShapes(p).diagramBlocks, ...clones.filter((o) => o.type === 'diagramBlock')],
+      ...(p.kind === 'wiring' && { connections: [...(p.connections ?? []), ...clones.filter((o) => o.type === 'connection')] }),
     }))
   })
   useSelectionStore.getState().set(newIds)
@@ -518,7 +523,7 @@ export function duplicatePage(pageId: string) {
   if (!doc || !src) return
   const id = uid('pg')
   const re = <T extends { id: string }>(arr: T[]) => arr.map((o) => ({ ...o, id: uid('o') }))
-  const copy: CadPage = { ...structuredClone(src), id, number: `${src.number}a`, title: `${src.title} (Kopie)`, symbols: re(src.symbols), wires: re(src.wires), junctions: re(src.junctions), texts: re(src.texts), potentials: re(src.potentials), lines: re(src.lines), rectangles: re(pageShapes(src).rectangles), ellipses: re(pageShapes(src).ellipses), images: re(pageShapes(src).images), diagramBlocks: pageShapes(src).diagramBlocks.map((o) => cloneOwnedObject(o, 'block')) }
+  const copy: CadPage = { ...structuredClone(src), id, number: `${src.number}a`, title: `${src.title} (Kopie)`, symbols: re(src.symbols), wires: re(src.wires), junctions: re(src.junctions), texts: re(src.texts), potentials: re(src.potentials), lines: re(src.lines), rectangles: re(pageShapes(src).rectangles), ellipses: re(pageShapes(src).ellipses), images: re(pageShapes(src).images), ...clonePageConnections(src) }
   commit('Seite dupliziert', (d) => {
     const idx = d.pages.findIndex((p) => p.id === pageId)
     const pages = [...d.pages]

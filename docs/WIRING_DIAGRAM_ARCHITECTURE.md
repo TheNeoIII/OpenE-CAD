@@ -1,6 +1,6 @@
 # Wiring-/Diagramm-Architektur
 
-Status: W0, W1, W1.1, W1.2, W2, W3 und W3.5 implementiert. W3.5.1 härtet die bestehenden Interaktionen; der Nachweis und offene Abnahmeprüfungen stehen in `../v0-frontend/docs/w3-5-1-acceptance.md`. W4 – Semantic Connections ist der nächste große Produktschritt. CadConnection, Sticky Connections und Asset-Upload sind noch nicht implementiert.
+Status: W0, W1, W1.1, W1.2, W2, W3 und W3.5 implementiert. W3.5.1 härtet die bestehenden Interaktionen; der Nachweis und offene Abnahmeprüfungen stehen in `../v0-frontend/docs/w3-5-1-acceptance.md`. W4 – Semantic Connections ist implementiert: eigenständige CadConnection, dynamische Portbindungen, orthogonales Routing, Endpunkt-/Segmentbearbeitung, Inspector und Clipboard-Remapping. Abnahme und Grenzen: `../v0-frontend/docs/w4-acceptance.md`. Asset-Upload bleibt offen.
 
 ## Ziel
 

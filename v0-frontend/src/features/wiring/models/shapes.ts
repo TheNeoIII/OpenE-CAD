@@ -66,7 +66,7 @@ export function translateGraphics(page: CadPage, ids: readonly string[], dx: num
   const set = new Set(ids)
   const map = <T extends WiringGraphic>(arr: T[]) => arr.map((o) => (set.has(o.id) ? moved(o, dx, dy) : o))
   const s = pageShapes(page)
-  return { ...page, lines: map(page.lines), texts: map(page.texts), rectangles: map(s.rectangles), ellipses: map(s.ellipses), images: map(s.images), diagramBlocks: map(s.diagramBlocks) }
+  return { ...page, lines: map(page.lines), texts: map(page.texts), rectangles: map(s.rectangles), ellipses: map(s.ellipses), images: map(s.images), diagramBlocks: map(s.diagramBlocks), ...(page.connections && { connections: page.connections.map((c) => !set.has(c.id) ? c : { ...c, start: c.start.kind === 'point' ? { kind: 'point' as const, point: translatePoint(c.start.point, dx, dy) } : c.start, end: c.end.kind === 'point' ? { kind: 'point' as const, point: translatePoint(c.end.point, dx, dy) } : c.end, routePoints: c.routePoints?.map((p) => translatePoint(p, dx, dy)) }) }) }
 }
 
 /** Shared by resize preview and commit, so both produce identical geometry. */

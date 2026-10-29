@@ -1,3 +1,5 @@
+import type { CadConnection, CadConnectionEndpoint } from '@/types/cad'
+import { detachConnectionEndpoints, resolveConnectionPolyline } from './models/connections'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useSelectionStore } from '@/stores/selectionStore'
 import { pageShapes, type CadDiagramBlock, type CadPort, type CadEllipse, type CadImage, type CadLine, type CadPage, type CadRectangle, type CadShapeStyle, type CadText, type LineStyle, type Point, type Rect } from '@/types/cad'
@@ -30,6 +32,21 @@ function cornerRect(a: Point, b: Point) {
   return r ? { x: r.x, y: r.y, width: r.w, height: r.h } : null
 }
 
+export function addConnection(start: CadConnectionEndpoint, end: CadConnectionEndpoint) {
+  const page = activePage()
+  if (page?.kind !== 'wiring') return
+  const connection: CadConnection = { id: uid('connection'), type: 'connection', connectionType: 'generic', start, end, style: 'solid' }
+  if (resolveConnectionPolyline(page, connection).length < 2) return
+  withActivePage('Verbindung erstellt', (p) => ({ ...p, connections: [...(p.connections ?? []), connection] }))
+  useSelectionStore.getState().set([connection.id])
+}
+
+export function updateConnection(id: string, patch: Partial<Omit<CadConnection, 'id' | 'type'>>, label = 'Verbindung geändert') {
+  const connection = activePage()?.connections?.find((c) => c.id === id)
+  if (!connection || Object.entries(patch).every(([key, value]) => JSON.stringify(connection[key as keyof CadConnection]) === JSON.stringify(value))) return
+  withActivePage(label, (p) => ({ ...p, connections: (p.connections ?? []).map((c) => c.id === id ? { ...c, ...patch, id: c.id, type: c.type } : c) }))
+}
+
 export function addDiagramBlock(a: Point, b: Point) {
   const r = cornerRect(a, b)
   if (!r || activePage()?.kind !== 'wiring') return
@@ -55,7 +72,10 @@ export function updatePort(objectId: string, portId: string, patch: Partial<CadP
 export function deletePort(objectId: string, portId: string) {
   const owner = activePage()?.diagramBlocks?.find((o) => o.id === objectId)
   if (!owner?.ports?.some((p) => p.id === portId)) return
-  updateShape(objectId, { ports: owner.ports.filter((p) => p.id !== portId) }, 'Port gelöscht')
+  withActivePage('Port gelöscht', (page) => ({
+    ...(page.connections?.length ? detachConnectionEndpoints(page, (e) => e.objectId === objectId && e.portId === portId) : page),
+    diagramBlocks: (page.diagramBlocks ?? []).map((b) => b.id === objectId ? { ...b, ports: b.ports?.filter((p) => p.id !== portId) } : b),
+  }))
 }
 
 export function addRectangle(a: Point, b: Point) {

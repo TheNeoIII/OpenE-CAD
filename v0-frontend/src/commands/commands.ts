@@ -344,6 +344,7 @@ const commands: Command[] = [
   { id: 'ws.documentation', label: 'Dokumentation', category: 'Arbeitsbereich', icon: BookOpen, shortcut: 'Alt+5', allowInInput: true, isChecked: () => ui().workspace === 'documentation', run: () => goWorkspace('documentation') },
 
   /* -------- Werkzeuge / Einfügen -------- */
+  { id: 'tool.connection', label: 'Verbinder', category: 'Werkzeug', icon: CornerDownRight, scope: SCH, isEnabled: () => allowed('connection'), isChecked: () => useToolStore.getState().tool === 'connection', run: () => { if (allowed('connection')) useToolStore.getState().setTool('connection') } },
   { id: 'tool.block', label: 'Baustein', category: 'Werkzeug', icon: SquareIcon, scope: SCH, isEnabled: () => allowed('block'), isChecked: () => useToolStore.getState().tool === 'block', run: () => { if (allowed('block')) useToolStore.getState().setTool('block') } },
   { id: 'tool.port', label: 'Port hinzufügen', category: 'Werkzeug', icon: CircleIcon, scope: SCH, isEnabled: () => allowed('port') && !!selectedPortOwner(getActivePage(), useSelectionStore.getState().ids), isChecked: () => useToolStore.getState().tool === 'port', run: () => { if (allowed('port') && selectedPortOwner(getActivePage(), useSelectionStore.getState().ids)) useToolStore.getState().setTool('port') } },
   { id: 'tool.select', label: 'Auswahl', category: 'Werkzeug', icon: MousePointer2, shortcut: 'V', scope: SCH, isChecked: () => useToolStore.getState().tool === 'select', run: () => useToolStore.getState().setTool('select') },

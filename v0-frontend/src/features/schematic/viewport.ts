@@ -11,7 +11,7 @@ export function fitSelection() {
   const c = activeViewport()
   if (!c) return
   const ids = useSelectionStore.getState().ids
-  const rect = unionRects(ids.map((id) => findObject(c.page, id)).filter((o) => !!o).map((o) => objectBounds(o!)))
+  const rect = unionRects(ids.map((id) => findObject(c.page, id)).filter((o) => !!o).map((o) => objectBounds(o!, c.page)))
   if (!rect) return fitPage()
   const pad = 150
   const view = fitRect({ x: rect.x - pad, y: rect.y - pad, w: rect.w + pad * 2, h: rect.h + pad * 2 }, c.size)

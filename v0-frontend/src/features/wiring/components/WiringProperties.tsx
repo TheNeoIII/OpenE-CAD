@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { ColorPicker } from '@/components/ui/ColorPicker'
 import { Field, Input, Select } from '@/components/ui/primitives'
 import type { CadDiagramBlock, CadEllipse, CadImage, CadLine, CadRectangle, LineStyle } from '@/types/cad'
-import { updateLine, updateShape } from '../actions'
+import { updateConnection, updateLine, updateShape } from '../actions'
+import type { CadConnection, CadConnectionType, CadPage } from '@/types/cad'
+import { endpointDescription } from '../models/connections'
 import { BlockProperties } from './BlockProperties'
 import { clampOpacity, MIN_SHAPE_SIZE } from '../models/shapes'
 import { LINE_STROKE } from './WiringDrawing'
@@ -135,6 +137,20 @@ export function WiringProperties({ obj }: { obj: Shape }) {
       {obj.type === 'diagramBlock' && <BlockProperties key={obj.id} block={obj} />}
     </>
   )
+}
+
+export function ConnectionProperties({ connection, page }: { connection: CadConnection; page: CadPage }) {
+  const set = (patch: Partial<CadConnection>) => updateConnection(connection.id, patch)
+  const types: CadConnectionType[] = ['generic', 'cable', 'network', 'bus', 'power', 'signal']
+  return <Section title="Verbindung">
+    <Field label="Verbindungstyp" htmlFor="c-type" className="col-span-2"><Select id="c-type" value={connection.connectionType} onChange={(e) => set({ connectionType: e.target.value as CadConnectionType })}>{types.map((type) => <option key={type} value={type}>{type}</option>)}</Select></Field>
+    <Field label="Beschriftung" htmlFor="c-label" className="col-span-2"><TextInput id="c-label" value={connection.label ?? ''} onCommit={(label) => set({ label })} /></Field>
+    <div className="col-span-2"><ColorField label="Linienfarbe" value={connection.stroke ?? DEFAULT_INK} onChange={(stroke) => set({ stroke })} /></div>
+    <Field label="Linienbreite" htmlFor="c-width"><NumberInput id="c-width" min={0.5} value={connection.strokeWidth ?? 3} onCommit={(n) => set({ strokeWidth: Math.max(0.5, n) })} /></Field>
+    <Field label="Linienart" htmlFor="c-style"><LineStyleSelect id="c-style" value={connection.style} onChange={(style) => set({ style })} /></Field>
+    <p className="col-span-2 break-words text-xs text-muted">Start: {endpointDescription(page, connection.start)}</p>
+    <p className="col-span-2 break-words text-xs text-muted">Ende: {endpointDescription(page, connection.end)}</p>
+  </Section>
 }
 
 /** Inspector for a free graphic polyline. Not a wire, not a connection. */

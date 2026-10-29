@@ -4,9 +4,10 @@ import type { SnapResult } from '@/features/schematic/models/snap'
 import type { Point, SymbolKind } from '@/types/cad'
 import type { Article } from '@/types/device'
 
-export type CadTool = 'block' | 'port' | 'select' | 'wire' | 'line' | 'rect' | 'ellipse' | 'place' | 'text' | 'pan'
+export type CadTool = 'connection' | 'block' | 'port' | 'select' | 'wire' | 'line' | 'rect' | 'ellipse' | 'place' | 'text' | 'pan'
 
 export const TOOL_LABELS: Record<CadTool, string> = {
+  connection: 'Verbinder',
   block: 'Baustein',
   port: 'Port hinzufügen',
   select: 'Auswahl',

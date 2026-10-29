@@ -77,8 +77,37 @@ Durable rules. Invariants in `../AGENTS.md` take precedence; this file adds code
 - Port label position is selectable in the block inspector: automatic (outside, derived from the edge), left, right, top, or bottom. Missing values retain the automatic layout for older documents.
 - Same-tool selection (`models/interaction.ts`): with a drawing tool active, pressing on an object of the type that tool creates selects/moves it instead of creating a new one. Ctrl/Cmd forces creation over it; a running line draft always adds points. Handles of a selected matching object stay usable while its tool is active.
 - Escape ladder (`escapeAction`): inline edit, running gesture, line draft, port tool, selection, active tool. One level per press. The port tool deliberately exits before clearing selection because it is a sub-mode of the selected owner.
-- Inline editing (`models/inlineEdit.ts`, `WiringInlineEditor`): double-click edits exactly one string: text, shape/line label, block title, field label or value, port label. The text tool opens the editor at the click point instead of a dialog; empty new text creates nothing. Enter commits, Shift+Enter inserts a newline only in free text (other targets commit), Escape cancels, blur commits. No history while typing; one commit for changed values, none for unchanged or missing targets. Undo-deleted targets close the editor without writing. Clicking a port label does not move its port; double-click reliably opens the label editor.
+- Inline editing (`models/inlineEdit.ts`, `WiringInlineEditor`): double-click edits exactly one string: text, shape/line label, block title, field label or value, port label. The text tool opens the editor at the click point instead of a dialog; empty new text creates nothing. Escape terminates inline text editing while preserving dirty text; blur also commits. For free text and rectangle/ellipse/line/connection labels, Enter inserts a newline and Ctrl/Cmd+Enter commits and closes. Short semantic fields retain Enter=commit. Unchanged sessions are no-ops; new empty/whitespace-only text is discarded, new non-empty text is committed. No history while typing; one commit for changed values, none for unchanged or missing targets. Undo-deleted targets close the editor without writing. Clicking a port label does not move its port; double-click reliably opens the label editor.
 - Line vertices: a selected line shows one handle per point; dragging moves that point with grid/endpoint snap (excluding the moved point itself) and commits once on release.
+
+## W4 semantic connections
+- The Wiring-only connection tool uses two clicks: start, then finish. Port hits store only owner/port IDs; otherwise endpoints are free world points. Alt suppresses binding. A local draft never enters history; Escape cancels it.
+- Bound points resolve from current block geometry and edge/t on every render. Owner move/resize and port move therefore stay sticky without persisted endpoint coordinates. CadLine remains purely graphic.
+- All rendered segments are orthogonal. Routing uses 50 document-unit port leads and deterministic HV/VH bridges, removes duplicates and redundant collinear points, and preserves manual intermediate route points. There is no obstacle avoidance.
+- Selected connections expose endpoint handles (detach, reattach, retarget) and internal segment handles. Gestures preview locally and commit once on release; cancellation leaves the document unchanged.
+- Inspector edits type, label, stroke, width and line style and describes both endpoints. Double-click edits the label with the existing inline-editor commit/cancel contract.
+- Deleting a port/owner first resolves attached endpoints to free points in the same transaction. Deleting a connection does not delete either owner. Missing imported references remain unresolved rather than jumping to the origin.
+- Group paste remaps selected owner and port IDs. Connections copied alone, or with only one owner, detach references to omitted owners at their resolved positions. Page copy/duplicate remaps the complete graph.
+- Optional `connections` defaults to an empty list for legacy pages. Connection semantics are not electrical and are excluded from Schematic tools, networks and reports.
+
+## W4.1 correction acceptance (42–50)
+42. Dirty inline text + Escape: commits once (browser checked with a connection label).
+43. Unchanged + Escape: no-op (browser checked).
+44. New empty text + Escape: discarded by the existing creation guard; keyboard component test passed.
+45. New non-empty text + Escape: commit path preserved; keyboard component test passed.
+46. Multiline Enter: native newline, persisted and rendered as separate SVG lines (browser checked).
+47. Ctrl/Cmd+Enter: commit and close; both modifiers covered by keyboard component tests, Ctrl additionally browser checked.
+48. Lock/Unlock: explicitly scheduled for W4.2, not implemented here.
+49. Group/Ungroup: confirmed follow-up documented below.
+50. Nested groups in first version: NO.
+
+Validation: typecheck and existing test command passed; 8 additional keyboard component tests passed with `node --test tests/wiring-inline-keyboard.test.mjs` from the frontend directory. The keyboard harness isolates component handlers with mocked hooks/callbacks; it is not a persistence integration test. Browser checks confirmed actual history counts for changed/unchanged connection labels and Ctrl+Enter. New-text browser flow remains unverified: the attempted Text-tool click did not open a textarea. This is not reported as a passed test. Historical W4 Escape-cancel evidence is superseded by this correction.
+
+## Confirmed roadmap
+- W4.1 — User Acceptance Corrections: preserve dirty inline text on Escape; multiline Enter and Ctrl/Cmd+Enter completion. Selection remains distinct from persistent groups.
+- W4.2 NEXT — Annotation & Selection Foundation: shared TextStyle, extended multiline labels, label anchors/rotation/reset, compatible multi-selection properties, shared bounds/highlight/move and common selection/transform foundation. Lock/Unlock is explicitly deferred here, not partially implemented in W4.1.
+- W4.2 locking must persist/export in `.oecad`, remain visible and selectable for unlocking, show “Gesperrt”, support context-menu and multi-selection Lock/Unlock, and guard every mutation: move, resize, vertices, endpoints/segments, inline edit, properties, delete and future rotation. No UI-only lock.
+- W3.7 afterwards — Group & Transform: persistent flat Group/Ungroup, group selection on normal click, group move/copy/paste/duplicate/delete, group lock and common transform bounds; rotation later. No nested groups in the first version. Member editing via double-click or Enter Group Mode is a future capability, not implemented now. Never simulate groups with selection-only IDs.
 
 ## History
 - Every user-visible document change goes through `historyStore.push(label, doc)` (done in `actions.ts`).
