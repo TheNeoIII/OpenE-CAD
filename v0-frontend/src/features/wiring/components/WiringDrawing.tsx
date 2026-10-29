@@ -20,7 +20,7 @@ function GraphicLabel({ obj, hidden }: { obj: CadRectangle | CadEllipse | CadLin
   const c = graphicLabelPoint(obj)
   return (
     <text data-edit="label" x={c.x} y={c.y} fontSize={LABEL_SIZE} textAnchor="middle" dominantBaseline="middle" fill={INK}>
-      {obj.label}
+      {obj.label.split('\n').map((line, i) => <tspan key={i} x={c.x} dy={i === 0 ? 0 : LABEL_SIZE * TEXT_LINE}>{line || ' '}</tspan>)}
     </text>
   )
 }

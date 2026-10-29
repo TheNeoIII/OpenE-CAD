@@ -5,8 +5,8 @@ import { editAnchor, readEditValue, type InlineEditTarget } from '../models/inli
 
 /**
  * HTML overlay positioned in screen space above the SVG.
- * Commits once on Enter/blur, discards on Escape; no history while typing.
- * Multi-line only for free texts (Shift+Enter inserts a line break).
+ * Escape/blur preserve the draft; Ctrl/Cmd+Enter finishes multiline edits.
+ * History is written only when finishing a changed session.
  */
 export function WiringInlineEditor({ page, view, target, onCommit, onCancel }: { page: CadPage; view: CadViewportState; target: InlineEditTarget; onCommit: (value: string) => void; onCancel: () => void }) {
   const initial = readEditValue(page, target) ?? ''
@@ -37,7 +37,7 @@ export function WiringInlineEditor({ page, view, target, onCommit, onCancel }: {
     if (commit) onCommit(value)
     else onCancel()
   }
-  const multiline = target.kind === 'text' || target.kind === 'newText'
+  const multiline = target.kind === 'text' || target.kind === 'newText' || target.kind === 'label'
   const tl = worldToScreen(view, { x: anchor.box.x, y: anchor.box.y })
   const width = Math.max(80, anchor.box.w * s + 8)
   const extraWidth = width - (anchor.box.w * s + 8)
@@ -63,8 +63,8 @@ export function WiringInlineEditor({ page, view, target, onCommit, onCancel }: {
         if (e.nativeEvent.isComposing || e.keyCode === 229) return
         if (e.key === 'Escape') {
           e.preventDefault()
-          finish(false)
-        } else if (e.key === 'Enter' && !(multiline && e.shiftKey)) {
+          finish(true)
+        } else if (e.key === 'Enter' && (!multiline || e.ctrlKey || e.metaKey)) {
           e.preventDefault()
           finish(true)
         }

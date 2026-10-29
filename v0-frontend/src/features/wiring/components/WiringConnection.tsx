@@ -15,7 +15,7 @@ export function WiringConnection({ page, connection, s = 1, selected = false, ed
       <path d={polylinePath(points)} fill="none" stroke={color} strokeWidth={(connection.strokeWidth ?? 3) * (selected ? 1.5 : 1)} strokeDasharray={unresolved ? '12 8' : LINE_DASH[connection.style]} strokeLinejoin="round" />
     </>}
     {unresolved && <text x={points[0]?.x ?? 40} y={(points[0]?.y ?? 100) - 18} fontSize={24} fill={color}>Port nicht auflösbar: {connection.label || connection.id}</text>}
-    {connection.label && label && !editing && <text data-edit="label" x={label.x} y={label.y} fontSize={24} textAnchor="middle" dominantBaseline="middle" fill={color} stroke="var(--sheet-paper, white)" strokeWidth={5 / s} paintOrder="stroke">{connection.label}</text>}
+    {connection.label && label && !editing && <text data-edit="label" x={label.x} y={label.y} fontSize={24} textAnchor="middle" dominantBaseline="middle" fill={color} stroke="var(--sheet-paper, white)" strokeWidth={5 / s} paintOrder="stroke">{connection.label.split('\n').map((line, i) => <tspan key={i} x={label.x} dy={i === 0 ? 0 : 24 * 1.35}>{line || ' '}</tspan>)}</text>}
   </g>
 }
 
