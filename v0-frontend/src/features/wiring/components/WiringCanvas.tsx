@@ -27,6 +27,7 @@ import type { InlineEditTarget } from '../models/inlineEdit'
 import { escapeAction, toolMatchesType, toolPointerIntent } from '../models/interaction'
 
 import { usePortSelectionStore } from '../models/portSelection'
+import { usePortManagerStore } from '../models/portManager'
 import { nearestPortAnchor, portOwnerBounds, portWorldPosition, movePortsOnPage, selectedPortOwner, wiringPortAnchors } from '../models/ports'
 import { WiringPorts } from './WiringPorts'
 
@@ -93,6 +94,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   const portOwner = selectedPortOwner(page, selection)
   const tool = WIRING_TOOLS.has(rawTool) ? rawTool : 'select'
   const portSelection = usePortSelectionStore()
+  const portManager = usePortManagerStore()
   useEffect(() => {
     if (tool !== 'port' || portSelection.objectId !== portOwner?.id) usePortSelectionStore.getState().clear()
   }, [tool, portOwner?.id, page.id, portSelection.objectId])
@@ -515,7 +517,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
             </g>
           )}
 
-          <WiringPorts page={shownPage} s={s} cursor={tool === 'port' ? 'move' : tool === 'connection' || gesture?.kind === 'connection' ? 'crosshair' : 'default'} editing={editing?.kind === 'portLabel' ? editing : undefined} selected={tool === 'port' ? portSelection : undefined} />
+          <WiringPorts page={shownPage} s={s} cursor={tool === 'port' ? 'move' : tool === 'connection' || gesture?.kind === 'connection' ? 'crosshair' : 'default'} editing={editing?.kind === 'portLabel' ? editing : undefined} selected={tool === 'port' ? portSelection : undefined} manager={{ objectId: portManager.objectId, activePortId: portManager.hoverPortId ?? portManager.focusPortId }} />
           {(() => {
             const anchor = gesture?.kind === 'portCreate' ? gesture.anchor : tool === 'port' && portOwner ? portHover : null
             return anchor && <circle cx={anchor.point.x} cy={anchor.point.y} r={5 / s} fill={PREVIEW} pointerEvents="none" />

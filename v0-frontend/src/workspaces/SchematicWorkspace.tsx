@@ -5,6 +5,7 @@ import { SchematicCanvas } from '@/features/schematic/components/SchematicCanvas
 import { SchematicToolbar } from '@/features/schematic/components/SchematicToolbar'
 import { WiringCanvas } from '@/features/wiring/components/WiringCanvas'
 import { WiringToolbar } from '@/features/wiring/components/WiringToolbar'
+import { PortManager } from '@/features/wiring/components/PortManager'
 import { useActivePage } from '@/stores/documentStore'
 import { useUiStore } from '@/stores/uiStore'
 
@@ -46,6 +47,7 @@ export function SchematicWorkspace() {
         <div className="relative flex min-h-0 flex-1">
           {!page ? <div className="p-6 text-[12px] text-muted">Keine Seite gewählt.</div> : wiring ? <WiringCanvas key={page.id} /> : <SchematicCanvas key={page.id} />}
         </div>
+        {wiring && <PortManager key={page.id} />}
       </main>
       <EdgePanel side="right" pinned={panels.inspector}>
         <Inspector />

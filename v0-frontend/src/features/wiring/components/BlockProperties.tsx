@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Field, Input, Select } from '@/components/ui/primitives'
 import { runCommand } from '@/commands/registry'
-import type { CadDiagramBlock, CadPortDirection, CadPortEdge, CadPortLabelPlacement } from '@/types/cad'
+import type { CadDiagramBlock, CadPortDirection, CadPortLabelPlacement } from '@/types/cad'
 import { uid } from '@/utils/format'
-import { deletePort, updatePort, updatePorts, updateShape } from '../actions'
+import { updatePorts, updateShape } from '../actions'
+import { usePortManagerStore } from '../models/portManager'
 import { sharedValue, usePortSelectionStore } from '../models/portSelection'
 
 function CommitInput({ label, value, onCommit }: { label: string; value: string; onCommit: (value: string) => void }) {
@@ -45,6 +46,7 @@ function SelectedPorts({ block }: { block: CadDiagramBlock }) {
 
 export function BlockProperties({ block }: { block: CadDiagramBlock }) {
   const fields = block.fields ?? []
+  const managerOpen = usePortManagerStore((s) => s.objectId === block.id)
   const updateField = (id: string, patch: Partial<typeof fields[number]>) => updateShape(block.id, { fields: fields.map((f) => f.id === id ? { ...f, ...patch } : f) }, 'Bausteinfeld geändert')
   return <>
     <section className="space-y-2 border-b border-line p-3">
@@ -66,23 +68,11 @@ export function BlockProperties({ block }: { block: CadDiagramBlock }) {
     </section>
     <SelectedPorts block={block} />
     <section className="space-y-3 border-b border-line p-3">
-      <h3 className="text-xs font-semibold">Ports</h3>
-      {(block.ports ?? []).map((port, i) => <div key={port.id} className="space-y-2 rounded border border-line p-2">
-        <CommitInput label={`Port ${i + 1} Label`} value={port.label ?? ''} onCommit={(label) => updatePort(block.id, port.id, { label })} />
-        <Field label="Labelposition"><Select aria-label={`Port ${i + 1} Labelposition`} value={port.labelPlacement ?? 'auto'} onChange={(e) => updatePort(block.id, port.id, { labelPlacement: e.target.value as CadPortLabelPlacement })}>
-          <option value="auto">Automatisch (außen)</option><option value="left">Links</option><option value="right">Rechts</option><option value="top">Oben</option><option value="bottom">Unten</option>
-        </Select></Field>
-        <CommitInput label={`Port ${i + 1} Typ`} value={port.portType ?? 'generic'} onCommit={(portType) => updatePort(block.id, port.id, { portType })} />
-        <Field label="Richtung"><Select aria-label={`Port ${i + 1} Richtung`} value={port.direction ?? 'bidirectional'} onChange={(e) => updatePort(block.id, port.id, { direction: e.target.value as CadPortDirection })}>
-          <option value="input">Eingang</option><option value="output">Ausgang</option><option value="bidirectional">Bidirektional</option><option value="passive">Passiv</option>
-        </Select></Field>
-        <Field label="Kante"><Select aria-label={`Port ${i + 1} Kante`} value={port.edge} onChange={(e) => updatePort(block.id, port.id, { edge: e.target.value as CadPortEdge })}>
-          <option value="top">Oben</option><option value="right">Rechts</option><option value="bottom">Unten</option><option value="left">Links</option>
-        </Select></Field>
-        <CommitInput label={`Port ${i + 1} Position (%)`} value={String(Math.round(port.t * 10000) / 100)} onCommit={(value) => { const t = Number(value) / 100; if (Number.isFinite(t)) updatePort(block.id, port.id, { t }) }} />
-        <button className={buttonClass} onClick={() => deletePort(block.id, port.id)}>Port löschen</button>
-      </div>)}
-      <button className={buttonClass} onClick={() => runCommand('tool.port')}>Port hinzufügen</button>
+      <h3 className="text-xs font-semibold">{`Ports (${(block.ports ?? []).length})`}</h3>
+      <div className="flex flex-wrap gap-2">
+        <button className={buttonClass} aria-pressed={managerOpen} onClick={() => managerOpen ? usePortManagerStore.getState().close() : usePortManagerStore.getState().open(block.id)}>{managerOpen ? 'Port-Manager schließen' : 'Ports bearbeiten…'}</button>
+        <button className={buttonClass} onClick={() => runCommand('tool.port')}>Port hinzufügen</button>
+      </div>
       <p className="text-xs text-muted">An eine Bausteinkante klicken. Strg/Cmd-Klick auf Ports wählt mehrere aus. Escape beendet das Port-Werkzeug.</p>
     </section>
   </>
