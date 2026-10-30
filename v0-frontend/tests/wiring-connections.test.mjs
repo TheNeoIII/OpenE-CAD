@@ -41,6 +41,68 @@ function orthogonal(points) {
   }
 }
 
+test('shape endpoints stay relative through move, resize, detach and JSON roundtrip', () => {
+  const p = page()
+  p.rectangles = [{ id: 'rect', type: 'rectangle', x: 400, y: 100, width: 200, height: 100 }]
+  p.ellipses = [{ id: 'ellipse', type: 'ellipse', cx: 800, cy: 600, rx: 100, ry: 50 }]
+  for (const [raw, id] of [[{ x: 300, y: 250 }, 'a'], [{ x: 600, y: 125 }, 'rect'], [{ x: 900, y: 600 }, 'ellipse']]) {
+    const endpoint = domain.connectionEndpointAt(p, raw, { x: 0, y: 0 }, 2)
+    assert.equal(endpoint.kind, 'shape')
+    assert.equal(endpoint.objectId, id)
+    assert.equal('point' in endpoint, false)
+    assert.deepEqual(JSON.parse(JSON.stringify(endpoint)), endpoint)
+    assert.deepEqual(domain.resolveConnectionEndpoint(p, endpoint), raw)
+    const moved = shapes.translateGraphics(p, [id], 50, 25)
+    assert.deepEqual(domain.resolveConnectionEndpoint(moved, endpoint), { x: raw.x + 50, y: raw.y + 25 })
+    const resized = shapes.resizeShapeOnPage(p, id, { x: 100, y: 100, w: 400, h: 200 })
+    const pos = domain.resolveConnectionEndpoint(resized, endpoint)
+    assert.equal(pos.x, 500)
+    assert.equal(pos.y, id === 'ellipse' ? 200 : 150)
+    p.connections = [connection(endpoint, point(1000, 700))]
+    const detached = domain.detachConnectionEndpoints(p, (e) => e.objectId === id)
+    assert.deepEqual(detached.connections[0].start, point(raw.x, raw.y))
+    assert.equal(p.connections[0].start.kind, 'shape')
+  }
+})
+
+test('ports win over shape boundaries, Alt disables both and interior misses do not bind', () => {
+  const p = page()
+  assert.equal(domain.connectionEndpointAt(p, { x: 300, y: 300 }, { x: 0, y: 0 }, 12).kind, 'port')
+  assert.deepEqual(domain.connectionEndpointAt(p, { x: 300, y: 250 }, { x: 123, y: 456 }, 12, true), point(123, 456))
+  assert.equal(domain.connectionEndpointAt(p, { x: 200, y: 300 }, { x: 200, y: 300 }, 12).kind, 'point')
+})
+
+test('shape copy and page copy remap rectangle and ellipse bindings, connection-only copy detaches', () => {
+  const p = page()
+  p.rectangles = [{ id: 'rect', type: 'rectangle', x: 400, y: 100, width: 200, height: 100 }]
+  p.ellipses = [{ id: 'ellipse', type: 'ellipse', cx: 800, cy: 600, rx: 100, ry: 50 }]
+  const a = domain.connectionEndpointAt(p, { x: 600, y: 150 }, { x: 0, y: 0 }, 2)
+  const b = domain.connectionEndpointAt(p, { x: 900, y: 600 }, { x: 0, y: 0 }, 2)
+  p.connections = [connection(a, b)]
+  const copy = clone.clonePageConnections(p)
+  assert.equal(copy.connections[0].start.objectId, copy.rectangles[0].id)
+  assert.equal(copy.connections[0].end.objectId, copy.ellipses[0].id)
+  assert.notEqual(copy.rectangles[0].id, 'rect')
+  const detached = clone.prepareConnectionCopy(p, p.connections)[0]
+  assert.deepEqual(detached.start, point(600, 150))
+  assert.deepEqual(detached.end, point(900, 600))
+  const graph = clone.cloneConnectionGraph(clone.prepareConnectionCopy(p, [...p.rectangles, ...p.ellipses, ...p.connections]))
+  assert.equal(graph[2].start.objectId, graph[0].id)
+  assert.equal(graph[2].end.objectId, graph[1].id)
+})
+
+test('ellipse-bound routes avoid their curved owner across normalized perimeter angles', () => {
+  const p = page()
+  p.ellipses = [{ id: 'ellipse', type: 'ellipse', cx: 600, cy: 600, rx: 100, ry: 70 }]
+  for (let i = 0; i < 16; i++) {
+    const endpoint = { kind: 'shape', objectId: 'ellipse', anchor: { kind: 'ellipse', angle: i / 16 } }
+    const route = domain.resolveConnectionPolyline(p, connection(endpoint, point(1000, 1000)))
+    orthogonal(route)
+    assert.equal(routing.hasRouteDegeneracy(route), false)
+    assert.equal(routing.routeCrossesOwner(route, { x: 500, y: 530, w: 200, h: 140, ellipse: true }), false)
+  }
+})
+
 test('legacy connection list is empty; endpoint resolution is owner scoped', () => {
   assert.deepEqual(cad.pageConnections({}), [])
   assert.deepEqual(domain.resolveConnectionEndpoint(page(), endpoint('a')), { x: 300, y: 300 })

@@ -8,7 +8,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { useCursorStore, useViewportStore } from '@/stores/viewportStore'
 import type { CadConnection, CadConnectionEndpoint, CadPage, Point, Rect } from '@/types/cad'
 import { addConnection, updateConnection } from '../actions'
-import { connectionBounds, connectionEndpointAt, resolveConnectionPolyline } from '../models/connections'
+import { connectionBounds, connectionEndpointAt, resolveConnectionEndpoint, resolveConnectionPolyline } from '../models/connections'
 import { moveConnectionSegment } from '../models/connectionRouting'
 import { ConnectionHandles, WiringConnection } from './WiringConnection'
 import { normalizeRect, polylinePath, rectContains } from '@/features/drawing/geometry'
@@ -75,6 +75,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       pointerId.current = null
       setHover(null)
       setPortHover(null)
+      setConnectionTarget(null)
       if (captured !== null && ref.current?.hasPointerCapture(captured)) ref.current.releasePointerCapture(captured)
     }
   }
@@ -86,6 +87,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   useEffect(() => { setGesture(null); setConnectionDraft(null) }, [rawTool, page.id])
   useEffect(() => { setEditing(null) }, [page.id])
   const [hover, setHover] = useState<GraphicSnap | null>(null)
+  const [connectionTarget, setConnectionTarget] = useState<CadConnectionEndpoint | null>(null)
   const [space, setSpace] = useState(false)
   const [portHover, setPortHover] = useState<ReturnType<typeof nearestPortAnchor> | null>(null)
   const portOwner = selectedPortOwner(page, selection)
@@ -288,7 +290,10 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     const w = toWorld(e)
     const snap = resolvePoint(w, e)
     useCursorStore.getState().set(w, snap.point, false)
-    setHover(!gesture && (tool === 'line' || tool === 'rect' || tool === 'ellipse' || tool === 'block') ? snap : null)
+    const targeting = tool === 'connection' || (gesture?.kind === 'connection' && !!gesture.endpoint)
+    const target = targeting ? endpointAt(w, e) : null
+    setConnectionTarget(target)
+    setHover(target?.kind === 'point' || (!gesture && (tool === 'line' || tool === 'rect' || tool === 'ellipse' || tool === 'block')) ? snap : null)
     setPortHover(tool === 'port' && portOwner && hitId(e.target) === portOwner.id ? portAnchorAt(portOwnerBounds(portOwner), w, e) : null)
     if (tool === 'connection' && connectionDraftRef.current) setConnectionDraft({ ...connectionDraftRef.current, end: endpointAt(w, e) })
     if (!gesture) return
@@ -428,7 +433,8 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   const editingId = editing && editing.kind !== 'newText' && editing.kind !== 'portLabel' && editing.kind !== 'fieldLabel' && editing.kind !== 'fieldValue' ? editing.id : undefined
   const linePreview = tool === 'line' && draft.length ? (hover ? [...draft, hover.point] : draft) : null
   const shapePreview = gesture?.kind === 'shapeCreate' ? normalizeRect(gesture.start, gesture.end) : null
-  const cursor = gesture?.kind === 'pan' ? 'grabbing' : tool === 'pan' || space ? 'grab' : gesture?.kind === 'resize' ? HANDLE_CURSORS[gesture.handle] : tool === 'select' ? 'default' : 'crosshair'
+  const targetPoint = connectionTarget && connectionTarget.kind !== 'point' ? resolveConnectionEndpoint(page, connectionTarget) : null
+  const cursor = gesture?.kind === 'connection' && gesture.endpoint ? 'crosshair' : gesture?.kind === 'pan' ? 'grabbing' : tool === 'pan' || space ? 'grab' : gesture?.kind === 'resize' ? HANDLE_CURSORS[gesture.handle] : tool === 'select' ? 'default' : 'crosshair'
 
   return (
     <div
@@ -440,7 +446,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       onPointerUp={onPointerUp}
       onPointerCancel={() => { setGesture(null); setConnectionDraft(null) }}
       onLostPointerCapture={(e) => { if (pointerId.current === e.pointerId) { setGesture(null); setConnectionDraft(null) } }}
-      onPointerLeave={() => (useCursorStore.getState().set(null, null, false), setHover(null))}
+      onPointerLeave={() => (useCursorStore.getState().set(null, null, false), setHover(null), setConnectionTarget(null))}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
       role="application"
@@ -484,7 +490,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
             </g>
           )}
 
-          <WiringPorts page={shownPage} s={s} editing={editing?.kind === 'portLabel' ? editing : undefined} />
+          <WiringPorts page={shownPage} s={s} cursor={tool === 'port' ? 'move' : tool === 'connection' || gesture?.kind === 'connection' ? 'crosshair' : 'default'} editing={editing?.kind === 'portLabel' ? editing : undefined} />
           {(() => {
             const anchor = gesture?.kind === 'portCreate' ? gesture.anchor : tool === 'port' && portOwner ? portHover : null
             return anchor && <circle cx={anchor.point.x} cy={anchor.point.y} r={5 / s} fill={PREVIEW} pointerEvents="none" />
@@ -509,7 +515,11 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
               <ellipse cx={shapePreview.x + shapePreview.w / 2} cy={shapePreview.y + shapePreview.h / 2} rx={shapePreview.w / 2} ry={shapePreview.h / 2} fill="none" stroke={PREVIEW} strokeWidth={2.5} strokeDasharray="10 8" pointerEvents="none" />
             ))}
 
-          {!gesture && hover && <SnapIndicator snap={hover} unit={unit} />}
+          {targetPoint && <g data-connection-target={connectionTarget?.kind} pointerEvents="none" aria-label={connectionTarget?.kind === 'port' ? 'Port-Bindung' : 'Shape-Bindung'}>
+            <circle cx={targetPoint.x} cy={targetPoint.y} r={9 * unit} fill="var(--sheet-paper, white)" fillOpacity={0.7} stroke={PREVIEW} strokeWidth={2 * unit} />
+            <circle cx={targetPoint.x} cy={targetPoint.y} r={3 * unit} fill={PREVIEW} />
+          </g>}
+          {hover && (!gesture || connectionTarget?.kind === 'point') && <SnapIndicator snap={hover} unit={unit} />}
           {(gesture?.kind === 'resize' || gesture?.kind === 'shapeCreate' || gesture?.kind === 'vertex') && gesture.snap && <SnapIndicator snap={gesture.snap} unit={unit} />}
 
           {gesture?.kind === 'marquee' &&

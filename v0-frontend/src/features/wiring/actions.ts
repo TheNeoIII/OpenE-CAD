@@ -73,7 +73,7 @@ export function deletePort(objectId: string, portId: string) {
   const owner = activePage()?.diagramBlocks?.find((o) => o.id === objectId)
   if (!owner?.ports?.some((p) => p.id === portId)) return
   withActivePage('Port gelöscht', (page) => ({
-    ...(page.connections?.length ? detachConnectionEndpoints(page, (e) => e.objectId === objectId && e.portId === portId) : page),
+    ...(page.connections?.length ? detachConnectionEndpoints(page, (e) => e.kind === 'port' && e.objectId === objectId && e.portId === portId) : page),
     diagramBlocks: (page.diagramBlocks ?? []).map((b) => b.id === objectId ? { ...b, ports: b.ports?.filter((p) => p.id !== portId) } : b),
   }))
 }

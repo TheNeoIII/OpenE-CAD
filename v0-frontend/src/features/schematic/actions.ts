@@ -386,8 +386,7 @@ export function pastePages() {
         texts: re(src.texts, 'text'),
         potentials: re(src.potentials, 'pot'),
         lines: re(src.lines, 'ln'),
-        rectangles: re(pageShapes(src).rectangles, 'rect'),
-        ellipses: re(pageShapes(src).ellipses, 'ell'),
+
         images: re(pageShapes(src).images, 'img'),
         ...clonePageConnections(src),
       }
@@ -523,7 +522,7 @@ export function duplicatePage(pageId: string) {
   if (!doc || !src) return
   const id = uid('pg')
   const re = <T extends { id: string }>(arr: T[]) => arr.map((o) => ({ ...o, id: uid('o') }))
-  const copy: CadPage = { ...structuredClone(src), id, number: `${src.number}a`, title: `${src.title} (Kopie)`, symbols: re(src.symbols), wires: re(src.wires), junctions: re(src.junctions), texts: re(src.texts), potentials: re(src.potentials), lines: re(src.lines), rectangles: re(pageShapes(src).rectangles), ellipses: re(pageShapes(src).ellipses), images: re(pageShapes(src).images), ...clonePageConnections(src) }
+  const copy: CadPage = { ...structuredClone(src), id, number: `${src.number}a`, title: `${src.title} (Kopie)`, symbols: re(src.symbols), wires: re(src.wires), junctions: re(src.junctions), texts: re(src.texts), potentials: re(src.potentials), lines: re(src.lines), images: re(pageShapes(src).images), ...clonePageConnections(src) }
   commit('Seite dupliziert', (d) => {
     const idx = d.pages.findIndex((p) => p.id === pageId)
     const pages = [...d.pages]

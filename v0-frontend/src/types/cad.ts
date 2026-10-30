@@ -218,8 +218,13 @@ export interface CadLine {
 
 export type CadConnectionType = 'generic' | 'cable' | 'network' | 'bus' | 'power' | 'signal'
 
+export type ShapeAnchor =
+  | { kind: 'edge'; edge: CadPortEdge; t: number }
+  | { kind: 'ellipse'; angle: number }
+
 export type CadConnectionEndpoint =
   | { kind: 'port'; objectId: string; portId: string }
+  | { kind: 'shape'; objectId: string; anchor: ShapeAnchor }
   | { kind: 'point'; point: Point }
 
 /** Wiring-only semantic connector; never participates in electrical networks. */

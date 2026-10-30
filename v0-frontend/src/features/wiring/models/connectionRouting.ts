@@ -48,16 +48,24 @@ export function hasRouteDegeneracy(points: readonly Point[]): boolean {
   return points.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))
 }
 
-export function routeCrossesOwner(points: readonly Point[], bounds: Rect): boolean {
+export type RoutingOwner = Rect & { ellipse?: boolean }
+
+export function routeCrossesOwner(points: readonly Point[], bounds: RoutingOwner): boolean {
   return points.slice(1).some((b, index) => {
     const a = points[index]
+    if (bounds.ellipse) {
+      const cx = bounds.x + bounds.w / 2, cy = bounds.y + bounds.h / 2
+      const x = Math.max(Math.min(a.x, b.x), Math.min(Math.max(a.x, b.x), cx))
+      const y = Math.max(Math.min(a.y, b.y), Math.min(Math.max(a.y, b.y), cy))
+      return ((x - cx) / (bounds.w / 2)) ** 2 + ((y - cy) / (bounds.h / 2)) ** 2 < 1 - 1e-9
+    }
     return a.x === b.x
       ? a.x > bounds.x && a.x < bounds.x + bounds.w && Math.max(a.y, b.y) > bounds.y && Math.min(a.y, b.y) < bounds.y + bounds.h
       : a.y > bounds.y && a.y < bounds.y + bounds.h && Math.max(a.x, b.x) > bounds.x && Math.min(a.x, b.x) < bounds.x + bounds.w
   })
 }
 
-export function routeConnection(a: Point, b: Point, startEdge?: CadPortEdge, endEdge?: CadPortEdge, manual?: readonly Point[], owners: readonly Rect[] = []): Point[] {
+export function routeConnection(a: Point, b: Point, startEdge?: CadPortEdge, endEdge?: CadPortEdge, manual?: readonly Point[], owners: readonly RoutingOwner[] = []): Point[] {
   const start = lead(a, startEdge), end = lead(b, endEdge)
   const outward = (origin: Point, next: Point, edge?: CadPortEdge) => !edge || (next.x - origin.x) * normals[edge].x + (next.y - origin.y) * normals[edge].y > 0
   const valid = (points: Point[]) => points.length >= 2 && !hasRouteDegeneracy(points) && outward(a, points[1], startEdge) && outward(b, points.at(-2)!, endEdge) && !owners.some((owner) => routeCrossesOwner(points, owner))

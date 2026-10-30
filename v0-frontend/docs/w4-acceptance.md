@@ -4,6 +4,18 @@ Stand: 2026-10-28. Base: `c941aa7d4b96a1fcc9c5c1a698af0048063b06b9`.
 Implementation commit: `4abe402fbc8198184d3712275c0f0de5e7a35663`.
 This report distinguishes tested behavior from remaining acceptance work. No blanket full-release claim.
 
+## W4.1 shape-binding checkpoint — 2026-10-30 (not merge-ready)
+
+Implemented `shape` endpoints without hidden ports: rectangle/block anchors store edge + normalized t; ellipse anchors store angle in turns. Resolution is live during move/resize. Port targets win over boundary targets; Alt disables semantic binding. Connection creation and endpoint reattachment share the resolver and target marker. Port cursor is crosshair for connections, move only in the port tool.
+
+Owner deletion detaches shape endpoints in the existing history transaction. Object/group and page copies remap all three owner types; copying only the connection materializes resolved world points. Ellipse routing checks the actual curved interior, not the enclosing rectangle.
+
+Validation:
+- 128 tests passed, including 41 connection tests; typecheck, production build and diff whitespace check passed. Existing large-bundle warning remains.
+- Native browser on `http://localhost:3000`, development preview, dark UI, 1135×853: created rectangle and ellipse through drawing tools, hovered both boundaries and observed shape target markers, dragged a connection between them, moved the rectangle and observed its connected endpoint follow, deleted the rectangle while keeping the last endpoint position, and restored the binding with one Undo. No injected document state or synthetic event dispatch. No browser errors.
+- Unit regressions cover all three shape owners through move/resize/detach/JSON roundtrip, copy remapping, port priority, Alt, interior misses, and ellipse routing across sixteen perimeter angles.
+- Full native reattach/port-combination matrix and deployment QA remain part of final acceptance, not claimed by this checkpoint.
+
 ## W4.1 routing checkpoint — 2026-10-30 (not merge-ready)
 
 The W4 evidence below is historical, not proof of W4.1 acceptance. Product-owner testing exposed pointer lock, missing boundary-segment handles, routing, text-tool and live-property defects. In particular any historical claim that Escape discards dirty inline text is superseded: dirty inline text + Escape commits once; unchanged text closes without a commit.
@@ -16,7 +28,7 @@ Validation in this continuation:
 - Native browser, local development preview, dark UI, 1135×853: opened the project and created a Wiring page through the UI; dragged a free-to-free connection; selected it and observed exactly one segment handle; dragged that handle into a three-segment dogleg with unchanged endpoints; Undo restored the straight route, Redo restored the dogleg. No browser errors reported. No handler dispatch or document-store injection used for this evidence.
 - Automated coverage: short/straight segment edits, every port-edge pair across six non-overlapping owner arrangements, normal directions, normalization, crossing/backtracking detection, valid manual-route preservation.
 
-Remaining acceptance work: shape endpoints/highlights, multi-port selection and floating manager, connection presets, live property sessions, shared selection properties, complete native text/pointer/reattach and schematic regression matrix. Bound endpoint-adjacent manual edits still need native acceptance; forcing outward normals can reject a user dogleg. Invalid stored manual waypoints are currently bypassed during resolution, not rewritten in document history. Overlapping owners/coincident endpoints can make an outward route impossible; the fallback does not guarantee owner avoidance in that case. Vercel deployment QA and the full W4.1 PR gate are not completed.
+Remaining acceptance work: multi-port selection and floating manager, connection presets, live property sessions, shared selection properties, complete native text/pointer/reattach and schematic regression matrix. Bound endpoint-adjacent manual edits still need native acceptance; forcing outward normals can reject a user dogleg. Invalid stored manual waypoints are currently bypassed during resolution, not rewritten in document history. Overlapping owners/coincident endpoints can make an outward route impossible; the fallback does not guarantee owner avoidance in that case. Vercel deployment QA and the full W4.1 PR gate are not completed.
 
 ## Implemented (historical W4)
 
