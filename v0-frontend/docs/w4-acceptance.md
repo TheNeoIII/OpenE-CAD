@@ -85,6 +85,19 @@ Additional acceptance session:
 - Pointer-event modifier matrix passed at 50%, 100% and 200%: without Alt, the endpoint binds to the port; with Alt, it remains a free point. Modifier rows are handler-level checks, not native held-key tests.
 - Original document restored without saving. Browser error list empty.
 
+## W4.1 user-acceptance corrections — 2026-10-30
+
+Native browser checks (dev preview, desktop 1135×853, dark) on a wiring QA page; original project data not saved:
+
+- Text tool: real click opens the inline editor with focus; typing, Escape-commit, moving, deleting and Undo/Redo of the deleted text all pass.
+- Multi-selection: rubber band over two natively drawn rectangles shows "2 Objekte" with shared stroke colour, stroke width and line style.
+- Live properties: typing a stroke width updates both rectangles immediately without a history entry; blur commits exactly one entry; a single Undo restores both, Redo reapplies.
+- Port manager: opens from the inspector, row hover highlights the port on the canvas; Ctrl/Cmd-click multi-selects ports for shared editing and Delete removes them.
+- Fixed: modifier shortcuts (Ctrl/Cmd+Z, Ctrl+Y, Ctrl+S …) were swallowed while focus sat on a non-text control (select, checkbox, colour, range). They now reach the app; arrow keys, Delete and plain typing still stay with the control. Text inputs keep their native undo.
+- A stale Vite transform once served an outdated `historyStore` (missing `endPropertyEdit` import) and made Undo look broken; touching the files fixed it. Source was correct; this was a dev-server cache issue, not a product defect.
+
+Automated: `npm run typecheck` clean, `npm test` 139/139 pass, `npm run build` succeeds (only the existing chunk-size warning).
+
 ## Vercel and PR status
 
 GitHub commit status for implementation `4abe402` reports Vercel **success**:
@@ -104,5 +117,6 @@ No PR existed for the source branch when previously checked. The available GitHu
 - Only internal segments have segment handles. Straight or single-elbow free routes have no internal segment to drag; endpoints remain editable.
 - Missing external references are retained as unresolved; no fabricated origin coordinate is persisted. Fully unresolved connections have no known geometry to render.
 - Native endpoint binding at three zoom levels, segment dragging and Escape cancellation are now checked. Exhaustive gesture/modifier combinations (including native held-key modifiers), exhaustive Schematic regression and authenticated deployed Vercel browser QA remain open.
+- Text, multi-selection, live properties and port manager are natively checked locally (see W4.1 user-acceptance corrections); they are not yet checked on the protected Vercel deployment.
 - PR creation and review remain open; historical W3.5.1 acceptance gaps are not implicitly closed by this report.
 - Asset upload, electrical semantics for connections, automatic obstacle routing and grouping/locking are outside this implementation.
