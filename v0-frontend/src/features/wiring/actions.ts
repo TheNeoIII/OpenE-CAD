@@ -61,6 +61,15 @@ export function addPort(objectId: string, anchor: Pick<CadPort, 'edge' | 't'>) {
   if (!owner || owner.id !== objectId) return
   const port: CadPort = { id: uid('port'), edge: anchor.edge, t: clampPortT(anchor.t), label: '', portType: 'generic', direction: 'bidirectional' }
   updateShape(objectId, { ports: [...(owner.ports ?? []), port] }, 'Port hinzugefügt')
+  return port.id
+}
+
+/** Applies one patch to several ports of the same block as a single undo step. */
+export function updatePorts(objectId: string, portIds: readonly string[], patch: Partial<Pick<CadPort, 'portType' | 'direction' | 'labelPlacement'>>) {
+  const ports = activePage()?.diagramBlocks?.find((o) => o.id === objectId)?.ports?.filter((p) => portIds.includes(p.id)) ?? []
+  const changed = ports.filter((port) => Object.entries(patch).some(([key, value]) => port[key as keyof CadPort] !== value))
+  if (!changed.length) return
+  withActivePage(changed.length > 1 ? 'Ports geändert' : 'Port geändert', (p) => changed.reduce((page, port) => updatePortOnPage(page, objectId, port.id, patch), p))
 }
 
 export function updatePort(objectId: string, portId: string, patch: Partial<CadPort>) {

@@ -26,6 +26,7 @@ import { WiringInlineEditor } from './WiringInlineEditor'
 import type { InlineEditTarget } from '../models/inlineEdit'
 import { escapeAction, toolMatchesType, toolPointerIntent } from '../models/interaction'
 
+import { usePortSelectionStore } from '../models/portSelection'
 import { nearestPortAnchor, portOwnerBounds, portWorldPosition, selectedPortOwner, updatePortOnPage, wiringPortAnchors } from '../models/ports'
 import { WiringPorts } from './WiringPorts'
 
@@ -91,6 +92,10 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   const [portHover, setPortHover] = useState<ReturnType<typeof nearestPortAnchor> | null>(null)
   const portOwner = selectedPortOwner(page, selection)
   const tool = WIRING_TOOLS.has(rawTool) ? rawTool : 'select'
+  const portSelection = usePortSelectionStore()
+  useEffect(() => {
+    if (tool !== 'port' || portSelection.objectId !== portOwner?.id) usePortSelectionStore.getState().clear()
+  }, [tool, portOwner?.id, page.id, portSelection.objectId])
 
   useEffect(() => {
     if (!WIRING_TOOLS.has(useToolStore.getState().tool)) useToolStore.getState().setTool('select')
@@ -210,6 +215,9 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
         useSelectionStore.getState().set([hitOwner.id])
         const port = hitOwner.ports?.find((p) => p.id === portId)
         if (!port) return setGesture(null)
+        const ports = usePortSelectionStore.getState()
+        if (e.ctrlKey || e.metaKey) { ports.select(hitOwner.id, portId, true); return setGesture(null) }
+        if (!(ports.objectId === hitOwner.id && ports.portIds.includes(portId))) ports.select(hitOwner.id, portId)
         return setGesture({ kind: 'portMove', objectId: hitOwner.id, portId, anchor: { edge: port.edge, t: port.t, point: portWorldPosition(portOwnerBounds(hitOwner), port) } })
       }
       if (!portOwner || ownerId !== portOwner.id) return setGesture(null)
@@ -344,7 +352,10 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       setConnectionDraft(null)
     }
     if (gesture?.kind === 'connection' && gesture.next !== gesture.original) updateConnection(gesture.original.id, connectionGestureAt(gesture, toWorld(e), e))
-    if (gesture?.kind === 'portCreate') addPort(gesture.objectId, gesture.anchor)
+    if (gesture?.kind === 'portCreate') {
+      const created = addPort(gesture.objectId, gesture.anchor)
+      if (created) usePortSelectionStore.getState().select(gesture.objectId, created)
+    }
     if (gesture?.kind === 'portMove') updatePort(gesture.objectId, gesture.portId, { edge: gesture.anchor.edge, t: gesture.anchor.t })
     if (gesture?.kind === 'shapeCreate') (gesture.shape === 'diagramBlock' ? addDiagramBlock : gesture.shape === 'rectangle' ? addRectangle : addEllipse)(gesture.start, gesture.end)
     if (gesture?.kind === 'drag' && (gesture.dx || gesture.dy)) moveWiringObjects(gesture.ids, gesture.dx, gesture.dy)
@@ -492,7 +503,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
             </g>
           )}
 
-          <WiringPorts page={shownPage} s={s} cursor={tool === 'port' ? 'move' : tool === 'connection' || gesture?.kind === 'connection' ? 'crosshair' : 'default'} editing={editing?.kind === 'portLabel' ? editing : undefined} />
+          <WiringPorts page={shownPage} s={s} cursor={tool === 'port' ? 'move' : tool === 'connection' || gesture?.kind === 'connection' ? 'crosshair' : 'default'} editing={editing?.kind === 'portLabel' ? editing : undefined} selected={tool === 'port' ? portSelection : undefined} />
           {(() => {
             const anchor = gesture?.kind === 'portCreate' ? gesture.anchor : tool === 'port' && portOwner ? portHover : null
             return anchor && <circle cx={anchor.point.x} cy={anchor.point.y} r={5 / s} fill={PREVIEW} pointerEvents="none" />
