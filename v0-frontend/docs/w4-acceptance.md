@@ -4,7 +4,21 @@ Stand: 2026-10-28. Base: `c941aa7d4b96a1fcc9c5c1a698af0048063b06b9`.
 Implementation commit: `4abe402fbc8198184d3712275c0f0de5e7a35663`.
 This report distinguishes tested behavior from remaining acceptance work. No blanket full-release claim.
 
-## Implemented
+## W4.1 routing checkpoint — 2026-10-30 (not merge-ready)
+
+The W4 evidence below is historical, not proof of W4.1 acceptance. Product-owner testing exposed pointer lock, missing boundary-segment handles, routing, text-tool and live-property defects. In particular any historical claim that Escape discards dirty inline text is superseded: dirty inline text + Escape commits once; unchanged text closes without a commit.
+
+This checkpoint adds bounded local route candidates (not global obstacle routing), checks for backtracking and non-adjacent segment intersections, shortest valid automatic routes, preservation of valid manual routes and render-time automatic fallback for invalid manual routes. Both bound diagram-block bounds are considered. Opposing aligned ports resolve to two points/one segment. Invalid segment moves retain the previous geometry rather than introducing a crossing.
+
+Validation in this continuation:
+- `pnpm test`: 124 passed, zero failures (37 connection tests).
+- `pnpm typecheck` and `pnpm build`: passed.
+- Native browser, local development preview, dark UI, 1135×853: opened the project and created a Wiring page through the UI; dragged a free-to-free connection; selected it and observed exactly one segment handle; dragged that handle into a three-segment dogleg with unchanged endpoints; Undo restored the straight route, Redo restored the dogleg. No browser errors reported. No handler dispatch or document-store injection used for this evidence.
+- Automated coverage: short/straight segment edits, every port-edge pair across six non-overlapping owner arrangements, normal directions, normalization, crossing/backtracking detection, valid manual-route preservation.
+
+Remaining acceptance work: shape endpoints/highlights, multi-port selection and floating manager, connection presets, live property sessions, shared selection properties, complete native text/pointer/reattach and schematic regression matrix. Bound endpoint-adjacent manual edits still need native acceptance; forcing outward normals can reject a user dogleg. Invalid stored manual waypoints are currently bypassed during resolution, not rewritten in document history. Overlapping owners/coincident endpoints can make an outward route impossible; the fallback does not guarantee owner avoidance in that case. Vercel deployment QA and the full W4.1 PR gate are not completed.
+
+## Implemented (historical W4)
 
 | Contract | Result |
 |---|---|

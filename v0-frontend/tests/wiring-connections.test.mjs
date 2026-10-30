@@ -103,7 +103,7 @@ for (const vertical of [true, false]) test(`segment editing preserves endpoints 
   assert.deepEqual(next.at(-1), points.at(-1))
   assert.equal(vertical ? next[1].x : next[1].y, 150)
   for (const index of [0, points.length - 2]) {
-    const boundary = routing.moveConnectionSegment(points, index, { x: 999, y: 999 })
+    const boundary = routing.moveConnectionSegment(points, index, { x: index === 0 ? -50 : 150, y: index === 0 ? -50 : 150 })
     orthogonal(boundary)
     assert.deepEqual(boundary[0], points[0])
     assert.deepEqual(boundary.at(-1), points.at(-1))
@@ -117,6 +117,46 @@ test('manual waypoints remain persistent after owners move; output stays orthogo
   const changed = shapes.translateGraphics(p, ['a'], 70, 90)
   assert.deepEqual(changed.connections[0].routePoints, c.routePoints)
   orthogonal(domain.resolveConnectionPolyline(changed, c))
+})
+
+test('straight bound route has one segment; short and straight segments remain editable', () => {
+  assert.deepEqual(domain.resolveConnectionPolyline(page(), connection()), [{ x: 300, y: 300 }, { x: 800, y: 300 }])
+  for (const points of [
+    [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+    [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }],
+  ]) for (let index = 0; index < points.length - 1; index++) {
+    const moved = routing.moveConnectionSegment(points, index, { x: 2, y: -2 })
+    orthogonal(moved)
+    assert.notDeepEqual(moved, points)
+    assert.deepEqual(moved[0], points[0])
+    assert.deepEqual(moved.at(-1), points.at(-1))
+    assert.equal(routing.hasRouteDegeneracy(moved), false)
+  }
+})
+
+test('sanitation detects backtracking and self-crossing, preserves valid manual routes', () => {
+  const a = { x: 0, y: 0 }, b = { x: 300, y: 200 }
+  assert.equal(routing.hasRouteDegeneracy([a, { x: 100, y: 0 }, { x: 50, y: 0 }]), true)
+  const crossing = [a, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 50, y: 100 }, { x: 50, y: -50 }]
+  assert.equal(routing.hasRouteDegeneracy(crossing), true)
+  const sanitized = routing.routeConnection(a, b, undefined, undefined, crossing.slice(1))
+  assert.equal(routing.hasRouteDegeneracy(sanitized), false)
+  const manual = [{ x: 0, y: 80 }, { x: 300, y: 80 }]
+  assert.deepEqual(routing.routeConnection(a, b, undefined, undefined, manual), [a, ...manual, b])
+})
+
+test('owner movement and port reattachment avoid both owners for every edge pair', () => {
+  for (const x of [-600, 100, 800]) for (const y of [-500, 700]) {
+    for (const startEdge of ['top', 'right', 'bottom', 'left']) for (const endEdge of ['top', 'right', 'bottom', 'left']) {
+      const p = page()
+      p.diagramBlocks[0].ports[0].edge = startEdge
+      p.diagramBlocks[1] = { ...block('b', x, endEdge), y }
+      const route = domain.resolveConnectionPolyline(p, connection())
+      orthogonal(route)
+      assert.equal(routing.hasRouteDegeneracy(route), false)
+      for (const owner of p.diagramBlocks) assert.equal(routing.routeCrossesOwner(route, ports.portOwnerBounds(owner)), false, `${startEdge}/${endEdge}: ${JSON.stringify(route)}`)
+    }
+  }
 })
 
 test('delete detaches only selected owner/port references; unresolved data is preserved', () => {

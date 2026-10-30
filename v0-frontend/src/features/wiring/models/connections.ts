@@ -21,7 +21,11 @@ export function resolveConnectionPolyline(page: CadPage, connection: CadConnecti
   if (page.kind !== 'wiring') return []
   const a = resolveConnectionEndpoint(page, connection.start)
   const b = resolveConnectionEndpoint(page, connection.end)
-  if (a && b) return routeConnection(a, b, boundPort(page, connection.start)?.port.edge, boundPort(page, connection.end)?.port.edge, connection.routePoints)
+  if (a && b) {
+    const start = boundPort(page, connection.start), end = boundPort(page, connection.end)
+    const owners = [start, end].flatMap((bound) => bound ? [portOwnerBounds(bound.owner)] : [])
+    return routeConnection(a, b, start?.port.edge, end?.port.edge, connection.routePoints, owners)
+  }
   // Unresolved references remain references. Only known points can form a warning route.
   const known = [...(a ? [a] : []), ...(connection.routePoints ?? []), ...(b ? [b] : [])]
   return known.reduce<Point[]>((result, p) => result.length ? [...result, ...orthogonalRoute(result.at(-1)!, p).slice(1)] : [{ ...p }], [])

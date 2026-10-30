@@ -1,9 +1,8 @@
-import type { CadPortEdge, Point } from '@/types/cad'
+import type { CadPortEdge, Point, Rect } from '@/types/cad'
 
 /** 5 mm in document units, independent of viewport zoom. */
 export const CONNECTION_LEAD = 50
 const equal = (a: Point, b: Point) => a.x === b.x && a.y === b.y
-const horizontal = (edge: CadPortEdge) => edge === 'left' || edge === 'right'
 const normals: Record<CadPortEdge, Point> = { top: { x: 0, y: -1 }, right: { x: 1, y: 0 }, bottom: { x: 0, y: 1 }, left: { x: -1, y: 0 } }
 
 export function normalizeOrthogonalPoints(points: readonly Point[]): Point[] {
@@ -32,28 +31,56 @@ function lead(point: Point, edge?: CadPortEdge): Point {
   return edge ? { x: point.x + normals[edge].x * CONNECTION_LEAD, y: point.y + normals[edge].y * CONNECTION_LEAD } : point
 }
 
-export function routeConnection(a: Point, b: Point, startEdge?: CadPortEdge, endEdge?: CadPortEdge, manual?: readonly Point[]): Point[] {
-  const start = lead(a, startEdge)
-  const end = lead(b, endEdge)
-  let middle: Point[]
-  if (manual?.length) {
-    middle = [start]
-    for (const point of [...manual, end]) {
-      middle.push(...orthogonalRoute(middle.at(-1)!, point, middle.length === 1 && startEdge && horizontal(startEdge) ? 'VH' : 'HV').slice(1))
+export function hasRouteDegeneracy(points: readonly Point[]): boolean {
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i]
+    if (!Number.isFinite(b.x) || !Number.isFinite(b.y) || equal(a, b) || (a.x !== b.x && a.y !== b.y)) return true
+    if (i > 1) {
+      const previous = points[i - 2]
+      if ((a.x - previous.x) * (b.x - a.x) + (a.y - previous.y) * (b.y - a.y) < 0) return true
     }
-  } else if (startEdge && endEdge && horizontal(startEdge) === horizontal(endEdge)) {
-    if (horizontal(startEdge)) {
-      const y = start.y === end.y ? start.y + CONNECTION_LEAD : (start.y + end.y) / 2
-      middle = [start, { x: start.x, y }, { x: end.x, y }, end]
-    } else {
-      const x = start.x === end.x ? start.x + CONNECTION_LEAD : (start.x + end.x) / 2
-      middle = [start, { x, y: start.y }, { x, y: end.y }, end]
+    for (let j = 1; j < i - 1; j++) {
+      const c = points[j - 1], d = points[j]
+      if (Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x)) <= Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x)) &&
+          Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y)) <= Math.min(Math.max(a.y, b.y), Math.max(c.y, d.y))) return true
     }
-  } else {
-    const mode = startEdge ? (horizontal(startEdge) ? 'VH' : 'HV') : endEdge && !horizontal(endEdge) ? 'VH' : 'HV'
-    middle = orthogonalRoute(start, end, mode)
   }
-  return normalizeOrthogonalPoints([a, ...middle, b])
+  return points.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))
+}
+
+export function routeCrossesOwner(points: readonly Point[], bounds: Rect): boolean {
+  return points.slice(1).some((b, index) => {
+    const a = points[index]
+    return a.x === b.x
+      ? a.x > bounds.x && a.x < bounds.x + bounds.w && Math.max(a.y, b.y) > bounds.y && Math.min(a.y, b.y) < bounds.y + bounds.h
+      : a.y > bounds.y && a.y < bounds.y + bounds.h && Math.max(a.x, b.x) > bounds.x && Math.min(a.x, b.x) < bounds.x + bounds.w
+  })
+}
+
+export function routeConnection(a: Point, b: Point, startEdge?: CadPortEdge, endEdge?: CadPortEdge, manual?: readonly Point[], owners: readonly Rect[] = []): Point[] {
+  const start = lead(a, startEdge), end = lead(b, endEdge)
+  const outward = (origin: Point, next: Point, edge?: CadPortEdge) => !edge || (next.x - origin.x) * normals[edge].x + (next.y - origin.y) * normals[edge].y > 0
+  const valid = (points: Point[]) => points.length >= 2 && !hasRouteDegeneracy(points) && outward(a, points[1], startEdge) && outward(b, points.at(-2)!, endEdge) && !owners.some((owner) => routeCrossesOwner(points, owner))
+  if (manual?.length) {
+    const points = [a]
+    for (const point of [...manual, b]) points.push(...orthogonalRoute(points.at(-1)!, point).slice(1))
+    const normalized = normalizeOrthogonalPoints(points)
+    if (valid(normalized)) return normalized
+  }
+  const xs = [start.x, end.x, (start.x + end.x) / 2, Math.min(a.x, b.x, ...owners.map((o) => o.x)) - CONNECTION_LEAD * 2, Math.max(a.x, b.x, ...owners.map((o) => o.x + o.w)) + CONNECTION_LEAD * 2]
+  const ys = [start.y, end.y, (start.y + end.y) / 2, Math.min(a.y, b.y, ...owners.map((o) => o.y)) - CONNECTION_LEAD * 2, Math.max(a.y, b.y, ...owners.map((o) => o.y + o.h)) + CONNECTION_LEAD * 2]
+  const candidates: Point[][] = [orthogonalRoute(start, end), orthogonalRoute(start, end, 'VH')]
+  for (const x of xs) candidates.push([start, { x, y: start.y }, { x, y: end.y }, end])
+  for (const y of ys) candidates.push([start, { x: start.x, y }, { x: end.x, y }, end])
+  for (const x of xs) for (const y of ys) {
+    candidates.push([start, { x, y: start.y }, { x, y }, { x: end.x, y }, end])
+    candidates.push([start, { x: start.x, y }, { x, y }, { x, y: end.y }, end])
+  }
+  const routes = candidates.map((middle) => normalizeOrthogonalPoints([a, ...middle, b])).filter(valid)
+  const length = (points: Point[]) => points.slice(1).reduce((sum, p, i) => sum + Math.abs(p.x - points[i].x) + Math.abs(p.y - points[i].y), 0)
+  routes.sort((left, right) => length(left) - length(right) || left.length - right.length)
+  // Overlapping owners or coincident endpoints can make an outward route impossible.
+  return routes[0] ?? orthogonalRoute(a, b)
 }
 
 /** Boundary segments gain doglegs so both endpoint positions remain unchanged. */
@@ -67,5 +94,6 @@ export function moveConnectionSegment(points: readonly Point[], index: number, a
   else throw new Error('Diagonal connection segment')
   if (index === 0) next.unshift({ ...points[0] })
   if (index === points.length - 2) next.push({ ...points.at(-1)! })
-  return normalizeOrthogonalPoints(next)
+  const normalized = normalizeOrthogonalPoints(next)
+  return hasRouteDegeneracy(normalized) ? points.map((p) => ({ ...p })) : normalized
 }
