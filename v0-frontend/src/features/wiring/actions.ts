@@ -8,7 +8,7 @@ import { uid } from '@/utils/format'
 import { creationBounds, findLine, findShape, moveLineVertexOnPage, resizeShapeOnPage, translateGraphics } from './models/shapes'
 import { applyEditOnPage, EDIT_LABELS, readEditValue, type InlineEditTarget } from './models/inlineEdit'
 
-import { clampPortT, selectedPortOwner, updatePortOnPage } from './models/ports'
+import { clampPortT, movePortsOnPage, selectedPortOwner, updatePortOnPage } from './models/ports'
 
 export const DEFAULT_SHAPE_STYLE: CadShapeStyle = { stroke: '#1f2937', strokeWidth: 3, lineStyle: 'solid', fill: 'none' }
 
@@ -79,12 +79,28 @@ export function updatePort(objectId: string, portId: string, patch: Partial<CadP
 }
 
 export function deletePort(objectId: string, portId: string) {
+  deletePorts(objectId, [portId])
+}
+
+/** Deletes several ports of one block as a single undo step; attached connection ends are detached in place. */
+export function deletePorts(objectId: string, portIds: readonly string[]) {
   const owner = activePage()?.diagramBlocks?.find((o) => o.id === objectId)
-  if (!owner?.ports?.some((p) => p.id === portId)) return
-  withActivePage('Port gelöscht', (page) => ({
-    ...(page.connections?.length ? detachConnectionEndpoints(page, (e) => e.kind === 'port' && e.objectId === objectId && e.portId === portId) : page),
-    diagramBlocks: (page.diagramBlocks ?? []).map((b) => b.id === objectId ? { ...b, ports: b.ports?.filter((p) => p.id !== portId) } : b),
+  const ids = new Set((owner?.ports ?? []).filter((p) => portIds.includes(p.id)).map((p) => p.id))
+  if (!ids.size) return
+  withActivePage(ids.size > 1 ? `${ids.size} Ports gelöscht` : 'Port gelöscht', (page) => ({
+    ...(page.connections?.length ? detachConnectionEndpoints(page, (e) => e.kind === 'port' && e.objectId === objectId && ids.has(e.portId)) : page),
+    diagramBlocks: (page.diagramBlocks ?? []).map((b) => b.id === objectId ? { ...b, ports: b.ports?.filter((p) => !ids.has(p.id)) } : b),
   }))
+}
+
+export function movePorts(objectId: string, portIds: readonly string[], draggedId: string, anchor: Pick<CadPort, 'edge' | 't'>) {
+  const page = activePage()
+  if (!page) return
+  const before = page.diagramBlocks?.find((o) => o.id === objectId)?.ports
+  const after = movePortsOnPage(page, objectId, portIds, draggedId, anchor).diagramBlocks?.find((o) => o.id === objectId)?.ports
+  if (!before || JSON.stringify(before) === JSON.stringify(after)) return
+  const label = portIds.length > 1 && portIds.includes(draggedId) ? 'Ports verschoben' : 'Port verschoben'
+  withActivePage(label, (p) => movePortsOnPage(p, objectId, portIds, draggedId, anchor))
 }
 
 export function addRectangle(a: Point, b: Point) {

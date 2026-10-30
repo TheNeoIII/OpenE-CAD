@@ -18,7 +18,7 @@ import { pageRect, panBy } from '@/features/drawing/viewportActions'
 import { useViewportHost } from '@/features/drawing/useViewportHost'
 import { CanvasScrollbars } from '@/features/drawing/components/CanvasScrollbars'
 import { SnapIndicator } from '@/features/drawing/components/SnapIndicator'
-import { addDiagramBlock, addPort, updatePort, addEllipse, addPolyline, addRectangle, applyInlineEdit, moveLineVertex, moveWiringObjects, resizeShape } from '../actions'
+import { addDiagramBlock, addPort, deletePorts, movePorts, addEllipse, addPolyline, addRectangle, applyInlineEdit, moveLineVertex, moveWiringObjects, resizeShape } from '../actions'
 import { findShape, graphicAnchors, graphicBounds, MIN_SHAPE_SIZE, moveLineVertexOnPage, resizeShapeOnPage, shapeBox, translateGraphics, wiringGraphics } from '../models/shapes'
 import { WIRING_TOOLS } from '../profile'
 import { WiringDrawing } from './WiringDrawing'
@@ -27,7 +27,7 @@ import type { InlineEditTarget } from '../models/inlineEdit'
 import { escapeAction, toolMatchesType, toolPointerIntent } from '../models/interaction'
 
 import { usePortSelectionStore } from '../models/portSelection'
-import { nearestPortAnchor, portOwnerBounds, portWorldPosition, selectedPortOwner, updatePortOnPage, wiringPortAnchors } from '../models/ports'
+import { nearestPortAnchor, portOwnerBounds, portWorldPosition, movePortsOnPage, selectedPortOwner, wiringPortAnchors } from '../models/ports'
 import { WiringPorts } from './WiringPorts'
 
 const PREVIEW = 'var(--sheet-select)'
@@ -118,6 +118,15 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
         else if (action === 'cancelDraft') t.setDraft([])
         else if (action === 'clearSelection') sel.clear()
         else if (action === 'exitTool') { setPortHover(null); t.setTool('select') }
+        return
+      }
+      if (t.tool === 'port' && (e.key === 'Delete' || e.key === 'Backspace')) {
+        const ports = usePortSelectionStore.getState()
+        if (!ports.objectId || !ports.portIds.length) return
+        // Swallow so the global delete command does not remove the owning block.
+        swallow()
+        deletePorts(ports.objectId, ports.portIds)
+        ports.clear()
         return
       }
       if (t.tool === 'line' && t.wireDraft.length) {
@@ -356,7 +365,10 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       const created = addPort(gesture.objectId, gesture.anchor)
       if (created) usePortSelectionStore.getState().select(gesture.objectId, created)
     }
-    if (gesture?.kind === 'portMove') updatePort(gesture.objectId, gesture.portId, { edge: gesture.anchor.edge, t: gesture.anchor.t })
+    if (gesture?.kind === 'portMove') {
+      const ports = usePortSelectionStore.getState()
+      movePorts(gesture.objectId, ports.objectId === gesture.objectId ? ports.portIds : [], gesture.portId, gesture.anchor)
+    }
     if (gesture?.kind === 'shapeCreate') (gesture.shape === 'diagramBlock' ? addDiagramBlock : gesture.shape === 'rectangle' ? addRectangle : addEllipse)(gesture.start, gesture.end)
     if (gesture?.kind === 'drag' && (gesture.dx || gesture.dy)) moveWiringObjects(gesture.ids, gesture.dx, gesture.dy)
     if (gesture?.kind === 'resize' && !sameRect(gesture.rect, gesture.start)) resizeShape(gesture.id, gesture.rect)
@@ -431,7 +443,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     gesture?.kind === 'connection'
       ? { ...page, connections: page.connections?.map((c) => c.id === gesture.original.id ? gesture.next : c) }
       : gesture?.kind === 'portMove'
-      ? updatePortOnPage(page, gesture.objectId, gesture.portId, { edge: gesture.anchor.edge, t: gesture.anchor.t })
+      ? movePortsOnPage(page, gesture.objectId, portSelection.objectId === gesture.objectId ? portSelection.portIds : [], gesture.portId, gesture.anchor)
       : gesture?.kind === 'drag' && (gesture.dx || gesture.dy)
       ? translateGraphics(page, gesture.ids, gesture.dx, gesture.dy)
       : gesture?.kind === 'resize'
