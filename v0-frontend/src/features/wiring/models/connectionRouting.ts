@@ -56,14 +56,16 @@ export function routeConnection(a: Point, b: Point, startEdge?: CadPortEdge, end
   return normalizeOrthogonalPoints([a, ...middle, b])
 }
 
-/** Internal segments only; endpoints and their semantic bindings cannot move here. */
+/** Boundary segments gain doglegs so both endpoint positions remain unchanged. */
 export function moveConnectionSegment(points: readonly Point[], index: number, at: Point): Point[] {
-  if (!Number.isInteger(index) || index < 1 || index >= points.length - 2) return points.map((p) => ({ ...p }))
+  if (!Number.isInteger(index) || index < 0 || index >= points.length - 1) return points.map((p) => ({ ...p }))
   const next = points.map((p) => ({ ...p }))
   const a = next[index]
   const b = next[index + 1]
   if (a.x === b.x) a.x = b.x = at.x
   else if (a.y === b.y) a.y = b.y = at.y
   else throw new Error('Diagonal connection segment')
+  if (index === 0) next.unshift({ ...points[0] })
+  if (index === points.length - 2) next.push({ ...points.at(-1)! })
   return normalizeOrthogonalPoints(next)
 }

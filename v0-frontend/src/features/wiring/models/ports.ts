@@ -14,7 +14,7 @@ export function portWorldPosition(bounds: Rect, port: Pick<CadPort, 'edge' | 't'
   }
 }
 
-export function nearestPortAnchor(bounds: Rect, worldPoint: Point) {
+export function nearestPortAnchor(bounds: Rect, worldPoint: Point, grid?: number) {
   const edges: CadPortEdge[] = ['top', 'right', 'bottom', 'left']
   const candidates = edges.map((edge) => {
     const horizontal = edge === 'top' || edge === 'bottom'
@@ -23,7 +23,14 @@ export function nearestPortAnchor(bounds: Rect, worldPoint: Point) {
     return { edge, t, point: portWorldPosition(bounds, { edge, t }) }
   })
   const distance = ({ point }: typeof candidates[number]) => Math.hypot(point.x - worldPoint.x, point.y - worldPoint.y)
-  return candidates.reduce((best, next) => distance(next) < distance(best) ? next : best)
+  const nearest = candidates.reduce((best, next) => distance(next) < distance(best) ? next : best)
+  if (!grid || grid <= 0) return nearest
+  const horizontal = nearest.edge === 'top' || nearest.edge === 'bottom'
+  const length = horizontal ? bounds.w : bounds.h
+  const coordinate = horizontal ? nearest.point.x : nearest.point.y
+  const origin = horizontal ? bounds.x : bounds.y
+  const t = clampPortT(length > 0 ? (Math.round(coordinate / grid) * grid - origin) / length : 0)
+  return { edge: nearest.edge, t, point: portWorldPosition(bounds, { edge: nearest.edge, t }) }
 }
 
 export function selectedPortOwner(page: CadPage | null | undefined, ids: readonly string[]): PortOwner | undefined {

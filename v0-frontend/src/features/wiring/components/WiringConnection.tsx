@@ -22,9 +22,9 @@ export function WiringConnection({ page, connection, s = 1, selected = false, ed
 export function ConnectionHandles({ page, connection, s }: { page: CadPage; connection: CadConnection; s: number }) {
   const points = resolveConnectionPolyline(page, connection)
   return <g data-id={connection.id} aria-label="Verbindungsbearbeitung">
-    {points.slice(1, -2).map((a, offset) => {
-      const index = offset + 1
+    {points.slice(0, -1).map((a, index) => {
       const b = points[index + 1]
+      if (a.x === b.x && a.y === b.y) return null
       return <g key={index} data-connection-segment={index} style={{ cursor: a.x === b.x ? 'ew-resize' : 'ns-resize' }}>
         <path d={polylinePath([a, b])} stroke="transparent" strokeWidth={12 / s} />
         <rect x={(a.x + b.x) / 2 - 3 / s} y={(a.y + b.y) / 2 - 3 / s} width={6 / s} height={6 / s} fill="var(--sheet-paper, white)" stroke="var(--sheet-select)" strokeWidth={1 / s} />

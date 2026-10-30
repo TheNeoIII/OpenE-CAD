@@ -102,7 +102,13 @@ for (const vertical of [true, false]) test(`segment editing preserves endpoints 
   assert.deepEqual(next[0], points[0])
   assert.deepEqual(next.at(-1), points.at(-1))
   assert.equal(vertical ? next[1].x : next[1].y, 150)
-  assert.deepEqual(routing.moveConnectionSegment(points, 0, { x: 999, y: 999 }), points)
+  for (const index of [0, points.length - 2]) {
+    const boundary = routing.moveConnectionSegment(points, index, { x: 999, y: 999 })
+    orthogonal(boundary)
+    assert.deepEqual(boundary[0], points[0])
+    assert.deepEqual(boundary.at(-1), points.at(-1))
+    assert.notDeepEqual(boundary, points)
+  }
 })
 
 test('manual waypoints remain persistent after owners move; output stays orthogonal', () => {
