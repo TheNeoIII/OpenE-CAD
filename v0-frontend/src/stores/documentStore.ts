@@ -23,6 +23,28 @@ function defaultPage(doc: CadDocument) {
   return (richest ?? doc.pages[0])?.id ?? null
 }
 
+let propertyEdit: { before: CadDocument; label: string } | null = null
+
+/**
+ * Starts a live property edit: subsequent commits preview immediately without history entries.
+ * Idempotent while a session is open.
+ */
+export function beginPropertyEdit() {
+  const doc = useDocumentStore.getState().document
+  if (!propertyEdit && doc) propertyEdit = { before: doc, label: '' }
+}
+
+/** Ends the live edit: `keep` records exactly one undo step, otherwise the original document is restored. */
+export function endPropertyEdit(keep = true) {
+  const session = propertyEdit
+  propertyEdit = null
+  if (!session) return
+  const current = useDocumentStore.getState().document
+  if (!current || current === session.before) return
+  if (keep) useHistoryStore.getState().push(session.label || 'Eigenschaft geändert', session.before)
+  else useDocumentStore.getState().replace(session.before)
+}
+
 export const useDocumentStore = create<DocumentState>((set, get) => ({
   document: null,
   activePageId: null,
@@ -48,6 +70,12 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     if (!prev) return
     const next = fn(prev)
     if (next === prev) return
+    if (propertyEdit) {
+      propertyEdit.label = label
+      get().replace(next)
+      useProjectStore.getState().setDirty(true)
+      return
+    }
     useHistoryStore.getState().push(label, prev)
     get().replace(next)
     useProjectStore.getState().setDirty(true)

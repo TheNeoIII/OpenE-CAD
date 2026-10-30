@@ -17,6 +17,7 @@ import { LINE_STYLE_LABELS, potentialDefsOf, presetPatch, presetsOf, styleResolv
 import { connectedConductors } from '../models/netTrace'
 import { WireSwatch } from './WireSwatch'
 import { MultiProperties } from './MultiProperties'
+import { WiringMultiProperties } from '@/features/wiring/components/WiringMultiProperties'
 import { symbolLabelPosition } from '../models/labels'
 import { CONDUCTOR_LABEL_POSITIONS, conductorLabelPosPatch } from '../models/conductorLabels'
 import type { ConductorLabelPos } from '@/types/cad'
@@ -350,6 +351,7 @@ function Properties() {
       </div>
     )
   }
+  if (ids.length > 1 && page.kind === 'wiring') return <WiringMultiProperties page={page} ids={ids} />
   if (ids.length > 1) {
     const selected = ids.map((id) => findObject(page, id)).filter((o): o is CadObject => !!o)
     return <MultiProperties objects={selected} />

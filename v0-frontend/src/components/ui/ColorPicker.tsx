@@ -274,14 +274,26 @@ function PickerBody({ initial, hsv, setHsv }: { initial: string; hsv: Hsv; setHs
   )
 }
 
-export function ColorPicker({ value, onChange, label, children }: { value: string; onChange: (color: string) => void; label: string; children?: ReactNode }) {
+/**
+ * `onPreview` receives every intermediate colour while the dialog is open; `onCancel` must then restore the original.
+ * Without them only the applied colour is reported.
+ */
+export function ColorPicker({ value, onChange, onPreview, onCancel, label, children }: { value: string; onChange: (color: string) => void; onPreview?: (color: string) => void; onCancel?: () => void; label: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false)
-  const initial = hexToRgb(value) ? value : '#ffffff'
-  const [hsv, setHsv] = useState<Hsv>(() => rgbToHsv(hexToRgb(initial)!))
-  const close = () => setOpen(false)
+  const [initial, setInitial] = useState(() => (hexToRgb(value) ? value : '#ffffff'))
+  const [hsv, setHsvState] = useState<Hsv>(() => rgbToHsv(hexToRgb(initial)!))
+  const setHsv = (next: Hsv | ((prev: Hsv) => Hsv)) => {
+    const resolved = typeof next === 'function' ? next(hsv) : next
+    setHsvState(resolved)
+    onPreview?.(rgbToHex(hsvToRgb(resolved)))
+  }
+  const close = () => {
+    onCancel?.()
+    setOpen(false)
+  }
   const apply = () => {
     onChange(rgbToHex(hsvToRgb(hsv)))
-    close()
+    setOpen(false)
   }
   return (
     <>
@@ -290,7 +302,12 @@ export function ColorPicker({ value, onChange, label, children }: { value: strin
         aria-label={label}
         aria-haspopup="dialog"
         title={label}
-        onClick={() => { setHsv(rgbToHsv(hexToRgb(initial)!)); setOpen(true) }}
+        onClick={() => {
+          const start = hexToRgb(value) ? value : '#ffffff'
+          setInitial(start)
+          setHsvState(rgbToHsv(hexToRgb(start)!))
+          setOpen(true)
+        }}
         className="inline-flex min-h-7 items-center justify-center rounded border border-line p-1 focus-visible:outline focus-visible:outline-accent"
       >
         {children ?? <span className="h-5 w-10 rounded-sm border border-white/20" style={{ backgroundColor: value }} />}

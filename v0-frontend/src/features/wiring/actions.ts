@@ -176,3 +176,25 @@ export function updateShape(id: string, patch: Partial<Shape>, label = 'Grafik g
     return { ...p, rectangles: apply(s.rectangles), ellipses: apply(s.ellipses), images: apply(s.images), diagramBlocks: apply(s.diagramBlocks) }
   })
 }
+
+export type WiringStylePatch = { stroke?: string; strokeWidth?: number; lineStyle?: LineStyle }
+
+/** Applies shared stroke properties to every selected shape, free line and connection in one undo step. */
+export function updateWiringStyles(ids: readonly string[], patch: WiringStylePatch) {
+  const set = new Set(ids)
+  const shapePatch = { ...(patch.stroke !== undefined && { stroke: patch.stroke }), ...(patch.strokeWidth !== undefined && { strokeWidth: patch.strokeWidth }), ...(patch.lineStyle && { lineStyle: patch.lineStyle }) }
+  const linePatch = { ...(patch.stroke !== undefined && { stroke: patch.stroke }), ...(patch.strokeWidth !== undefined && { strokeWidth: patch.strokeWidth }), ...(patch.lineStyle && { style: patch.lineStyle }) }
+  const applyShape = <T extends { id: string }>(items: T[]) => items.map((o) => (set.has(o.id) && !('src' in o) ? { ...o, ...shapePatch } : o))
+  const applyLine = <T extends { id: string }>(items: T[]) => items.map((o) => (set.has(o.id) ? { ...o, ...linePatch } : o))
+  withActivePage(ids.length > 1 ? `${ids.length} Objekte geändert` : 'Objekt geändert', (p) => {
+    const s = pageShapes(p)
+    return {
+      ...p,
+      rectangles: applyShape(s.rectangles),
+      ellipses: applyShape(s.ellipses),
+      diagramBlocks: applyShape(s.diagramBlocks),
+      lines: applyLine(p.lines),
+      connections: p.connections && applyLine(p.connections),
+    }
+  })
+}
