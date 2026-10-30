@@ -92,7 +92,7 @@ export function routeConnection(a: Point, b: Point, startEdge?: CadPortEdge, end
 }
 
 /** Boundary segments gain doglegs so both endpoint positions remain unchanged. */
-export function moveConnectionSegment(points: readonly Point[], index: number, at: Point): Point[] {
+export function moveConnectionSegment(points: readonly Point[], index: number, at: Point, startBound = false, endBound = false): Point[] {
   if (!Number.isInteger(index) || index < 0 || index >= points.length - 1) return points.map((p) => ({ ...p }))
   const next = points.map((p) => ({ ...p }))
   const a = next[index]
@@ -100,8 +100,27 @@ export function moveConnectionSegment(points: readonly Point[], index: number, a
   if (a.x === b.x) a.x = b.x = at.x
   else if (a.y === b.y) a.y = b.y = at.y
   else throw new Error('Diagonal connection segment')
-  if (index === 0) next.unshift({ ...points[0] })
-  if (index === points.length - 2) next.push({ ...points.at(-1)! })
+  const originalA = points[index], originalB = points[index + 1]
+  if (equal(a, originalA) && equal(b, originalB)) return points.map((p) => ({ ...p }))
+  const length = Math.abs(originalB.x - originalA.x) + Math.abs(originalB.y - originalA.y)
+  const fraction = Math.min(CONNECTION_LEAD, length / 3) / length
+  const stub = (origin: Point, toward: Point): Point => ({ x: origin.x + (toward.x - origin.x) * fraction, y: origin.y + (toward.y - origin.y) * fraction })
+  if (index === 0) {
+    if (startBound) {
+      const outward = stub(originalA, originalB)
+      if (originalA.x === originalB.x) a.y = outward.y
+      else a.x = outward.x
+      next.unshift({ ...originalA }, outward)
+    } else next.unshift({ ...originalA })
+  }
+  if (index === points.length - 2) {
+    if (endBound) {
+      const outward = stub(originalB, originalA)
+      if (originalA.x === originalB.x) b.y = outward.y
+      else b.x = outward.x
+      next.push(outward, { ...originalB })
+    } else next.push({ ...originalB })
+  }
   const normalized = normalizeOrthogonalPoints(next)
   return hasRouteDegeneracy(normalized) ? points.map((p) => ({ ...p })) : normalized
 }

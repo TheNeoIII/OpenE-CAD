@@ -1,7 +1,7 @@
 import { pageConnections, type CadConnection, type CadConnectionEndpoint, type CadPage, type Point, type Rect } from '@/types/cad'
 import { pointOnSegment, pointsBounds } from '@/features/drawing/geometry'
 import { portOwnerBounds, portWorldPosition, wiringPortAnchors } from './ports'
-import { orthogonalRoute, routeConnection } from './connectionRouting'
+import { moveConnectionSegment, orthogonalRoute, routeConnection } from './connectionRouting'
 import { resolveShapeAnchor, shapeEndpointAt } from './shapeBinding'
 
 function boundPort(page: CadPage, endpoint: CadConnectionEndpoint) {
@@ -36,6 +36,15 @@ export function resolveConnectionPolyline(page: CadPage, connection: CadConnecti
   // Unresolved references remain references. Only known points can form a warning route.
   const known = [...(a ? [a] : []), ...(connection.routePoints ?? []), ...(b ? [b] : [])]
   return known.reduce<Point[]>((result, p) => result.length ? [...result, ...orthogonalRoute(result.at(-1)!, p).slice(1)] : [{ ...p }], [])
+}
+
+export function moveBoundConnectionSegment(page: CadPage, connection: CadConnection, index: number, at: Point): CadConnection {
+  const original = resolveConnectionPolyline(page, connection)
+  const points = moveConnectionSegment(original, index, at, connection.start.kind !== 'point', connection.end.kind !== 'point')
+  if (JSON.stringify(points) === JSON.stringify(original)) return connection
+  const next = { ...connection, routePoints: points.slice(1, -1) }
+  // Reject impossible owner-crossing edits instead of silently jumping to an automatic route.
+  return JSON.stringify(resolveConnectionPolyline(page, next)) === JSON.stringify(points) ? next : connection
 }
 
 export function connectionBounds(page: CadPage, connection: CadConnection): Rect | null {

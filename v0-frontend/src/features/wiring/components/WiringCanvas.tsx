@@ -8,8 +8,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { useCursorStore, useViewportStore } from '@/stores/viewportStore'
 import type { CadConnection, CadConnectionEndpoint, CadPage, Point, Rect } from '@/types/cad'
 import { addConnection, updateConnection } from '../actions'
-import { connectionBounds, connectionEndpointAt, resolveConnectionEndpoint, resolveConnectionPolyline } from '../models/connections'
-import { moveConnectionSegment } from '../models/connectionRouting'
+import { connectionBounds, connectionEndpointAt, moveBoundConnectionSegment, resolveConnectionEndpoint } from '../models/connections'
 import { ConnectionHandles, WiringConnection } from './WiringConnection'
 import { normalizeRect, polylinePath, rectContains } from '@/features/drawing/geometry'
 import { HANDLE_CURSORS, handlePoint, isResizeHandle, RESIZE_HANDLES, resizeRect, sameRect, type ResizeHandle } from '@/features/drawing/resize'
@@ -141,11 +140,14 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     const up = (e: KeyboardEvent) => {
       if (e.code === 'Space') setSpace(false)
     }
+    const blur = () => { setSpace(false); setGesture(null); setConnectionDraft(null) }
     window.addEventListener('keydown', down, true)
     window.addEventListener('keyup', up)
+    window.addEventListener('blur', blur)
     return () => {
       window.removeEventListener('keydown', down, true)
       window.removeEventListener('keyup', up)
+      window.removeEventListener('blur', blur)
     }
   }, [])
 
@@ -173,10 +175,10 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   const endpointAt = (w: Point, e: { altKey: boolean; shiftKey: boolean }): CadConnectionEndpoint => connectionEndpointAt(page, w, resolvePoint(w, e).point, 12 / s, e.altKey)
   const connectionGestureAt = (g: Extract<Gesture, { kind: 'connection' }>, w: Point, e: { altKey: boolean; shiftKey: boolean }): CadConnection => g.endpoint
     ? { ...g.original, [g.endpoint]: endpointAt(w, e) }
-    : { ...g.original, routePoints: moveConnectionSegment(resolveConnectionPolyline(page, g.original), g.segment!, resolvePoint(w, e).point).slice(1, -1) }
+    : moveBoundConnectionSegment(page, g.original, g.segment!, resolvePoint(w, e).point)
 
   const onPointerDown = (e: RPointerEvent) => {
-    if (e.button === 2 || typing(e.target)) return
+    if ((e.button !== 0 && e.button !== 1) || typing(e.target)) return
     if (pointerId.current !== null) return
     e.preventDefault()
     pointerId.current = e.pointerId
@@ -444,7 +446,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerCancel={() => { setGesture(null); setConnectionDraft(null) }}
+      onPointerCancel={(e) => { if (pointerId.current === e.pointerId) { setGesture(null); setConnectionDraft(null) } }}
       onLostPointerCapture={(e) => { if (pointerId.current === e.pointerId) { setGesture(null); setConnectionDraft(null) } }}
       onPointerLeave={() => (useCursorStore.getState().set(null, null, false), setHover(null), setConnectionTarget(null))}
       onDoubleClick={onDoubleClick}

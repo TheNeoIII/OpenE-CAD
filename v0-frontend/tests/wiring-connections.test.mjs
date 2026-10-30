@@ -173,6 +173,48 @@ for (const vertical of [true, false]) test(`segment editing preserves endpoints 
   }
 })
 
+test('bound straight segment becomes a persistent dogleg with outward leads', () => {
+  const p = page(), c = connection()
+  const moved = domain.moveBoundConnectionSegment(p, c, 0, { x: 500, y: 500 })
+  assert.notEqual(moved, c)
+  assert.deepEqual(moved.start, c.start)
+  assert.deepEqual(moved.end, c.end)
+  const points = domain.resolveConnectionPolyline(p, moved)
+  assert.deepEqual(points, [{ x: 300, y: 300 }, { x: 350, y: 300 }, { x: 350, y: 500 }, { x: 750, y: 500 }, { x: 750, y: 300 }, { x: 800, y: 300 }])
+  assert.deepEqual(domain.resolveConnectionPolyline(p, JSON.parse(JSON.stringify(moved))), points)
+  assert.equal(domain.moveBoundConnectionSegment(p, c, 0, { x: 500, y: 300 }), c)
+  assert.equal(domain.moveBoundConnectionSegment(p, c, -1, { x: 500, y: 500 }), c)
+})
+
+for (const vertical of [false, true]) for (const boundStart of [false, true]) for (const boundEnd of [false, true]) test(`short boundary drag preserves leads ${vertical}/${boundStart}/${boundEnd}`, () => {
+  const points = vertical ? [{ x: 0, y: 0 }, { x: 0, y: 3 }] : [{ x: 0, y: 0 }, { x: 3, y: 0 }]
+  const moved = routing.moveConnectionSegment(points, 0, { x: 5, y: 5 }, boundStart, boundEnd)
+  orthogonal(moved)
+  assert.equal(routing.hasRouteDegeneracy(moved), false)
+  assert.deepEqual(moved[0], points[0])
+  assert.deepEqual(moved.at(-1), points.at(-1))
+  assert.notDeepEqual(moved, points)
+  if (boundStart) assert.equal(vertical ? moved[1].x : moved[1].y, 0)
+  if (boundEnd) assert.equal(vertical ? moved.at(-2).x : moved.at(-2).y, 0)
+})
+
+test('first and last bound segments preserve bindings without automatic reroute jumps', () => {
+  const p = page()
+  const c = domain.moveBoundConnectionSegment(p, connection(), 0, { x: 500, y: 500 })
+  const points = domain.resolveConnectionPolyline(p, c)
+  for (const index of [0, points.length - 2]) {
+    const moved = domain.moveBoundConnectionSegment(p, c, index, { x: 500, y: 350 })
+    assert.notEqual(moved, c)
+    const route = domain.resolveConnectionPolyline(p, moved)
+    orthogonal(route)
+    assert.equal(routing.hasRouteDegeneracy(route), false)
+    assert.deepEqual(moved.start, c.start)
+    assert.deepEqual(moved.end, c.end)
+    for (const owner of p.diagramBlocks) assert.equal(routing.routeCrossesOwner(route, ports.portOwnerBounds(owner)), false)
+  }
+  assert.equal(domain.moveBoundConnectionSegment(p, c, 1, { x: 100, y: 400 }), c)
+})
+
 test('manual waypoints remain persistent after owners move; output stays orthogonal', () => {
   const p = page(), c = { ...connection(), routePoints: [{ x: 400, y: 300 }, { x: 400, y: 600 }, { x: 700, y: 600 }] }
   p.connections = [c]
