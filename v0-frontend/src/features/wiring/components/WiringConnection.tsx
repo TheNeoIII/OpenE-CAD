@@ -1,6 +1,7 @@
 import type { CadConnection, CadPage } from '@/types/cad'
 import { polylinePath } from '@/features/drawing/geometry'
 import { LINE_DASH } from '@/features/drawing/styles'
+import { connectionSegmentHandle } from '../models/segmentHandle'
 import { connectionLabelPoint, resolveConnectionEndpoint, resolveConnectionPolyline } from '../models/connections'
 
 export function WiringConnection({ page, connection, s = 1, selected = false, editing = false }: { page: CadPage; connection: CadConnection; s?: number; selected?: boolean; editing?: boolean }) {
@@ -26,9 +27,14 @@ export function ConnectionHandles({ page, connection, s }: { page: CadPage; conn
     {points.slice(0, -1).map((a, index) => {
       const b = points[index + 1]
       if (a.x === b.x && a.y === b.y) return null
-      return <g key={index} data-connection-segment={index} style={{ cursor: a.x === b.x ? 'ew-resize' : 'ns-resize' }}>
-        <path d={polylinePath([a, b])} stroke="transparent" strokeWidth={12 / s} />
-        <rect x={(a.x + b.x) / 2 - 3 / s} y={(a.y + b.y) / 2 - 3 / s} width={6 / s} height={6 / s} fill="var(--sheet-paper, white)" stroke="var(--sheet-select)" strokeWidth={1 / s} />
+      const h = connectionSegmentHandle(a, b, s)
+      return <g key={index} style={{ cursor: a.x === b.x ? 'ew-resize' : 'ns-resize' }}>
+        <path data-connection-segment={index} d={polylinePath([a, b])} stroke="transparent" strokeWidth={12 / s} />
+        <path d={polylinePath([h.midpoint, h.position])} fill="none" stroke="var(--sheet-select)" strokeWidth={1 / s} pointerEvents="none" />
+        <g data-connection-segment={index} data-handle-offset-x={h.offset.x} data-handle-offset-y={h.offset.y}>
+          <circle cx={h.position.x} cy={h.position.y} r={7 / s} fill="transparent" />
+          <rect x={h.position.x - 3 / s} y={h.position.y - 3 / s} width={6 / s} height={6 / s} fill="var(--sheet-paper, white)" stroke="var(--sheet-select)" strokeWidth={1 / s} pointerEvents="none" />
+        </g>
       </g>
     })}
     {(['start', 'end'] as const).map((end) => {

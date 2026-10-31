@@ -36,7 +36,7 @@ const HANDLE_PX = 8
 
 type Gesture =
   | { kind: 'connect'; origin: Point; dragged: boolean }
-  | { kind: 'connection'; original: CadConnection; next: CadConnection; endpoint?: 'start' | 'end'; segment?: number }
+  | { kind: 'connection'; original: CadConnection; next: CadConnection; endpoint?: 'start' | 'end'; segment?: number; handleOffset?: Point }
   | { kind: 'portMove'; objectId: string; portId: string; anchor: ReturnType<typeof nearestPortAnchor> }
   | { kind: 'portCreate'; objectId: string; anchor: ReturnType<typeof nearestPortAnchor> }
   | { kind: 'shapeCreate'; shape: 'rectangle' | 'ellipse' | 'diagramBlock'; start: Point; end: Point; snap: GraphicSnap }
@@ -191,7 +191,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   const endpointAt = (w: Point, e: { altKey: boolean; shiftKey: boolean }): CadConnectionEndpoint => connectionEndpointAt(page, w, resolvePoint(w, e).point, 12 / s, e.altKey)
   const connectionGestureAt = (g: Extract<Gesture, { kind: 'connection' }>, w: Point, e: { altKey: boolean; shiftKey: boolean }): CadConnection => g.endpoint
     ? { ...g.original, [g.endpoint]: endpointAt(w, e) }
-    : moveBoundConnectionSegment(page, g.original, g.segment!, resolvePoint(w, e).point)
+    : moveBoundConnectionSegment(page, g.original, g.segment!, resolvePoint({ x: w.x - (g.handleOffset?.x ?? 0), y: w.y - (g.handleOffset?.y ?? 0) }, e).point)
 
   const onPointerDown = (e: RPointerEvent) => {
     if ((e.button !== 0 && e.button !== 1) || typing(e.target)) return
@@ -246,9 +246,10 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     if (handlesLive) {
       const connection = sel.ids.length === 1 ? page.connections?.find((c) => c.id === sel.ids[0]) : undefined
       const endpoint = (e.target as Element).closest?.('[data-connection-end]')?.getAttribute('data-connection-end')
-      const segment = (e.target as Element).closest?.('[data-connection-segment]')?.getAttribute('data-connection-segment')
-      if (connection && (endpoint === 'start' || endpoint === 'end')) return setGesture({ kind: 'connection', original: connection, next: connection, endpoint })
-      if (connection && segment !== null && segment !== undefined) return setGesture({ kind: 'connection', original: connection, next: connection, segment: Number(segment) })
+  const segmentHandle = (e.target as Element).closest?.('[data-connection-segment]')
+  const segment = segmentHandle?.getAttribute('data-connection-segment')
+  if (connection && (endpoint === 'start' || endpoint === 'end')) return setGesture({ kind: 'connection', original: connection, next: connection, endpoint })
+  if (connection && segment !== null && segment !== undefined) return setGesture({ kind: 'connection', original: connection, next: connection, segment: Number(segment), handleOffset: { x: Number(segmentHandle?.getAttribute('data-handle-offset-x') ?? 0), y: Number(segmentHandle?.getAttribute('data-handle-offset-y') ?? 0) } })
       const vertex = (e.target as Element).closest?.('[data-vertex]')?.getAttribute('data-vertex')
       const line = sel.ids.length === 1 ? page.lines.find((l) => l.id === sel.ids[0]) : undefined
       if (line && vertex != null) {

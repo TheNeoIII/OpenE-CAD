@@ -118,6 +118,12 @@ Current checks: `pnpm typecheck` passed; `pnpm test` **142/142** passed; `pnpm b
 
 Remaining acceptance before declaring W4.2 ready: complete native held-modifier/zoom matrix, fresh port-to-shape creation, exhaustive port selection/manager fields and dragging, short-segment handle hit-target overlap, deployed authenticated browser QA and PR review. Older evidence below remains historical, not a check of the current deployment. W4.2 has not started.
 
+## W4.1.1 short Wiring segment correction
+
+Native browser hit-testing reproduced a real defect: on a 20-world-unit straight Wiring connection, the endpoint circle covered the segment midpoint. Wiring grips on segments shorter than 28 screen pixels now sit 18 screen pixels perpendicular to the line, with a connector stem. The 7-pixel grip hit area clears the endpoint circles; the pointer-to-segment offset is subtracted before snapping. Normal-length segment handles and direct line dragging retain their existing placement/coordinates.
+
+Verification: native mouse drag of the offset grip at 34% displayed zoom moved the segment, preserved both free endpoint coordinates, created exactly one history entry and was fully restored with Ctrl+Z. After two native zoom-in clicks (53% displayed zoom), browser hit-testing still resolved the grip to segment 0; screenshot inspected at 1135×853, dark. Pure geometry regression covers horizontal and vertical grips at five scales and checks offset cancellation and normal-length midpoint placement. `pnpm typecheck`, all **143 tests**, `pnpm build` and `git diff --check` passed; existing build chunk warning remains. This closes the reproduced Wiring midpoint/endpoint collision, not the separate Schematic short-handle or complete modifier/zoom acceptance matrix.
+
 ## Vercel and PR status
 
 GitHub commit status for implementation `4abe402` reports Vercel **success**:

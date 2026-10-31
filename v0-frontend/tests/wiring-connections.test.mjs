@@ -31,6 +31,20 @@ const inline = load('features/wiring/models/inlineEdit')
 const presets = load('features/wiring/models/connectionPresets')
 const fillModel = load('features/wiring/models/sharedFill')
 const handles = load('features/schematic/models/segmentHandles')
+const { connectionSegmentHandle } = load('features/wiring/models/segmentHandle')
+
+test('short connection grips clear endpoints across zoom levels without changing drag coordinates', () => {
+  for (const scale of [0.05, 0.13, 0.5, 1, 2]) {
+    for (const b of [{ x: 2 / scale, y: 0 }, { x: 0, y: 2 / scale }]) {
+      const h = connectionSegmentHandle({ x: 0, y: 0 }, b, scale)
+      assert.ok(Math.hypot(h.position.x, h.position.y) * scale > 14)
+      assert.ok(Math.hypot(h.position.x - b.x, h.position.y - b.y) * scale > 14)
+      assert.equal(h.position.x - h.offset.x, h.midpoint.x)
+      assert.equal(h.position.y - h.offset.y, h.midpoint.y)
+    }
+    assert.deepEqual(connectionSegmentHandle({ x: 0, y: 0 }, { x: 100 / scale, y: 0 }, scale).offset, { x: 0, y: 0 })
+  }
+})
 
 test('connection presets are complete, apply once and preserve manual styles', () => {
   assert.deepEqual(Object.keys(presets.CONNECTION_TYPE_PRESETS), ['generic', 'cable', 'network', 'bus', 'power', 'signal'])
