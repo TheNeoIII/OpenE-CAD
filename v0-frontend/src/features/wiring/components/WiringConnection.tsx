@@ -7,12 +7,13 @@ export function WiringConnection({ page, connection, s = 1, selected = false, ed
   const points = resolveConnectionPolyline(page, connection)
   const unresolved = !resolveConnectionEndpoint(page, connection.start) || !resolveConnectionEndpoint(page, connection.end)
   const label = connectionLabelPoint(page, connection)
-  const color = selected ? 'var(--sheet-select)' : unresolved ? '#b45309' : connection.stroke ?? 'var(--sheet-ink)'
+  const color = unresolved ? '#b45309' : connection.stroke ?? 'var(--sheet-ink)'
   return <g data-id={connection.id} data-connection="true">
     <title>{unresolved ? 'Verbindung: Port nicht auflösbar' : connection.label || 'Verbindung'}</title>
     {points.length > 1 && <>
       <path d={polylinePath(points)} fill="none" stroke="transparent" strokeWidth={Math.max(16 / s, connection.strokeWidth ?? 3)} />
-      <path d={polylinePath(points)} fill="none" stroke={color} strokeWidth={(connection.strokeWidth ?? 3) * (selected ? 1.5 : 1)} strokeDasharray={unresolved ? '12 8' : LINE_DASH[connection.style]} strokeLinejoin="round" />
+      {selected && <path d={polylinePath(points)} fill="none" stroke="var(--sheet-select)" strokeOpacity={0.3} strokeWidth={(connection.strokeWidth ?? 3) + 5 / s} pointerEvents="none" />}
+      <path d={polylinePath(points)} fill="none" stroke={color} strokeWidth={connection.strokeWidth ?? 3} strokeDasharray={unresolved ? '12 8' : LINE_DASH[connection.style]} strokeLinejoin="round" />
     </>}
     {unresolved && <text x={points[0]?.x ?? 40} y={(points[0]?.y ?? 100) - 18} fontSize={24} fill={color}>Port nicht auflösbar: {connection.label || connection.id}</text>}
     {connection.label && label && !editing && <text data-edit="label" x={label.x} y={label.y} fontSize={24} textAnchor="middle" dominantBaseline="middle" fill={color} stroke="var(--sheet-paper, white)" strokeWidth={5 / s} paintOrder="stroke">{connection.label.split('\n').map((line, i) => <tspan key={i} x={label.x} dy={i === 0 ? 0 : 24 * 1.35}>{line || ' '}</tspan>)}</text>}

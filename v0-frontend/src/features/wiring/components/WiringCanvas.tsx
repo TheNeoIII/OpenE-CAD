@@ -10,7 +10,7 @@ import type { CadConnection, CadConnectionEndpoint, CadPage, Point, Rect } from 
 import { addConnection, updateConnection } from '../actions'
 import { connectionBounds, connectionEndpointAt, moveBoundConnectionSegment, resolveConnectionEndpoint } from '../models/connections'
 import { ConnectionHandles, WiringConnection } from './WiringConnection'
-import { normalizeRect, polylinePath, rectContains } from '@/features/drawing/geometry'
+import { normalizeRect, polylinePath, rectContains, unionRects } from '@/features/drawing/geometry'
 import { HANDLE_CURSORS, handlePoint, isResizeHandle, RESIZE_HANDLES, resizeRect, sameRect, type ResizeHandle } from '@/features/drawing/resize'
 import { resolveConstrainedLinePoint, resolveGraphicSnap, type GraphicSnap } from '@/features/drawing/snap'
 import { scaleOf, screenToWorld } from '@/features/drawing/viewport'
@@ -453,6 +453,10 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
         : gesture?.kind === 'vertex'
           ? moveLineVertexOnPage(page, gesture.lineId, gesture.index, gesture.point)
           : page
+  const multiBounds = selection.length > 1 ? unionRects([
+    ...wiringGraphics(shownPage).filter((o) => selected.has(o.id)).map(graphicBounds),
+    ...(shownPage.connections ?? []).filter((c) => selected.has(c.id)).map((c) => connectionBounds(shownPage, c)).filter((r): r is Rect => r !== null),
+  ]) : null
   const single = selection.length === 1 ? selection[0] : undefined
   const handlesShown = !!single && (tool === 'select' || toolMatchesType(tool, typeOf(single))) && !(tool === 'line' && draft.length)
   const selectedShape = handlesShown ? findShape(shownPage, single!) : undefined
@@ -481,7 +485,8 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     >
       <svg width={size.w} height={size.h} className="absolute inset-0 block" style={{ fontFamily: 'var(--font-sans)' }}>
         <g transform={`translate(${view.panX} ${view.panY}) scale(${s})`}>
-          <WiringDrawing page={shownPage} selected={selected} s={s} editing={editingId} />
+              <WiringDrawing page={shownPage} selected={selected} s={s} editing={editingId} />
+              {multiBounds && <rect aria-label="Gemeinsame Auswahlgrenzen" x={multiBounds.x - 4 / s} y={multiBounds.y - 4 / s} width={multiBounds.w + 8 / s} height={multiBounds.h + 8 / s} fill="none" stroke={PREVIEW} strokeWidth={1 / s} strokeDasharray={`${4 / s} ${3 / s}`} pointerEvents="none" />}
 
           {selectedLine && (
             <g aria-label="Linienpunkte">

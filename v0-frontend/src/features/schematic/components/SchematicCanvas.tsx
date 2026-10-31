@@ -15,7 +15,8 @@ import { executionType, makerLines } from '../models/execution'
 import { COIL_KINDS, resolveXrefText, xrefDisplay } from '../models/xref'
 import { ContactMirror } from './ContactMirror'
 import { extendRailEnd, relocateWireEnd } from '../actions'
-import { extendRailEndPage, relocateWireEndPage } from '../models/wireEdit'
+  import { extendRailEndPage, relocateWireEndPage } from '../models/wireEdit'
+  import { wireSegmentHandles } from '../models/segmentHandles'
 import { addLine, addSymbol, addText, addWire, moveJunction, moveObjects, moveWireSegment, relocateJunction, resizeRails, updateObject } from '../actions'
 import { detachJunction, junctionHost, movePage, moveSegmentPage, railEndLimits, relocateJunctionPage, routeModeAfter, routeModeForSnap } from '../models/wireEdit'
 import { CanvasScrollbars } from '@/features/drawing/components/CanvasScrollbars'
@@ -712,6 +713,12 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
                     />
                   )
                 })}
+                {sel && selected.size === 1 && !clean && tool === 'select' && wireSegmentHandles(w.points).map((h) => (
+                  <g key={`handle-${h.index}`} data-seg={h.index} data-wire-segment-handle={h.index} style={{ cursor: h.horizontal ? 'ns-resize' : 'ew-resize' }}>
+                    <circle cx={h.x} cy={h.y} r={8 / s} fill="transparent" />
+                    <circle cx={h.x} cy={h.y} r={3 / s} fill="var(--sheet-paper, white)" stroke={selColor} strokeWidth={1.5 / s} pointerEvents="none" />
+                  </g>
+                ))}
               </g>
             )
           })}

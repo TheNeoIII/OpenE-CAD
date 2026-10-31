@@ -28,6 +28,44 @@ const ports = load('features/wiring/models/ports')
 const clone = load('features/wiring/models/connectionClone')
 const profiles = load('features/editorProfiles')
 const inline = load('features/wiring/models/inlineEdit')
+const presets = load('features/wiring/models/connectionPresets')
+const fillModel = load('features/wiring/models/sharedFill')
+const handles = load('features/schematic/models/segmentHandles')
+
+test('connection presets are complete, apply once and preserve manual styles', () => {
+  assert.deepEqual(Object.keys(presets.CONNECTION_TYPE_PRESETS), ['generic', 'cable', 'network', 'bus', 'power', 'signal'])
+  let c = { connectionType: 'generic', ...presets.CONNECTION_TYPE_PRESETS.generic }
+  for (const type of ['cable', 'network', 'bus', 'power', 'signal', 'generic']) {
+    c = { ...c, ...presets.connectionTypePatch(c, { connectionType: type }) }
+    assert.deepEqual({ stroke: c.stroke, strokeWidth: c.strokeWidth, style: c.style }, presets.CONNECTION_TYPE_PRESETS[type])
+  }
+  c = { ...c, ...presets.connectionTypePatch(c, { stroke: '#123456', strokeWidth: 9 }) }
+  assert.equal(c.stroke, '#123456')
+  assert.deepEqual(presets.connectionTypePatch(c, { label: 'custom' }), { label: 'custom' })
+  c = { ...c, ...presets.connectionTypePatch(c, { connectionType: 'power' }) }
+  assert.equal(c.stroke, presets.CONNECTION_TYPE_PRESETS.power.stroke)
+})
+
+test('shared fill handles equal, mixed, missing opacity and incompatible selections', () => {
+  const p = { rectangles: [{ id: 'r', fill: 'none' }], ellipses: [{ id: 'e', fill: 'none', fillOpacity: 1 }], diagramBlocks: [{ id: 'b', fill: 'none' }] }
+  assert.deepEqual(fillModel.sharedFill(p, ['r', 'e', 'b']), { fill: 'none', opacity: 1 })
+  p.ellipses[0] = { id: 'e', fill: '#ffffff', fillOpacity: 0.4 }
+  assert.deepEqual(fillModel.sharedFill(p, ['r', 'e']), { fill: undefined, opacity: undefined })
+  assert.equal(fillModel.sharedFill(p, ['r', 'line']), null)
+  assert.equal(fillModel.sharedFill(p, ['r', 'text']), null)
+  assert.equal(fillModel.sharedFill(p, []), null)
+})
+
+test('schematic handles include straight, arbitrarily short and every orthogonal segment', () => {
+  assert.equal(handles.wireSegmentHandles([{ x: 0, y: 0 }, { x: 100, y: 0 }]).length, 1)
+  const h = handles.wireSegmentHandles([{ x: 0, y: 0 }, { x: 0, y: 0.01 }, { x: 100, y: 0.01 }, { x: 100, y: 20 }])
+  assert.equal(h.length, 3)
+  assert.deepEqual(h.map((x) => x.index), [0, 1, 2])
+  assert.equal(h[0].horizontal, false)
+  assert.equal(h[1].horizontal, true)
+  assert.equal(handles.wireSegmentHandles([{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 1, y: 1 }]).length, 0)
+})
+
 const point = (x, y) => ({ kind: 'point', point: { x, y } })
 const endpoint = (objectId, portId = 'port') => ({ kind: 'port', objectId, portId })
 const block = (id, x, edge) => ({ id, type: 'diagramBlock', title: id, x, y: 200, width: 200, height: 200, ports: [{ id: 'port', edge, t: 0.5 }] })
