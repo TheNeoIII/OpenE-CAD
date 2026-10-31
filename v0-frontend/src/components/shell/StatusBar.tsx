@@ -87,7 +87,7 @@ function SchematicStatus() {
         {zoom ? `${Math.round(zoom * 100)} %` : '—'}
       </Item>
       <Item onClick={() => runCommand('view.grid')} title="Raster (G)" className={cn(!showGrid && 'line-through opacity-60')}>
-        Raster {grid / UNITS_PER_MM} mm
+          Raster {String(grid / UNITS_PER_MM).replace('.', ',')} mm
       </Item>
       <Item onClick={() => runCommand('view.snap')} title="Fangen (Shift+S)" className={cn(snap ? 'text-fg-2' : 'opacity-60')}>
         Fangen {snap ? 'ein' : 'aus'}

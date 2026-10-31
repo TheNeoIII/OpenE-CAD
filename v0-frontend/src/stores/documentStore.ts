@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { syncPresets } from '@/features/schematic/models/wireStyles'
 import { useLibraryStore } from './libraryStore'
 import { normalizePages, synchronizePage } from '@/utils/pageOrganization'
+import { repairConnectionRoutes } from '@/features/wiring/models/connections'
 import type { CadDocument, CadPage } from '@/types/cad'
 import { useHistoryStore } from './historyStore'
 import { useProjectStore } from './projectStore'
@@ -54,7 +55,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       library.adopt(doc)
       const { wirePresets, potentialDefs, customSymbols, symbolOverrides, ...rest } = normalizePages(doc)
       const presets = useLibraryStore.getState().wirePresets
-      doc = syncPresets(rest as CadDocument, presets, presets)
+      doc = repairConnectionRoutes(syncPresets(rest as CadDocument, presets, presets))
     }
     useHistoryStore.getState().clear()
     set({ document: doc, activePageId: doc ? defaultPage(doc) : null })

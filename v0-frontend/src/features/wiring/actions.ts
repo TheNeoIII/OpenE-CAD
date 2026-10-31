@@ -1,4 +1,6 @@
 import type { CadConnection, CadConnectionEndpoint } from '@/types/cad'
+import { CONNECTION_TYPE_PRESETS, connectionTypePatch } from './models/connectionPresets'
+import { sharedFill } from './models/sharedFill'
 import { detachConnectionEndpoints, resolveConnectionPolyline } from './models/connections'
 import { useDocumentStore } from '@/stores/documentStore'
 import { useSelectionStore } from '@/stores/selectionStore'
@@ -35,7 +37,7 @@ function cornerRect(a: Point, b: Point) {
 export function addConnection(start: CadConnectionEndpoint, end: CadConnectionEndpoint) {
   const page = activePage()
   if (page?.kind !== 'wiring') return
-  const connection: CadConnection = { id: uid('connection'), type: 'connection', connectionType: 'generic', start, end, style: 'solid' }
+  const connection: CadConnection = { id: uid('connection'), type: 'connection', connectionType: 'generic', start, end, ...CONNECTION_TYPE_PRESETS.generic }
   if (resolveConnectionPolyline(page, connection).length < 2) return
   withActivePage('Verbindung erstellt', (p) => ({ ...p, connections: [...(p.connections ?? []), connection] }))
   useSelectionStore.getState().set([connection.id])
@@ -44,7 +46,8 @@ export function addConnection(start: CadConnectionEndpoint, end: CadConnectionEn
 export function updateConnection(id: string, patch: Partial<Omit<CadConnection, 'id' | 'type'>>, label = 'Verbindung geändert') {
   const connection = activePage()?.connections?.find((c) => c.id === id)
   if (!connection || Object.entries(patch).every(([key, value]) => JSON.stringify(connection[key as keyof CadConnection]) === JSON.stringify(value))) return
-  withActivePage(label, (p) => ({ ...p, connections: (p.connections ?? []).map((c) => c.id === id ? { ...c, ...patch, id: c.id, type: c.type } : c) }))
+  const resolvedPatch = connectionTypePatch(connection, patch)
+  withActivePage(label, (p) => ({ ...p, connections: (p.connections ?? []).map((c) => c.id === id ? { ...c, ...resolvedPatch, id: c.id, type: c.type } : c) }))
 }
 
 export function addDiagramBlock(a: Point, b: Point) {
@@ -174,6 +177,17 @@ export function updateShape(id: string, patch: Partial<Shape>, label = 'Grafik g
   withActivePage(label, (p) => {
     const s = pageShapes(p)
     return { ...p, rectangles: apply(s.rectangles), ellipses: apply(s.ellipses), images: apply(s.images), diagramBlocks: apply(s.diagramBlocks) }
+  })
+}
+
+export function updateWiringFill(ids: readonly string[], patch: Pick<Partial<CadShapeStyle>, 'fill' | 'fillOpacity'>) {
+  const page = activePage()
+  if (!page || !sharedFill(page, ids)) return
+  const selected = new Set(ids)
+  const apply = <T extends CadShapeStyle & { id: string }>(items: T[]) => items.map((o) => selected.has(o.id) ? { ...o, ...patch } : o)
+  withActivePage('Füllung geändert', (p) => {
+    const shapes = pageShapes(p)
+    return { ...p, rectangles: apply(shapes.rectangles), ellipses: apply(shapes.ellipses), diagramBlocks: apply(shapes.diagramBlocks) }
   })
 }
 

@@ -2,6 +2,13 @@
 
 Durable rules. Invariants in `../AGENTS.md` take precedence; this file adds code-backed facts.
 
+## W4.1.1 drawing contracts
+- Connection type presets are applied in actions on creation/type change, never during rendering. Subsequent manual style edits remain until another type change. Selection uses a halo without hiding the actual connection colour.
+- Shared fill/opacity controls require every selected ID to resolve to a rectangle, ellipse or diagram block. Lines, text, images and connections make the selection incompatible. Unequal values display as mixed; absent opacity means 1. One shared edit is one history transaction.
+- Live property inputs preview immediately. Blur/Enter commits one history entry; Escape restores the initial property state. Graphic inline text deliberately differs: Escape commits dirty text; Enter inserts a newline and Ctrl/Cmd+Enter commits.
+- A singly selected Schematic wire in select mode exposes a midpoint handle for every nonzero orthogonal segment, including straight and short segments. Wiring connections likewise expose every segment, not only internal ones. Handles are screen-scaled; they do not alter persisted geometry.
+- Implementation and local evidence do not imply full acceptance closure; outstanding verification is tracked in `w4-acceptance.md`.
+
 ## Zoom & pan
 - Zoom range `MIN_ZOOM = 0.08` .. `MAX_ZOOM = 8` (`stores/viewportStore.ts`); view state is per page.
 - `zoomAt(factor, anchor)` keeps the world point under the anchor fixed. Use `setZoom`, `fitPage`,
@@ -73,7 +80,7 @@ Durable rules. Invariants in `../AGENTS.md` take precedence; this file adds code
 ## Wiring editor interactions (`features/wiring`)
 - Graphic snapping uses world-space port positions before line vertices and grid points, including vertex drags. Alt disables snapping. Snapping stores geometry only, never an electrical connection or binding.
 - Shift never moves hard port/endpoint anchors. Only grid/free points may be constrained to 45°; displaced grid points become `free` (45°), never a misleading grid/port indicator. Preview, marker and commit share the final point.
-- Grid snapping always uses `gridSize`, regardless of zoom. Visible dots may thin to integer multiples at low zoom for readability; every visible dot remains a real snap point. Intermediate invisible lattice points remain snappable and the marker shows their exact position.
+- `gridSize` is a screen distance, as in the symbol editor: "5 mm" means 5 mm visible on screen at every zoom level. `visibleGridStep(gridSize, scale)` converts it to world units (rounded to whole 0.1 mm units). The schematic and wiring canvases use this step for both the drawn grid and grid snapping, so the grid never scales with zoom and every snap point lies on a visible grid line or dot. Arrow-key nudges also use the effective step.
 - Port tool multi-selection: Ctrl/Cmd-click toggles ports of one block; the inspector edits type, direction and label position for all at once (one undo step, mixed values shown as „Gemischt“). Dragging a selected port moves the group (`movePortsOnPage`): ports on the dragged edge follow it, also onto a new edge; ports on other edges shift along their own edge only while the drag stays on its edge; the shift is clamped so spacing is preserved. Delete/Backspace in the port tool deletes the selected ports (one undo step, attached endpoints detached) and never the owning block.
 - Port label position is selectable in the block inspector: automatic (outside, derived from the edge), left, right, top, or bottom. Missing values retain the automatic layout for older documents.
 - Same-tool selection (`models/interaction.ts`): with a drawing tool active, pressing on an object of the type that tool creates selects/moves it instead of creating a new one. Ctrl/Cmd forces creation over it; a running line draft always adds points. Handles of a selected matching object stay usable while its tool is active.

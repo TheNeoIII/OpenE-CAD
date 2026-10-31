@@ -1,7 +1,8 @@
 import { Field, Select } from '@/components/ui/primitives'
 import { LiveNumberInput } from '@/components/ui/LiveNumberInput'
 import { pageShapes, type CadPage, type LineStyle } from '@/types/cad'
-import { updateWiringStyles } from '../actions'
+import { updateWiringFill, updateWiringStyles } from '../actions'
+import { sharedFill } from '../models/sharedFill'
 import { LiveColorPicker } from './WiringProperties'
 
 const STYLE_LABELS: Record<LineStyle, string> = { solid: 'Durchgezogen', dashed: 'Gestrichelt', dashdot: 'Strichpunkt' }
@@ -26,6 +27,7 @@ const shared = <K extends keyof Styled>(items: Styled[], key: K): Styled[K] | un
 
 /** Inspector for several wiring objects: edits only the properties they all share. */
 export function WiringMultiProperties({ page, ids }: { page: CadPage; ids: readonly string[] }) {
+  const fillState = sharedFill(page, ids)
   const items = collect(page, ids)
   const kinds = [...new Set(items.map((i) => i.kind))]
   const imageCount = ids.length - items.length
@@ -58,6 +60,16 @@ export function WiringMultiProperties({ page, ids }: { page: CadPage; ids: reado
             {(Object.keys(STYLE_LABELS) as LineStyle[]).map((k) => <option key={k} value={k}>{STYLE_LABELS[k]}</option>)}
           </Select>
         </Field>
+        {fillState && <>
+          <div className="col-span-2 flex items-center justify-between gap-2 text-[12px]">
+            <span className="text-muted">{fillState.fill === undefined ? 'Füllfarbe (gemischt)' : fillState.fill === 'none' ? 'Keine Füllung' : 'Füllfarbe'}</span>
+            <LiveColorPicker label="Füllfarbe" value={fillState.fill && fillState.fill !== 'none' ? fillState.fill : '#ffffff'} onChange={(fill) => updateWiringFill(ids, { fill })} />
+          </div>
+          <button type="button" className="text-xs text-muted underline" onClick={() => updateWiringFill(ids, { fill: 'none' })}>Keine Füllung</button>
+          <Field label="Deckkraft (%)" htmlFor="m-fill-opacity">
+            <LiveNumberInput id="m-fill-opacity" min={0} max={100} step={1} value={(fillState.opacity ?? 1) * 100} mixed={fillState.opacity === undefined} onChange={(n) => updateWiringFill(ids, { fillOpacity: Math.max(0, Math.min(100, n)) / 100 })} />
+          </Field>
+        </>}
       </div>
     </section>
   )

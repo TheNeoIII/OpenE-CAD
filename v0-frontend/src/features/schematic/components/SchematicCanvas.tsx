@@ -15,10 +15,13 @@ import { executionType, makerLines } from '../models/execution'
 import { COIL_KINDS, resolveXrefText, xrefDisplay } from '../models/xref'
 import { ContactMirror } from './ContactMirror'
 import { extendRailEnd, relocateWireEnd } from '../actions'
-import { extendRailEndPage, relocateWireEndPage } from '../models/wireEdit'
+  import { extendRailEndPage, relocateWireEndPage } from '../models/wireEdit'
+  import { wireSegmentHandles } from '../models/segmentHandles'
+  import { connectionSegmentHandle } from '@/features/wiring/models/segmentHandle'
 import { addLine, addSymbol, addText, addWire, moveJunction, moveObjects, moveWireSegment, relocateJunction, resizeRails, updateObject } from '../actions'
 import { detachJunction, junctionHost, movePage, moveSegmentPage, railEndLimits, relocateJunctionPage, routeModeAfter, routeModeForSnap } from '../models/wireEdit'
 import { CanvasScrollbars } from '@/features/drawing/components/CanvasScrollbars'
+import { visibleGridStep } from '@/features/drawing/grid'
 import { symbolLabelPosition, terminalLabelGroups } from '../models/labels'
 import { conductorLabelPlacements, conductorLabelRef } from '../models/conductorLabels'
 import { normalizeRect, objectBounds, pageObjects, rectContains, routeOrthogonal, samePoint, simplifyPolyline, snapPoint, symbolBounds, symbolPins, TEXT_LINE } from '../models/geometry'
@@ -192,7 +195,9 @@ function CanvasInner({ page }: { page: CadPage }) {
         const sel = useSelectionStore.getState()
         if (!sel.ids.length) return
         swallow()
-        const step = e.shiftKey ? 10 : useSettingsStore.getState().gridSize
+        const vs = useViewportStore.getState()
+        const pageView = vs.byPage[useDocumentStore.getState().activePageId ?? '']
+        const step = e.shiftKey ? 10 : visibleGridStep(useSettingsStore.getState().gridSize, pageView ? scaleOf(pageView) : undefined)
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
         const seg = sel.segment
@@ -257,6 +262,7 @@ function CanvasInner({ page }: { page: CadPage }) {
   if (!view) return <div ref={ref} className="relative flex-1 overflow-hidden bg-[var(--sheet-desk)]" />
 
   const s = scaleOf(view)
+  const gridStep = visibleGridStep(settings.gridSize, s)
   const local = (e: { clientX: number; clientY: number }) => {
     const r = ref.current!.getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top }
@@ -269,7 +275,7 @@ function CanvasInner({ page }: { page: CadPage }) {
   const snapOn = (pg: CadPage, w: Point, alt: boolean, electrical: boolean): SnapResult =>
     resolveSnap(pg, w, {
       scale: s,
-      grid: settings.gridSize,
+      grid: gridStep,
       gridSnap: settings.snap,
       disabled: alt,
       electrical,
@@ -326,7 +332,7 @@ function CanvasInner({ page }: { page: CadPage }) {
       addLine(t.wireDraft[0], end)
       return t.setDraft([])
     }
-    if (tool === 'place') return void addSymbol(placeKind, placePoles, settings.snap ? snapPoint(w, settings.gridSize) : p)
+    if (tool === 'place') return void addSymbol(placeKind, placePoles, settings.snap ? snapPoint(w, gridStep) : p)
     if (tool === 'text') {
       return useUiStore.getState().openDialog({ type: 'prompt', title: 'Text einfügen', label: 'Text', value: '', confirmLabel: 'Einfügen', onSubmit: (v) => addText(p, v) })
     }
@@ -400,7 +406,7 @@ function CanvasInner({ page }: { page: CadPage }) {
       return setGesture({ ...gesture, x: e.clientX, y: e.clientY })
     }
     if (gesture.kind === 'drag') {
-      const g = settings.snap ? settings.gridSize : 1
+      const g = settings.snap ? gridStep : 1
       const dx = Math.round((w.x - gesture.origin.x) / g) * g
       const dy = Math.round((w.y - gesture.origin.y) / g) * g
       if (dx !== gesture.dx || dy !== gesture.dy) setGesture({ ...gesture, dx, dy, moved: true })
@@ -413,15 +419,15 @@ function CanvasInner({ page }: { page: CadPage }) {
       return
     }
     if (gesture.kind === 'railEnd') {
-      const g = settings.snap ? settings.gridSize : 1
+      const g = settings.snap ? gridStep : 1
       const x = Math.min(gesture.max, Math.max(gesture.min, Math.round(w.x / g) * g))
       const rail = page.potentials.find((r) => r.id === gesture.railId)
-  const target = rail && Math.abs(w.y - rail.y) >= settings.gridSize ? snapOn(page, w, e.altKey, true) : undefined
+  const target = rail && Math.abs(w.y - rail.y) >= gridStep ? snapOn(page, w, e.altKey, true) : undefined
   setGesture({ ...gesture, x, target })
       return
     }
     if (gesture.kind === 'segment') {
-      const g = settings.snap ? settings.gridSize : 1
+      const g = settings.snap ? gridStep : 1
       const raw = gesture.horizontal ? w.y - gesture.origin.y : w.x - gesture.origin.x
       const delta = Math.round(raw / g) * g
       if (delta !== gesture.delta) setGesture({ ...gesture, delta })
@@ -619,7 +625,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
   }, [page.wires, page.symbols, resolve])
  return <>
           <g style={{ filter: 'drop-shadow(0 2px 10px rgb(0 0 0 / 0.18))' }}>
-            <SheetFrame page={page} project={project} pageIndex={doc ? pageSequence(doc, page.id) : 1} pageCount={doc?.pages.length ?? 1} grid={settings.gridSize} showGrid={!clean && settings.showGrid} guides={!clean && settings.guides} />
+            <SheetFrame page={page} project={project} pageIndex={doc ? pageSequence(doc, page.id) : 1} pageCount={doc?.pages.length ?? 1} grid={visibleGridStep(settings.gridSize, s)} scale={s} showGrid={!clean && settings.showGrid} guides={!clean && settings.guides} />
           {doc && <SheetReport page={page} doc={doc} project={project} />}
           </g>
 
@@ -710,6 +716,17 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
                       strokeWidth={hitW * 2}
                       style={{ cursor: tool === 'select' ? (horizontal ? 'ns-resize' : 'ew-resize') : undefined }}
                     />
+                  )
+                })}
+                {sel && selected.size === 1 && !clean && tool === 'select' && wireSegmentHandles(w.points).map((h) => {
+                  const grip = connectionSegmentHandle(w.points[h.index], w.points[h.index + 1], s).position
+                  const offset = grip.x !== h.x || grip.y !== h.y
+                  return (
+                    <g key={`handle-${h.index}`} data-seg={h.index} data-wire-segment-handle={h.index} style={{ cursor: h.horizontal ? 'ns-resize' : 'ew-resize' }}>
+                      {offset && <line x1={h.x} y1={h.y} x2={grip.x} y2={grip.y} stroke={selColor} strokeWidth={1 / s} pointerEvents="none" />}
+                      <circle cx={grip.x} cy={grip.y} r={8 / s} fill="transparent" />
+                      <circle cx={grip.x} cy={grip.y} r={3 / s} fill="var(--sheet-paper, white)" stroke={selColor} strokeWidth={1.5 / s} pointerEvents="none" />
+                    </g>
                   )
                 })}
               </g>

@@ -36,7 +36,7 @@ const fit = (value: string, width: number, size: number) => {
 }
 
 /** ELCAD-style drawing frame: border grid 1–8 / A–F, side strip and title block. Never hit-tested. */
-export const SheetFrame = memo(function SheetFrame({ page, project, pageIndex, pageCount, grid, showGrid, guides }: { page: CadPage; project: Project | null; pageIndex: number; pageCount: number; grid: number; showGrid: boolean; guides: boolean }) {
+export const SheetFrame = memo(function SheetFrame({ page, project, pageIndex, pageCount, grid, scale, showGrid, guides }: { page: CadPage; project: Project | null; pageIndex: number; pageCount: number; grid: number; scale?: number; showGrid: boolean; guides: boolean }) {
   const { width: W, height: H } = pageSizeOf(page)
   const ink = 'var(--sheet-ink)'
   const ink2 = 'var(--sheet-ink-2)'
@@ -95,11 +95,11 @@ export const SheetFrame = memo(function SheetFrame({ page, project, pageIndex, p
         <>
           <defs>
             <pattern id={`g-minor-${grid}`} width={grid} height={grid} patternUnits="userSpaceOnUse" x={dx} y={iy}>
-              <path d={`M${grid} 0 H0 V${grid}`} fill="none" stroke="var(--sheet-grid-minor)" strokeWidth={1.5} />
+              <path d={`M${grid} 0 H0 V${grid}`} fill="none" stroke="var(--sheet-grid-minor)" strokeWidth={scale ? 0.75 / scale : 1.5} />
             </pattern>
             <pattern id={`g-major-${grid}`} width={grid * 10} height={grid * 10} patternUnits="userSpaceOnUse" x={dx} y={iy}>
               <rect width={grid * 10} height={grid * 10} fill={`url(#g-minor-${grid})`} />
-              <path d={`M${grid * 10} 0 H0 V${grid * 10}`} fill="none" stroke="var(--sheet-grid-major)" strokeWidth={2} />
+              <path d={`M${grid * 10} 0 H0 V${grid * 10}`} fill="none" stroke="var(--sheet-grid-major)" strokeWidth={scale ? 1 / scale : 2} />
             </pattern>
           </defs>
           <rect x={dx} y={iy} width={xEnd - dx} height={tbY - iy} fill={`url(#g-major-${grid})`} />

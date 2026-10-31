@@ -1,7 +1,7 @@
-import { pageConnections, type CadConnection, type CadConnectionEndpoint, type CadPage, type Point, type Rect } from '@/types/cad'
+import { pageConnections, type CadConnection, type CadConnectionEndpoint, type CadDocument, type CadPage, type Point, type Rect } from '@/types/cad'
 import { pointOnSegment, pointsBounds } from '@/features/drawing/geometry'
 import { portOwnerBounds, portWorldPosition, wiringPortAnchors } from './ports'
-import { moveConnectionSegment, orthogonalRoute, routeConnection } from './connectionRouting'
+import { moveConnectionSegment, orthogonalRoute, routeConnectionDetailed } from './connectionRouting'
 import { resolveShapeAnchor, shapeEndpointAt } from './shapeBinding'
 
 function boundPort(page: CadPage, endpoint: CadConnectionEndpoint) {
@@ -19,23 +19,57 @@ export function resolveConnectionEndpoint(page: CadPage, endpoint: CadConnection
   return bound ? portWorldPosition(portOwnerBounds(bound.owner), bound.port) : null
 }
 
-export function resolveConnectionPolyline(page: CadPage, connection: CadConnection): Point[] {
-  if (page.kind !== 'wiring') return []
+function resolveRoute(page: CadPage, connection: CadConnection) {
   const a = resolveConnectionEndpoint(page, connection.start)
   const b = resolveConnectionEndpoint(page, connection.end)
-  if (a && b) {
-    const geometry = (endpoint: CadConnectionEndpoint) => {
-      if (endpoint.kind === 'shape') return resolveShapeAnchor(page, endpoint.objectId, endpoint.anchor)
-      const port = boundPort(page, endpoint)
-      return port ? { bounds: portOwnerBounds(port.owner), edge: port.port.edge } : null
-    }
-    const start = geometry(connection.start), end = geometry(connection.end)
-    const owners = [start, end].flatMap((bound) => bound ? [bound.bounds] : [])
-    return routeConnection(a, b, start?.edge, end?.edge, connection.routePoints, owners)
+  if (!a || !b) return null
+  const geometry = (endpoint: CadConnectionEndpoint) => {
+    if (endpoint.kind === 'shape') return resolveShapeAnchor(page, endpoint.objectId, endpoint.anchor)
+    const port = boundPort(page, endpoint)
+    return port ? { bounds: portOwnerBounds(port.owner), edge: port.port.edge } : null
   }
+  const start = geometry(connection.start), end = geometry(connection.end)
+  const owners = [start, end].flatMap((bound) => bound ? [bound.bounds] : [])
+  return routeConnectionDetailed(a, b, start?.edge, end?.edge, connection.routePoints, owners)
+}
+
+export function resolveConnectionPolyline(page: CadPage, connection: CadConnection): Point[] {
+  if (page.kind !== 'wiring') return []
+  const route = resolveRoute(page, connection)
+  if (route) return route.points
+  const a = resolveConnectionEndpoint(page, connection.start)
+  const b = resolveConnectionEndpoint(page, connection.end)
   // Unresolved references remain references. Only known points can form a warning route.
-  const known = [...(a ? [a] : []), ...(connection.routePoints ?? []), ...(b ? [b] : [])]
+  const known = [...(a ? [a] : []), ...(connection.routePoints ?? []).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)), ...(b ? [b] : [])]
   return known.reduce<Point[]>((result, p) => result.length ? [...result, ...orthogonalRoute(result.at(-1)!, p).slice(1)] : [{ ...p }], [])
+}
+
+/**
+ * Writes the rendered route back into stored bend points when they were unusable:
+ * dropped if the router fell back to automatic routing, completed with port stubs otherwise.
+ * Connections with unresolved endpoints are kept untouched.
+ */
+export function repairConnectionRoutes(doc: CadDocument): CadDocument {
+  let changed = false
+  const pages = doc.pages.map((page) => {
+    if (page.kind !== 'wiring' || !page.connections?.some((c) => c.routePoints?.length)) return page
+    let pageChanged = false
+    const connections = page.connections.map((connection) => {
+      if (!connection.routePoints?.length) return connection
+      const route = resolveRoute(page, connection)
+      if (!route || route.source === 'manual') return connection
+      pageChanged = true
+      if (route.source === 'auto') {
+        const { routePoints: _dropped, ...rest } = connection
+        return rest
+      }
+      return { ...connection, routePoints: route.points.slice(1, -1) }
+    })
+    if (!pageChanged) return page
+    changed = true
+    return { ...page, connections }
+  })
+  return changed ? { ...doc, pages } : doc
 }
 
 export function moveBoundConnectionSegment(page: CadPage, connection: CadConnection, index: number, at: Point): CadConnection {

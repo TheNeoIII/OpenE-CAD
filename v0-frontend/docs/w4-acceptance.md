@@ -28,7 +28,12 @@ Validation in this continuation:
 - Native browser, local development preview, dark UI, 1135×853: opened the project and created a Wiring page through the UI; dragged a free-to-free connection; selected it and observed exactly one segment handle; dragged that handle into a three-segment dogleg with unchanged endpoints; Undo restored the straight route, Redo restored the dogleg. No browser errors reported. No handler dispatch or document-store injection used for this evidence.
 - Automated coverage: short/straight segment edits, every port-edge pair across six non-overlapping owner arrangements, normal directions, normalization, crossing/backtracking detection, valid manual-route preservation.
 
-Remaining acceptance work: multi-port selection and floating manager, connection presets, live property sessions, shared selection properties, complete native text/pointer/reattach and schematic regression matrix. Bound endpoint-adjacent manual edits still need native acceptance; forcing outward normals can reject a user dogleg. Invalid stored manual waypoints are currently bypassed during resolution, not rewritten in document history. Overlapping owners/coincident endpoints can make an outward route impossible; the fallback does not guarantee owner avoidance in that case. Vercel deployment QA and the full W4.1 PR gate are not completed.
+Routing hardening (this checkpoint):
+- Bound endpoint-adjacent manual edits are no longer rejected: when a manual route leaves or enters a port against its outward normal, the resolver inserts a short outward stub and keeps the user's dogleg (`resolution: 'manual-with-stubs'`) instead of falling back to automatic routing. Covered by unit tests.
+- Invalid stored manual waypoints are repaired once on document load (`load`), not on every edit: connections whose manual route resolves to the automatic fallback are rewritten to the resolved route, so the stored document matches what is drawn. The repair does not create an undo step. Covered by unit tests.
+- Schematic short-segment grips use the same offset grip as wiring (`connectionSegmentHandle`) with a connector line, so endpoint circles no longer cover the grip. Schematic segment drags use the relative pointer delta, so the offset does not make the segment jump. Verified by typecheck, tests and build; native browser verification of this schematic case is pending (the QA store hook could not attach to the app instance in this session).
+
+Remaining acceptance work: complete native text/pointer/reattach and schematic regression matrix with a real mouse. Overlapping owners/coincident endpoints can make an outward route impossible; the fallback does not guarantee owner avoidance in that case (requires global obstacle routing, out of W4 scope). Vercel deployment QA and the full W4.1 PR gate are not completed.
 
 ## Implemented (historical W4)
 
@@ -98,6 +103,32 @@ Native browser checks (dev preview, desktop 1135×853, dark) on a wiring QA page
 
 Automated: `npm run typecheck` clean, `npm test` 139/139 pass, `npm run build` succeeds (only the existing chunk-size warning).
 
+## W4.1.1 continuation — 2026-10-31
+
+Implementation baseline: `a2648b0` on `v0/wiring-separation-and-stabilization-55dce744`. This is a continuation report, not blanket acceptance closure.
+
+Implemented type defaults (stroke / world-unit width / style): generic `#374151 / 3 / solid`; cable `#111827 / 4 / solid`; network `#2563eb / 3 / solid`; bus `#7c3aed / 4 / solid`; power `#dc2626 / 4 / solid`; signal `#ea580c / 3 / dashed`. Actions apply these once on type changes; manual styles remain otherwise.
+
+Previous-session native evidence: all six type changes, manual colour preservation and subsequent power reset; shared fill preview on two rectangles, opacity preview and Undo; mixed rectangle/ellipse values; rectangle/ellipse/block no-fill; incompatible rectangle/line selection hides fill. Text entry, multiline, dirty Escape commit, Undo/Redo and unchanged-label no-op were exercised. Native drag-to-connect covered port/port, shape/port and port/free; occupied-port drags exercised rewiring, so they do not establish fresh port/shape creation.
+
+Continuation browser evidence (local development preview, 1135×853, dark):
+- New unsaved QA fixture; model insertion was setup only. Tested gestures used native browser clicks/drags/keys, not dispatched DOM events.
+- Port manager: opened from inspector; changed A from left to right and position 30% to 50%; deleted A and restored it with Undo. The resulting model preserved B throughout.
+- Schematic: selecting a three-segment wire exposed three handles. Dragging its middle vertical segment changed both inner x coordinates from 1700 to 1900, exactly one history entry. Native Ctrl+Z restored the original points.
+- Schematic straight-wire fixture: exactly one visible handle. Short first-segment fixture: all three handles remained rendered; short-handle drag/endpoint overlap is not yet natively certified.
+- Wiring straight connection: exactly one visible segment handle, screenshot inspected.
+- Browser error list empty after Schematic checks. QA document was not saved.
+
+Current checks: `pnpm typecheck` passed; `pnpm test` **142/142** passed; `pnpm build` passed with the existing >500 kB chunk warning. No dedicated lint check was run.
+
+Remaining acceptance before declaring W4.2 ready: complete native held-modifier/zoom matrix, fresh port-to-shape creation, exhaustive port selection/manager fields and dragging, short-segment handle hit-target overlap, deployed authenticated browser QA and PR review. Older evidence below remains historical, not a check of the current deployment. W4.2 has not started.
+
+## W4.1.1 short Wiring segment correction
+
+Native browser hit-testing reproduced a real defect: on a 20-world-unit straight Wiring connection, the endpoint circle covered the segment midpoint. Wiring grips on segments shorter than 28 screen pixels now sit 18 screen pixels perpendicular to the line, with a connector stem. The 7-pixel grip hit area clears the endpoint circles; the pointer-to-segment offset is subtracted before snapping. Normal-length segment handles and direct line dragging retain their existing placement/coordinates.
+
+Verification: native mouse drag of the offset grip at 34% displayed zoom moved the segment, preserved both free endpoint coordinates, created exactly one history entry and was fully restored with Ctrl+Z. After two native zoom-in clicks (53% displayed zoom), browser hit-testing still resolved the grip to segment 0; screenshot inspected at 1135×853, dark. Pure geometry regression covers horizontal and vertical grips at five scales and checks offset cancellation and normal-length midpoint placement. `pnpm typecheck`, all **143 tests**, `pnpm build` and `git diff --check` passed; existing build chunk warning remains. This closes the reproduced Wiring midpoint/endpoint collision, not the separate Schematic short-handle or complete modifier/zoom acceptance matrix.
+
 ## Vercel and PR status
 
 GitHub commit status for implementation `4abe402` reports Vercel **success**:
@@ -114,7 +145,7 @@ No PR existed for the source branch when previously checked. The available GitHu
 ## Known limits / remaining acceptance
 
 - Deterministic routing, not obstacle-avoiding routing; owner crossings and manual-route backtracking are possible.
-- Only internal segments have segment handles. Straight or single-elbow free routes have no internal segment to drag; endpoints remain editable.
+- All nonzero orthogonal segments now expose midpoint handles, including straight and single-elbow routes. Very short segments still require native hit-target overlap verification; handle count alone does not prove editability.
 - Missing external references are retained as unresolved; no fabricated origin coordinate is persisted. Fully unresolved connections have no known geometry to render.
 - Native endpoint binding at three zoom levels, segment dragging and Escape cancellation are now checked. Exhaustive gesture/modifier combinations (including native held-key modifiers), exhaustive Schematic regression and authenticated deployed Vercel browser QA remain open.
 - Text, multi-selection, live properties and port manager are natively checked locally (see W4.1 user-acceptance corrections); they are not yet checked on the protected Vercel deployment.

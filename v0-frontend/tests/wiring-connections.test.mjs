@@ -28,6 +28,58 @@ const ports = load('features/wiring/models/ports')
 const clone = load('features/wiring/models/connectionClone')
 const profiles = load('features/editorProfiles')
 const inline = load('features/wiring/models/inlineEdit')
+const presets = load('features/wiring/models/connectionPresets')
+const fillModel = load('features/wiring/models/sharedFill')
+const handles = load('features/schematic/models/segmentHandles')
+const { connectionSegmentHandle } = load('features/wiring/models/segmentHandle')
+
+test('short connection grips clear endpoints across zoom levels without changing drag coordinates', () => {
+  for (const scale of [0.05, 0.13, 0.5, 1, 2]) {
+    for (const b of [{ x: 2 / scale, y: 0 }, { x: 0, y: 2 / scale }]) {
+      const h = connectionSegmentHandle({ x: 0, y: 0 }, b, scale)
+      assert.ok(Math.hypot(h.position.x, h.position.y) * scale > 14)
+      assert.ok(Math.hypot(h.position.x - b.x, h.position.y - b.y) * scale > 14)
+      assert.equal(h.position.x - h.offset.x, h.midpoint.x)
+      assert.equal(h.position.y - h.offset.y, h.midpoint.y)
+    }
+    assert.deepEqual(connectionSegmentHandle({ x: 0, y: 0 }, { x: 100 / scale, y: 0 }, scale).offset, { x: 0, y: 0 })
+  }
+})
+
+test('connection presets are complete, apply once and preserve manual styles', () => {
+  assert.deepEqual(Object.keys(presets.CONNECTION_TYPE_PRESETS), ['generic', 'cable', 'network', 'bus', 'power', 'signal'])
+  let c = { connectionType: 'generic', ...presets.CONNECTION_TYPE_PRESETS.generic }
+  for (const type of ['cable', 'network', 'bus', 'power', 'signal', 'generic']) {
+    c = { ...c, ...presets.connectionTypePatch(c, { connectionType: type }) }
+    assert.deepEqual({ stroke: c.stroke, strokeWidth: c.strokeWidth, style: c.style }, presets.CONNECTION_TYPE_PRESETS[type])
+  }
+  c = { ...c, ...presets.connectionTypePatch(c, { stroke: '#123456', strokeWidth: 9 }) }
+  assert.equal(c.stroke, '#123456')
+  assert.deepEqual(presets.connectionTypePatch(c, { label: 'custom' }), { label: 'custom' })
+  c = { ...c, ...presets.connectionTypePatch(c, { connectionType: 'power' }) }
+  assert.equal(c.stroke, presets.CONNECTION_TYPE_PRESETS.power.stroke)
+})
+
+test('shared fill handles equal, mixed, missing opacity and incompatible selections', () => {
+  const p = { rectangles: [{ id: 'r', fill: 'none' }], ellipses: [{ id: 'e', fill: 'none', fillOpacity: 1 }], diagramBlocks: [{ id: 'b', fill: 'none' }] }
+  assert.deepEqual(fillModel.sharedFill(p, ['r', 'e', 'b']), { fill: 'none', opacity: 1 })
+  p.ellipses[0] = { id: 'e', fill: '#ffffff', fillOpacity: 0.4 }
+  assert.deepEqual(fillModel.sharedFill(p, ['r', 'e']), { fill: undefined, opacity: undefined })
+  assert.equal(fillModel.sharedFill(p, ['r', 'line']), null)
+  assert.equal(fillModel.sharedFill(p, ['r', 'text']), null)
+  assert.equal(fillModel.sharedFill(p, []), null)
+})
+
+test('schematic handles include straight, arbitrarily short and every orthogonal segment', () => {
+  assert.equal(handles.wireSegmentHandles([{ x: 0, y: 0 }, { x: 100, y: 0 }]).length, 1)
+  const h = handles.wireSegmentHandles([{ x: 0, y: 0 }, { x: 0, y: 0.01 }, { x: 100, y: 0.01 }, { x: 100, y: 20 }])
+  assert.equal(h.length, 3)
+  assert.deepEqual(h.map((x) => x.index), [0, 1, 2])
+  assert.equal(h[0].horizontal, false)
+  assert.equal(h[1].horizontal, true)
+  assert.equal(handles.wireSegmentHandles([{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 1, y: 1 }]).length, 0)
+})
+
 const point = (x, y) => ({ kind: 'point', point: { x, y } })
 const endpoint = (objectId, portId = 'port') => ({ kind: 'port', objectId, portId })
 const block = (id, x, edge) => ({ id, type: 'diagramBlock', title: id, x, y: 200, width: 200, height: 200, ports: [{ id: 'port', edge, t: 0.5 }] })
@@ -247,6 +299,35 @@ test('sanitation detects backtracking and self-crossing, preserves valid manual 
   assert.equal(routing.hasRouteDegeneracy(sanitized), false)
   const manual = [{ x: 0, y: 80 }, { x: 300, y: 80 }]
   assert.deepEqual(routing.routeConnection(a, b, undefined, undefined, manual), [a, ...manual, b])
+})
+
+test('manual bend next to a bound port keeps the bend and inserts the outward stub', () => {
+  const a = { x: 0, y: 0 }, b = { x: 500, y: 200 }, bend = { x: 200, y: 0 }
+  const route = routing.routeConnectionDetailed(a, b, 'top', undefined, [bend])
+  assert.equal(route.source, 'manual-lead')
+  assert.deepEqual(route.points[1], { x: 0, y: -routing.CONNECTION_LEAD })
+  assert.ok(route.points.some((p) => p.x === bend.x && p.y === bend.y))
+  assert.equal(routing.hasRouteDegeneracy(route.points), false)
+  assert.equal(routing.routeConnectionDetailed(a, b, undefined, undefined, [bend]).source, 'manual')
+})
+
+test('loading repairs unusable stored bend points and leaves valid ones untouched', () => {
+  const free = (point) => ({ kind: 'point', point })
+  const base = { id: 'c', type: 'connection', connectionType: 'generic', style: 'solid', start: free({ x: 0, y: 0 }), end: free({ x: 300, y: 200 }) }
+  const valid = { ...base, id: 'valid', routePoints: [{ x: 0, y: 80 }, { x: 300, y: 80 }] }
+  const crossing = { ...base, id: 'crossing', routePoints: [{ x: 100, y: 0 }, { x: 100, y: 100 }, { x: 50, y: 100 }, { x: 50, y: -50 }] }
+  const nonFinite = { ...base, id: 'nan', routePoints: [{ x: Number.NaN, y: 0 }] }
+  const unresolved = { ...base, id: 'ref', start: { kind: 'port', objectId: 'missing', portId: 'p' }, routePoints: crossing.routePoints }
+  const wiring = { id: 'w', kind: 'wiring', diagramBlocks: [], connections: [valid, crossing, nonFinite, unresolved] }
+  const doc = { pages: [wiring] }
+  const repaired = domain.repairConnectionRoutes(doc)
+  const [keptValid, fixedCrossing, fixedNan, keptRef] = repaired.pages[0].connections
+  assert.equal(keptValid, valid)
+  assert.equal('routePoints' in fixedCrossing, false)
+  assert.equal('routePoints' in fixedNan, false)
+  assert.equal(keptRef, unresolved)
+  assert.equal(domain.repairConnectionRoutes(repaired), repaired)
+  assert.equal(domain.repairConnectionRoutes({ pages: [{ ...wiring, connections: [valid] }] }).pages[0].connections[0], valid)
 })
 
 test('owner movement and port reattachment avoid both owners for every edge pair', () => {
