@@ -2,6 +2,8 @@ import { CircleAlert, AlertTriangle, Check, CheckCircle2 } from 'lucide-react'
 import { backend } from '@/backend'
 import buildVersion from '@/build-version.json'
 import { runCommand } from '@/commands/registry'
+import { visibleGridStep } from '@/features/drawing/grid'
+import { scaleOf } from '@/features/drawing/viewport'
 import { findObject } from '@/features/schematic/models/geometry'
 import { useActivePage, useDocumentStore } from '@/stores/documentStore'
 import { useProjectStore } from '@/stores/projectStore'
@@ -87,7 +89,7 @@ function SchematicStatus() {
         {zoom ? `${Math.round(zoom * 100)} %` : '—'}
       </Item>
       <Item onClick={() => runCommand('view.grid')} title="Raster (G)" className={cn(!showGrid && 'line-through opacity-60')}>
-        Raster {grid / UNITS_PER_MM} mm
+          Raster {String((page?.kind === 'wiring' && zoom ? visibleGridStep(grid, scaleOf({ zoom, panX: 0, panY: 0 })) : grid) / UNITS_PER_MM).replace('.', ',')} mm
       </Item>
       <Item onClick={() => runCommand('view.snap')} title="Fangen (Shift+S)" className={cn(snap ? 'text-fg-2' : 'opacity-60')}>
         Fangen {snap ? 'ein' : 'aus'}

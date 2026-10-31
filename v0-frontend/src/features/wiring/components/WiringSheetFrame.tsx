@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import type { CadPage } from '@/types/cad'
 import { pageRect } from '@/features/drawing/viewportActions'
-import { GRID_ORIGIN, gridDotRadius, visibleGridStep } from '@/features/drawing/grid'
+import { GRID_ORIGIN, gridDotOpacity, gridDotRadius, visibleGridStep } from '@/features/drawing/grid'
 
 /** Outer border inset in world units (0.1 mm). */
 export const WIRING_FRAME_MARGIN = 100
@@ -25,7 +25,7 @@ export const WiringSheetFrame = memo(function WiringSheetFrame({ page, grid, sho
         <>
           <defs>
             <pattern id={patternId} data-grid-step={step} width={step} height={step} patternUnits="userSpaceOnUse" x={GRID_ORIGIN.x - step / 2} y={GRID_ORIGIN.y - step / 2}>
-              <circle cx={step / 2} cy={step / 2} r={gridDotRadius(s)} fill="var(--sheet-grid, #94a3b8)" />
+              <circle cx={step / 2} cy={step / 2} r={gridDotRadius(s, step)} fill="var(--sheet-grid, #94a3b8)" fillOpacity={gridDotOpacity(step, s)} />
             </pattern>
           </defs>
           <rect data-grid="" x={m} y={m} width={w - m * 2} height={h - m * 2} fill={`url(#${patternId})`} />

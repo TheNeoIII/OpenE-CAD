@@ -14,6 +14,7 @@ import { normalizeRect, polylinePath, rectContains, unionRects } from '@/feature
 import { HANDLE_CURSORS, handlePoint, isResizeHandle, RESIZE_HANDLES, resizeRect, sameRect, type ResizeHandle } from '@/features/drawing/resize'
 import { resolveConstrainedLinePoint, resolveGraphicSnap, type GraphicSnap } from '@/features/drawing/snap'
 import { scaleOf, screenToWorld } from '@/features/drawing/viewport'
+import { visibleGridStep } from '@/features/drawing/grid'
 import { pageRect, panBy } from '@/features/drawing/viewportActions'
 import { useViewportHost } from '@/features/drawing/useViewportHost'
 import { CanvasScrollbars } from '@/features/drawing/components/CanvasScrollbars'
@@ -33,6 +34,7 @@ import { WiringPorts } from './WiringPorts'
 
 const PREVIEW = 'var(--sheet-select)'
 const HANDLE_PX = 8
+const ENDPOINT_GRAB_PX = 14
 
 type Gesture =
   | { kind: 'connect'; origin: Point; dragged: boolean }
@@ -91,6 +93,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   const [connectionTarget, setConnectionTarget] = useState<CadConnectionEndpoint | null>(null)
   const [space, setSpace] = useState(false)
   const [portHover, setPortHover] = useState<ReturnType<typeof nearestPortAnchor> | null>(null)
+  const [endpointHover, setEndpointHover] = useState<Point | null>(null)
   const portOwner = selectedPortOwner(page, selection)
   const tool = WIRING_TOOLS.has(rawTool) ? rawTool : 'select'
   const portSelection = usePortSelectionStore()
@@ -171,6 +174,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
   const s = scaleOf(view)
   const unit = 1 / s
+  const gridStep = visibleGridStep(gridSize, s)
   const toWorld = (e: { clientX: number; clientY: number }) => {
     const r = ref.current!.getBoundingClientRect()
     return screenToWorld(view, e.clientX - r.left, e.clientY - r.top)
@@ -178,7 +182,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
   /** Single source of truth: indicator, preview and commit all use the point returned here. */
   const resolvePoint = (w: Point, e: { altKey: boolean; shiftKey: boolean }, skip?: { lineId: string; index: number }): GraphicSnap => {
-    const snap = resolveGraphicSnap(w, { scale: s, grid: gridSize, gridSnap, disabled: e.altKey, ports: wiringPortAnchors(page).map((anchor) => anchor.point), anchors: graphicAnchors(page, tool === 'line' ? draft : [], skip) })
+    const snap = resolveGraphicSnap(w, { scale: s, grid: gridStep, gridSnap, disabled: e.altKey, ports: wiringPortAnchors(page).map((anchor) => anchor.point), anchors: graphicAnchors(page, tool === 'line' ? draft : [], skip) })
     if (skip) return snap
     const last = draft[draft.length - 1]
     if (tool === 'line') return resolveConstrainedLinePoint(snap, last, e.shiftKey)
@@ -187,7 +191,32 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
   const hitId = (t: EventTarget) => (t as Element).closest?.('[data-id]')?.getAttribute('data-id') ?? null
   const typeOf = (id: string) => wiringGraphics(page).find((o) => o.id === id)?.type ?? page.connections?.find((o) => o.id === id)?.type
-  const portAnchorAt = (bounds: Rect, w: Point, e: { altKey: boolean }) => nearestPortAnchor(bounds, w, gridSnap && !e.altKey ? gridSize : undefined)
+  const portAnchorAt = (bounds: Rect, w: Point, e: { altKey: boolean }) => nearestPortAnchor(bounds, w, gridSnap && !e.altKey ? gridStep : undefined)
+  /** The connection end a press would move: a bound port with one wire, a selected end handle, or a wire near its end. */
+  const endpointGrabAt = (target: EventTarget, w: Point): { connection: CadConnection; endpoint: 'start' | 'end'; point: Point } | null => {
+    const el = target as Element
+    if (el.closest?.('[data-connection-segment]') || el.closest?.('[data-edit="portLabel"]')) return null
+    const id = hitId(target)
+    if (!id) return null
+    const portId = el.closest?.('[data-port-id]')?.getAttribute('data-port-id')
+    const grab = (connection: CadConnection, endpoint: 'start' | 'end') => {
+      const point = resolveConnectionEndpoint(page, connection[endpoint])
+      return point ? { connection, endpoint, point } : null
+    }
+    if (portId) {
+      const attached = (page.connections ?? []).flatMap((connection) => (['start', 'end'] as const)
+        .filter((end) => { const p = connection[end]; return p.kind === 'port' && p.objectId === id && p.portId === portId })
+        .map((end) => ({ connection, end })))
+      return attached.length === 1 ? grab(attached[0].connection, attached[0].end) : null
+    }
+    const connection = page.connections?.find((c) => c.id === id)
+    if (!connection) return null
+    const handle = el.closest?.('[data-connection-end]')?.getAttribute('data-connection-end')
+    if (handle === 'start' || handle === 'end') return grab(connection, handle)
+    const ends = (['start', 'end'] as const).map((end) => grab(connection, end)).filter((g) => g !== null)
+    const near = ends.map((g) => ({ g, d: Math.hypot(g.point.x - w.x, g.point.y - w.y) })).sort((a, b) => a.d - b.d)[0]
+    return near && near.d <= ENDPOINT_GRAB_PX / s ? near.g : null
+  }
   const endpointAt = (w: Point, e: { altKey: boolean; shiftKey: boolean }): CadConnectionEndpoint => connectionEndpointAt(page, w, resolvePoint(w, e).point, 12 / s, e.altKey)
   const connectionGestureAt = (g: Extract<Gesture, { kind: 'connection' }>, w: Point, e: { altKey: boolean; shiftKey: boolean }): CadConnection => g.endpoint
     ? { ...g.original, [g.endpoint]: endpointAt(w, e) }
@@ -212,14 +241,18 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       useSelectionStore.getState().set([hitOwner.id])
       // Label clicks must not move the port before a double-click can open its editor.
       if ((e.target as Element).closest?.('[data-edit="portLabel"]')) return setGesture(null)
-      const attached = (page.connections ?? []).flatMap((connection) => (['start', 'end'] as const).filter((end) => {
-        const endpoint = connection[end]
-        return endpoint.kind === 'port' && endpoint.objectId === hitOwner.id && endpoint.portId === portId
-      }).map((endpoint) => ({ connection, endpoint })))
-      if (attached.length !== 1) return setGesture(null)
-      const { connection, endpoint } = attached[0]
-      useSelectionStore.getState().set([connection.id])
-      return setGesture({ kind: 'connection', original: connection, next: connection, endpoint })
+      const grab = endpointGrabAt(e.target, w)
+      if (!grab) return setGesture(null)
+      useSelectionStore.getState().set([grab.connection.id])
+      return setGesture({ kind: 'connection', original: grab.connection, next: grab.connection, endpoint: grab.endpoint })
+    }
+    if (tool === 'select' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      const grab = endpointGrabAt(e.target, w)
+      if (grab) {
+        useSelectionStore.getState().set([grab.connection.id])
+        setEndpointHover(null)
+        return setGesture({ kind: 'connection', original: grab.connection, next: grab.connection, endpoint: grab.endpoint })
+      }
     }
     if (tool === 'port') {
       if (portId && hitOwner) {
@@ -317,6 +350,8 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     setConnectionTarget(target)
     setHover(target?.kind === 'point' || (!gesture && (tool === 'line' || tool === 'rect' || tool === 'ellipse' || tool === 'block')) ? snap : null)
     setPortHover(tool === 'port' && portOwner && hitId(e.target) === portOwner.id ? portAnchorAt(portOwnerBounds(portOwner), w, e) : null)
+    const grabPoint = !gesture && tool === 'select' && !space ? endpointGrabAt(e.target, w)?.point ?? null : null
+    if (grabPoint?.x !== endpointHover?.x || grabPoint?.y !== endpointHover?.y) setEndpointHover(grabPoint)
     if (tool === 'connection' && connectionDraftRef.current) setConnectionDraft({ ...connectionDraftRef.current, end: endpointAt(w, e) })
     if (!gesture) return
     if (gesture.kind === 'connect') return setGesture({ ...gesture, dragged: gesture.dragged || Math.hypot(w.x - gesture.origin.x, w.y - gesture.origin.y) * s > 3 })
@@ -335,7 +370,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       return setGesture({ ...gesture, end: snap.point, snap })
     }
     if (gesture.kind === 'drag') {
-      const g = gridSnap && !e.altKey ? gridSize : 1
+      const g = gridSnap && !e.altKey ? gridStep : 1
       const dx = Math.round((w.x - gesture.origin.x) / g) * g
       const dy = Math.round((w.y - gesture.origin.y) / g) * g
       if (dx !== gesture.dx || dy !== gesture.dy) setGesture({ ...gesture, dx, dy })
@@ -466,7 +501,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   const linePreview = tool === 'line' && draft.length ? (hover ? [...draft, hover.point] : draft) : null
   const shapePreview = gesture?.kind === 'shapeCreate' ? normalizeRect(gesture.start, gesture.end) : null
   const targetPoint = connectionTarget && connectionTarget.kind !== 'point' ? resolveConnectionEndpoint(page, connectionTarget) : null
-  const cursor = gesture?.kind === 'connection' && gesture.endpoint ? 'crosshair' : gesture?.kind === 'pan' ? 'grabbing' : tool === 'pan' || space ? 'grab' : gesture?.kind === 'resize' ? HANDLE_CURSORS[gesture.handle] : tool === 'select' ? 'default' : 'crosshair'
+  const cursor = gesture?.kind === 'connection' && gesture.endpoint ? 'crosshair' : gesture?.kind === 'pan' ? 'grabbing' : tool === 'pan' || space ? 'grab' : gesture?.kind === 'resize' ? HANDLE_CURSORS[gesture.handle] : tool === 'select' ? (endpointHover && !gesture ? 'move' : 'default') : 'crosshair'
 
   return (
     <div
@@ -478,7 +513,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       onPointerUp={onPointerUp}
       onPointerCancel={(e) => { if (pointerId.current === e.pointerId) { setGesture(null); setConnectionDraft(null) } }}
       onLostPointerCapture={(e) => { if (pointerId.current === e.pointerId) { setGesture(null); setConnectionDraft(null) } }}
-      onPointerLeave={() => (useCursorStore.getState().set(null, null, false), setHover(null), setConnectionTarget(null))}
+      onPointerLeave={() => (useCursorStore.getState().set(null, null, false), setHover(null), setConnectionTarget(null), setEndpointHover(null))}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
       role="application"
@@ -551,6 +586,10 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
           {targetPoint && <g data-connection-target={connectionTarget?.kind} pointerEvents="none" aria-label={connectionTarget?.kind === 'port' ? 'Port-Bindung' : 'Shape-Bindung'}>
             <circle cx={targetPoint.x} cy={targetPoint.y} r={9 * unit} fill="var(--sheet-paper, white)" fillOpacity={0.7} stroke={PREVIEW} strokeWidth={2 * unit} />
             <circle cx={targetPoint.x} cy={targetPoint.y} r={3 * unit} fill={PREVIEW} />
+          </g>}
+          {endpointHover && !gesture && <g data-endpoint-hover="" pointerEvents="none" aria-label="Verschiebbarer Anschlusspunkt">
+            <circle cx={endpointHover.x} cy={endpointHover.y} r={7 * unit} fill={PREVIEW} fillOpacity={0.2} stroke={PREVIEW} strokeWidth={1.5 * unit} />
+            <circle cx={endpointHover.x} cy={endpointHover.y} r={2.5 * unit} fill={PREVIEW} />
           </g>}
           {hover && (!gesture || connectionTarget?.kind === 'point') && <SnapIndicator snap={hover} unit={unit} />}
           {(gesture?.kind === 'resize' || gesture?.kind === 'shapeCreate' || gesture?.kind === 'vertex') && gesture.snap && <SnapIndicator snap={gesture.snap} unit={unit} />}

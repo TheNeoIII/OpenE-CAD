@@ -18,7 +18,7 @@ const ports = load('features/wiring/models/ports', { '@/types/cad': cad, '@/feat
 const inline = load('features/wiring/models/inlineEdit', { '@/types/cad': cad, './shapes': shapes, './ports': ports })
 
 const viewport = load('features/drawing/viewport')
-const grid = load('features/drawing/grid')
+const grid = load('features/drawing/grid', { './viewport': viewport })
 const snap = load('features/drawing/snap', { './geometry': geometry, './viewport': viewport })
 
 const page = () => ({
@@ -129,27 +129,36 @@ for (const zoom of [0.2, 0.5, 0.75, 1, 2]) {
       assert.equal(scale, zoom * BASE_SCALE)
       assert.ok(Math.abs(grid.gridDotRadius(scale) * scale - grid.GRID_DOT_PX) < 1e-12)
       const step = grid.visibleGridStep(lattice, scale)
-      assert.ok(step >= lattice)
-      assert.equal(step % lattice, 0)
-      assert.ok(step * scale >= grid.GRID_MIN_SPACING_PX)
+      assert.ok(Number.isInteger(step) && step >= 1)
+      assert.ok(zoom < 1 ? step % lattice === 0 : lattice % step === 0)
+      assert.ok(grid.gridDotRadius(scale, step) * scale <= grid.GRID_DOT_PX + 1e-12)
+      assert.ok(grid.gridDotRadius(scale, step) * scale <= step * scale / 4 + 1e-12)
+      const opacity = grid.gridDotOpacity(step, scale)
+      assert.ok(opacity >= 0.35 && opacity <= 1)
       assert.deepEqual(grid.GRID_ORIGIN, { x: 0, y: 0 })
       const positions = grid.gridLinePositions(-201, 501, step, grid.GRID_ORIGIN.x)
       assert.ok(positions.length > 0)
       for (const x of positions) {
         assert.ok(x >= -201 && x <= 501)
         const point = { x, y: x }
-        assert.deepEqual(snap.resolveGraphicSnap(point, { scale, grid: lattice, gridSnap: true }), { point, kind: 'grid', label: 'Raster' })
+        assert.deepEqual(snap.resolveGraphicSnap(point, { scale, grid: step, gridSnap: true }), { point, kind: 'grid', label: 'Raster' })
       }
     })
   }
 }
 
-test('thinned grid still snaps at an invisible intermediate lattice point', () => {
-  const scale = viewport.scaleOf({ zoom: 0.2, panX: 0, panY: 0 })
-  const step = grid.visibleGridStep(50, scale)
-  assert.ok(step > 50)
-  assert.ok(!grid.gridLinePositions(0, step, step).includes(50))
-  assert.deepEqual(snap.resolveGraphicSnap({ x: 50, y: 50 }, { scale, grid: 50, gridSnap: true }), { point: { x: 50, y: 50 }, kind: 'grid', label: 'Raster' })
+test('grid keeps its on-screen spacing over zoom and snaps only to visible dots', () => {
+  const screenAt100 = 50 * BASE_SCALE
+  for (const zoom of [0.08, 0.2, 0.5, 1, 2, 4, 8]) {
+    const scale = viewport.scaleOf({ zoom, panX: 0, panY: 0 })
+    const step = grid.visibleGridStep(50, scale)
+    const ratio = (step * scale) / screenAt100
+    assert.ok(ratio > 0.6 && ratio < 1.7, `zoom ${zoom}: ${step * scale}px`)
+    const snapped = snap.resolveGraphicSnap({ x: step * 0.4, y: step * 1.4 }, { scale, grid: step, gridSnap: true }).point
+    assert.deepEqual(snapped, { x: 0, y: step })
+  }
+  assert.equal(grid.visibleGridStep(50, viewport.scaleOf({ zoom: 8, panX: 0, panY: 0 })), 5)
+  assert.equal(grid.visibleGridStep(50, viewport.scaleOf({ zoom: 0.25, panX: 0, panY: 0 })), 200)
   assert.deepEqual(grid.gridLinePositions(-10, 110, 50, 10), [10, 60, 110])
 })
 
