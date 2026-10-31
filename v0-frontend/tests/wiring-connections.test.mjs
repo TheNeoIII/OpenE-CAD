@@ -301,6 +301,35 @@ test('sanitation detects backtracking and self-crossing, preserves valid manual 
   assert.deepEqual(routing.routeConnection(a, b, undefined, undefined, manual), [a, ...manual, b])
 })
 
+test('manual bend next to a bound port keeps the bend and inserts the outward stub', () => {
+  const a = { x: 0, y: 0 }, b = { x: 500, y: 200 }, bend = { x: 200, y: 0 }
+  const route = routing.routeConnectionDetailed(a, b, 'top', undefined, [bend])
+  assert.equal(route.source, 'manual-lead')
+  assert.deepEqual(route.points[1], { x: 0, y: -routing.CONNECTION_LEAD })
+  assert.ok(route.points.some((p) => p.x === bend.x && p.y === bend.y))
+  assert.equal(routing.hasRouteDegeneracy(route.points), false)
+  assert.equal(routing.routeConnectionDetailed(a, b, undefined, undefined, [bend]).source, 'manual')
+})
+
+test('loading repairs unusable stored bend points and leaves valid ones untouched', () => {
+  const free = (point) => ({ kind: 'point', point })
+  const base = { id: 'c', type: 'connection', connectionType: 'generic', style: 'solid', start: free({ x: 0, y: 0 }), end: free({ x: 300, y: 200 }) }
+  const valid = { ...base, id: 'valid', routePoints: [{ x: 0, y: 80 }, { x: 300, y: 80 }] }
+  const crossing = { ...base, id: 'crossing', routePoints: [{ x: 100, y: 0 }, { x: 100, y: 100 }, { x: 50, y: 100 }, { x: 50, y: -50 }] }
+  const nonFinite = { ...base, id: 'nan', routePoints: [{ x: Number.NaN, y: 0 }] }
+  const unresolved = { ...base, id: 'ref', start: { kind: 'port', objectId: 'missing', portId: 'p' }, routePoints: crossing.routePoints }
+  const wiring = { id: 'w', kind: 'wiring', diagramBlocks: [], connections: [valid, crossing, nonFinite, unresolved] }
+  const doc = { pages: [wiring] }
+  const repaired = domain.repairConnectionRoutes(doc)
+  const [keptValid, fixedCrossing, fixedNan, keptRef] = repaired.pages[0].connections
+  assert.equal(keptValid, valid)
+  assert.equal('routePoints' in fixedCrossing, false)
+  assert.equal('routePoints' in fixedNan, false)
+  assert.equal(keptRef, unresolved)
+  assert.equal(domain.repairConnectionRoutes(repaired), repaired)
+  assert.equal(domain.repairConnectionRoutes({ pages: [{ ...wiring, connections: [valid] }] }).pages[0].connections[0], valid)
+})
+
 test('owner movement and port reattachment avoid both owners for every edge pair', () => {
   for (const x of [-600, 100, 800]) for (const y of [-500, 700]) {
     for (const startEdge of ['top', 'right', 'bottom', 'left']) for (const endEdge of ['top', 'right', 'bottom', 'left']) {

@@ -65,15 +65,25 @@ export function routeCrossesOwner(points: readonly Point[], bounds: RoutingOwner
   })
 }
 
+export type RouteSource = 'manual' | 'manual-lead' | 'auto'
+
 export function routeConnection(a: Point, b: Point, startEdge?: CadPortEdge, endEdge?: CadPortEdge, manual?: readonly Point[], owners: readonly RoutingOwner[] = []): Point[] {
+  return routeConnectionDetailed(a, b, startEdge, endEdge, manual, owners).points
+}
+
+const chain = (points: readonly Point[]) => normalizeOrthogonalPoints(points.slice(1).reduce<Point[]>((route, p) => [...route, ...orthogonalRoute(route.at(-1)!, p).slice(1)], [{ ...points[0] }]))
+
+/** `manual-lead`: the user's bend points were kept, but 5 mm port stubs had to be inserted. */
+export function routeConnectionDetailed(a: Point, b: Point, startEdge?: CadPortEdge, endEdge?: CadPortEdge, manual?: readonly Point[], owners: readonly RoutingOwner[] = []): { points: Point[]; source: RouteSource } {
   const start = lead(a, startEdge), end = lead(b, endEdge)
   const outward = (origin: Point, next: Point, edge?: CadPortEdge) => !edge || (next.x - origin.x) * normals[edge].x + (next.y - origin.y) * normals[edge].y > 0
   const valid = (points: Point[]) => points.length >= 2 && !hasRouteDegeneracy(points) && outward(a, points[1], startEdge) && outward(b, points.at(-2)!, endEdge) && !owners.some((owner) => routeCrossesOwner(points, owner))
-  if (manual?.length) {
-    const points = [a]
-    for (const point of [...manual, b]) points.push(...orthogonalRoute(points.at(-1)!, point).slice(1))
-    const normalized = normalizeOrthogonalPoints(points)
-    if (valid(normalized)) return normalized
+  const waypoints = manual?.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)) ?? []
+  if (waypoints.length) {
+    const direct = chain([a, ...waypoints, b])
+    if (valid(direct)) return { points: direct, source: 'manual' }
+    const withLeads = chain([a, start, ...waypoints, end, b])
+    if (valid(withLeads)) return { points: withLeads, source: 'manual-lead' }
   }
   const xs = [start.x, end.x, (start.x + end.x) / 2, Math.min(a.x, b.x, ...owners.map((o) => o.x)) - CONNECTION_LEAD * 2, Math.max(a.x, b.x, ...owners.map((o) => o.x + o.w)) + CONNECTION_LEAD * 2]
   const ys = [start.y, end.y, (start.y + end.y) / 2, Math.min(a.y, b.y, ...owners.map((o) => o.y)) - CONNECTION_LEAD * 2, Math.max(a.y, b.y, ...owners.map((o) => o.y + o.h)) + CONNECTION_LEAD * 2]
@@ -88,7 +98,7 @@ export function routeConnection(a: Point, b: Point, startEdge?: CadPortEdge, end
   const length = (points: Point[]) => points.slice(1).reduce((sum, p, i) => sum + Math.abs(p.x - points[i].x) + Math.abs(p.y - points[i].y), 0)
   routes.sort((left, right) => length(left) - length(right) || left.length - right.length)
   // Overlapping owners or coincident endpoints can make an outward route impossible.
-  return routes[0] ?? orthogonalRoute(a, b)
+  return { points: routes[0] ?? orthogonalRoute(a, b), source: 'auto' }
 }
 
 /** Boundary segments gain doglegs so both endpoint positions remain unchanged. */
