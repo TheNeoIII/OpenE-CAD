@@ -2,6 +2,13 @@
 
 Durable rules. Invariants in `../AGENTS.md` take precedence; this file adds code-backed facts.
 
+## W4.1.1 drawing contracts
+- Connection type presets are applied in actions on creation/type change, never during rendering. Subsequent manual style edits remain until another type change. Selection uses a halo without hiding the actual connection colour.
+- Shared fill/opacity controls require every selected ID to resolve to a rectangle, ellipse or diagram block. Lines, text, images and connections make the selection incompatible. Unequal values display as mixed; absent opacity means 1. One shared edit is one history transaction.
+- Live property inputs preview immediately. Blur/Enter commits one history entry; Escape restores the initial property state. Graphic inline text deliberately differs: Escape commits dirty text; Enter inserts a newline and Ctrl/Cmd+Enter commits.
+- A singly selected Schematic wire in select mode exposes a midpoint handle for every nonzero orthogonal segment, including straight and short segments. Wiring connections likewise expose every segment, not only internal ones. Handles are screen-scaled; they do not alter persisted geometry.
+- Implementation and local evidence do not imply full acceptance closure; outstanding verification is tracked in `w4-acceptance.md`.
+
 ## Zoom & pan
 - Zoom range `MIN_ZOOM = 0.08` .. `MAX_ZOOM = 8` (`stores/viewportStore.ts`); view state is per page.
 - `zoomAt(factor, anchor)` keeps the world point under the anchor fixed. Use `setZoom`, `fitPage`,

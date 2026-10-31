@@ -98,6 +98,26 @@ Native browser checks (dev preview, desktop 1135×853, dark) on a wiring QA page
 
 Automated: `npm run typecheck` clean, `npm test` 139/139 pass, `npm run build` succeeds (only the existing chunk-size warning).
 
+## W4.1.1 continuation — 2026-10-31
+
+Implementation baseline: `a2648b0` on `v0/wiring-separation-and-stabilization-55dce744`. This is a continuation report, not blanket acceptance closure.
+
+Implemented type defaults (stroke / world-unit width / style): generic `#374151 / 3 / solid`; cable `#111827 / 4 / solid`; network `#2563eb / 3 / solid`; bus `#7c3aed / 4 / solid`; power `#dc2626 / 4 / solid`; signal `#ea580c / 3 / dashed`. Actions apply these once on type changes; manual styles remain otherwise.
+
+Previous-session native evidence: all six type changes, manual colour preservation and subsequent power reset; shared fill preview on two rectangles, opacity preview and Undo; mixed rectangle/ellipse values; rectangle/ellipse/block no-fill; incompatible rectangle/line selection hides fill. Text entry, multiline, dirty Escape commit, Undo/Redo and unchanged-label no-op were exercised. Native drag-to-connect covered port/port, shape/port and port/free; occupied-port drags exercised rewiring, so they do not establish fresh port/shape creation.
+
+Continuation browser evidence (local development preview, 1135×853, dark):
+- New unsaved QA fixture; model insertion was setup only. Tested gestures used native browser clicks/drags/keys, not dispatched DOM events.
+- Port manager: opened from inspector; changed A from left to right and position 30% to 50%; deleted A and restored it with Undo. The resulting model preserved B throughout.
+- Schematic: selecting a three-segment wire exposed three handles. Dragging its middle vertical segment changed both inner x coordinates from 1700 to 1900, exactly one history entry. Native Ctrl+Z restored the original points.
+- Schematic straight-wire fixture: exactly one visible handle. Short first-segment fixture: all three handles remained rendered; short-handle drag/endpoint overlap is not yet natively certified.
+- Wiring straight connection: exactly one visible segment handle, screenshot inspected.
+- Browser error list empty after Schematic checks. QA document was not saved.
+
+Current checks: `pnpm typecheck` passed; `pnpm test` **142/142** passed; `pnpm build` passed with the existing >500 kB chunk warning. No dedicated lint check was run.
+
+Remaining acceptance before declaring W4.2 ready: complete native held-modifier/zoom matrix, fresh port-to-shape creation, exhaustive port selection/manager fields and dragging, short-segment handle hit-target overlap, deployed authenticated browser QA and PR review. Older evidence below remains historical, not a check of the current deployment. W4.2 has not started.
+
 ## Vercel and PR status
 
 GitHub commit status for implementation `4abe402` reports Vercel **success**:
@@ -114,7 +134,7 @@ No PR existed for the source branch when previously checked. The available GitHu
 ## Known limits / remaining acceptance
 
 - Deterministic routing, not obstacle-avoiding routing; owner crossings and manual-route backtracking are possible.
-- Only internal segments have segment handles. Straight or single-elbow free routes have no internal segment to drag; endpoints remain editable.
+- All nonzero orthogonal segments now expose midpoint handles, including straight and single-elbow routes. Very short segments still require native hit-target overlap verification; handle count alone does not prove editability.
 - Missing external references are retained as unresolved; no fabricated origin coordinate is persisted. Fully unresolved connections have no known geometry to render.
 - Native endpoint binding at three zoom levels, segment dragging and Escape cancellation are now checked. Exhaustive gesture/modifier combinations (including native held-key modifiers), exhaustive Schematic regression and authenticated deployed Vercel browser QA remain open.
 - Text, multi-selection, live properties and port manager are natively checked locally (see W4.1 user-acceptance corrections); they are not yet checked on the protected Vercel deployment.
