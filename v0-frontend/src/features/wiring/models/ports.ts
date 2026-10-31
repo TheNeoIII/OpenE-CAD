@@ -14,7 +14,7 @@ export function portWorldPosition(bounds: Rect, port: Pick<CadPort, 'edge' | 't'
   }
 }
 
-export function nearestPortAnchor(bounds: Rect, worldPoint: Point) {
+export function nearestPortAnchor(bounds: Rect, worldPoint: Point, grid?: number) {
   const edges: CadPortEdge[] = ['top', 'right', 'bottom', 'left']
   const candidates = edges.map((edge) => {
     const horizontal = edge === 'top' || edge === 'bottom'
@@ -23,11 +23,39 @@ export function nearestPortAnchor(bounds: Rect, worldPoint: Point) {
     return { edge, t, point: portWorldPosition(bounds, { edge, t }) }
   })
   const distance = ({ point }: typeof candidates[number]) => Math.hypot(point.x - worldPoint.x, point.y - worldPoint.y)
-  return candidates.reduce((best, next) => distance(next) < distance(best) ? next : best)
+  const nearest = candidates.reduce((best, next) => distance(next) < distance(best) ? next : best)
+  if (!grid || grid <= 0) return nearest
+  const horizontal = nearest.edge === 'top' || nearest.edge === 'bottom'
+  const length = horizontal ? bounds.w : bounds.h
+  const coordinate = horizontal ? nearest.point.x : nearest.point.y
+  const origin = horizontal ? bounds.x : bounds.y
+  const t = clampPortT(length > 0 ? (Math.round(coordinate / grid) * grid - origin) / length : 0)
+  return { edge: nearest.edge, t, point: portWorldPosition(bounds, { edge: nearest.edge, t }) }
 }
 
 export function selectedPortOwner(page: CadPage | null | undefined, ids: readonly string[]): PortOwner | undefined {
   return page?.kind === 'wiring' && ids.length === 1 ? page.diagramBlocks?.find((o) => o.id === ids[0]) : undefined
+}
+
+/**
+ * Moves the dragged port to `anchor`; the other selected ports keep their spacing.
+ * Ports on the dragged port's edge follow it (also onto a new edge); ports on other
+ * edges shift along their own edge only while the dragged port stays on its edge.
+ * The shift is clamped so no port of the group is squeezed against an edge end.
+ */
+export function movePortsOnPage(page: CadPage, objectId: string, portIds: readonly string[], draggedId: string, anchor: Pick<CadPort, 'edge' | 't'>): CadPage {
+  const ports = page.diagramBlocks?.find((o) => o.id === objectId)?.ports ?? []
+  const dragged = ports.find((p) => p.id === draggedId)
+  if (!dragged) return page
+  const sameEdge = anchor.edge === dragged.edge
+  const moving = ports.filter((p) => p.id === draggedId || (portIds.includes(p.id) && (sameEdge || p.edge === dragged.edge)))
+  if (moving.length === 1) return updatePortOnPage(page, objectId, draggedId, { edge: anchor.edge, t: anchor.t })
+  const ts = moving.map((p) => clampPortT(p.t))
+  const dt = Math.max(-Math.min(...ts), Math.min(1 - Math.max(...ts), clampPortT(anchor.t) - clampPortT(dragged.t)))
+  return moving.reduce((next, port) => updatePortOnPage(next, objectId, port.id, {
+    edge: port.edge === dragged.edge ? anchor.edge : port.edge,
+    t: clampPortT(port.t) + dt,
+  }), page)
 }
 
 export function updatePortOnPage(page: CadPage, objectId: string, portId: string, patch: Partial<CadPort>): CadPage {

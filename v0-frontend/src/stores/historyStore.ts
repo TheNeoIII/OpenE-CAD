@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { CadDocument } from '@/types/cad'
-import { useDocumentStore } from './documentStore'
+import { endPropertyEdit, useDocumentStore } from './documentStore'
 import { useProjectStore } from './projectStore'
 import { useSelectionStore } from './selectionStore'
 
@@ -26,6 +26,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   future: [],
   push: (label, doc) => set((s) => ({ past: [...s.past.slice(-(LIMIT - 1)), { label, doc }], future: [] })),
   undo: () => {
+    endPropertyEdit(true)
     const { past, future } = get()
     const current = useDocumentStore.getState().document
     const entry = past[past.length - 1]
@@ -37,6 +38,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     return entry.label
   },
   redo: () => {
+    endPropertyEdit(true)
     const { past, future } = get()
     const current = useDocumentStore.getState().document
     const entry = future[future.length - 1]

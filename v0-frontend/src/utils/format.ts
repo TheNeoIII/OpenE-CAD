@@ -33,4 +33,14 @@ export function isTypingTarget(target: EventTarget | null) {
   const el = target as HTMLElement | null
   if (!el) return false
   return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable
+  }
+
+const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'range', 'color', 'button', 'submit', 'reset', 'file'])
+
+/** Form controls without their own text-editing history (select, checkbox, color…). */
+export function isNonTextControl(target: EventTarget | null) {
+  const el = target as HTMLElement | null
+  if (!el) return false
+  if (el.tagName === 'SELECT') return true
+  return el.tagName === 'INPUT' && NON_TEXT_INPUT_TYPES.has((el as HTMLInputElement).type)
 }

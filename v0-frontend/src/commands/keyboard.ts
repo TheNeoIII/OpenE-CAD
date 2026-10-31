@@ -1,5 +1,5 @@
 import { useUiStore } from '@/stores/uiStore'
-import { isTypingTarget } from '@/utils/format'
+import { isNonTextControl, isTypingTarget } from '@/utils/format'
 import { allCommands, comboFromEvent, isCommandEnabled, shortcutsOf, type Command } from './registry'
 
 let index: Map<string, Command[]> | null = null
@@ -25,7 +25,8 @@ export function installKeyboard() {
     // Overlays own the keyboard, except for the palette toggle.
     if ((ui.dialog || ui.paletteOpen) && combo !== 'Ctrl+K') return
     if (ui.contextMenu) return
-    const typing = isTypingTarget(e.target)
+    // Modifier shortcuts (Ctrl+Z, Ctrl+S…) must still reach the app from controls that have no text history.
+  const typing = isTypingTarget(e.target) && !(isNonTextControl(e.target) && (e.ctrlKey || e.metaKey))
     const candidates = index?.get(combo)
     if (!candidates) return
     const cmd = candidates.find((c) => (!c.scope || c.scope.includes(ui.workspace)) && (!typing || c.allowInInput))

@@ -130,3 +130,13 @@ test('actions commit once, preserve undo snapshots and delete only the requested
   assert.equal(current.diagramBlocks.length, 2)
   assert.equal(ids[0], current.diagramBlocks[1].id)
 })
+
+test('group port move keeps spacing, follows across edges and clamps the shift', () => {
+  const base = { ...page(), diagramBlocks: [{ ...block(), ports: [{ id: 'a', edge: 'top', t: 0.2 }, { id: 'b', edge: 'top', t: 0.4 }, { id: 'c', edge: 'left', t: 0.5 }] }] }
+  const get = (p) => Object.fromEntries(p.diagramBlocks[0].ports.map((x) => [x.id, [x.edge, +x.t.toFixed(3)]]))
+  assert.deepEqual(get(ports.movePortsOnPage(base, 'b', ['a', 'b', 'c'], 'a', { edge: 'top', t: 0.3 })), { a: ['top', 0.3], b: ['top', 0.5], c: ['left', 0.6] })
+  assert.deepEqual(get(ports.movePortsOnPage(base, 'b', ['a', 'b', 'c'], 'a', { edge: 'bottom', t: 0.2 })), { a: ['bottom', 0.2], b: ['bottom', 0.4], c: ['left', 0.5] })
+  assert.deepEqual(get(ports.movePortsOnPage(base, 'b', ['a', 'b'], 'a', { edge: 'top', t: 1 })), { a: ['top', 0.8], b: ['top', 1], c: ['left', 0.5] })
+  assert.deepEqual(get(ports.movePortsOnPage(base, 'b', [], 'b', { edge: 'right', t: 0.9 })), { a: ['top', 0.2], b: ['right', 0.9], c: ['left', 0.5] })
+  assert.equal(ports.movePortsOnPage(base, 'b', ['a'], 'missing', { edge: 'top', t: 0 }), base)
+})

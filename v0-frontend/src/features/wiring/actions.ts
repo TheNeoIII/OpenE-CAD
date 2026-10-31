@@ -8,7 +8,7 @@ import { uid } from '@/utils/format'
 import { creationBounds, findLine, findShape, moveLineVertexOnPage, resizeShapeOnPage, translateGraphics } from './models/shapes'
 import { applyEditOnPage, EDIT_LABELS, readEditValue, type InlineEditTarget } from './models/inlineEdit'
 
-import { clampPortT, selectedPortOwner, updatePortOnPage } from './models/ports'
+import { clampPortT, movePortsOnPage, selectedPortOwner, updatePortOnPage } from './models/ports'
 
 export const DEFAULT_SHAPE_STYLE: CadShapeStyle = { stroke: '#1f2937', strokeWidth: 3, lineStyle: 'solid', fill: 'none' }
 
@@ -61,6 +61,15 @@ export function addPort(objectId: string, anchor: Pick<CadPort, 'edge' | 't'>) {
   if (!owner || owner.id !== objectId) return
   const port: CadPort = { id: uid('port'), edge: anchor.edge, t: clampPortT(anchor.t), label: '', portType: 'generic', direction: 'bidirectional' }
   updateShape(objectId, { ports: [...(owner.ports ?? []), port] }, 'Port hinzugefügt')
+  return port.id
+}
+
+/** Applies one patch to several ports of the same block as a single undo step. */
+export function updatePorts(objectId: string, portIds: readonly string[], patch: Partial<Pick<CadPort, 'portType' | 'direction' | 'labelPlacement'>>) {
+  const ports = activePage()?.diagramBlocks?.find((o) => o.id === objectId)?.ports?.filter((p) => portIds.includes(p.id)) ?? []
+  const changed = ports.filter((port) => Object.entries(patch).some(([key, value]) => port[key as keyof CadPort] !== value))
+  if (!changed.length) return
+  withActivePage(changed.length > 1 ? 'Ports geändert' : 'Port geändert', (p) => changed.reduce((page, port) => updatePortOnPage(page, objectId, port.id, patch), p))
 }
 
 export function updatePort(objectId: string, portId: string, patch: Partial<CadPort>) {
@@ -70,12 +79,28 @@ export function updatePort(objectId: string, portId: string, patch: Partial<CadP
 }
 
 export function deletePort(objectId: string, portId: string) {
+  deletePorts(objectId, [portId])
+}
+
+/** Deletes several ports of one block as a single undo step; attached connection ends are detached in place. */
+export function deletePorts(objectId: string, portIds: readonly string[]) {
   const owner = activePage()?.diagramBlocks?.find((o) => o.id === objectId)
-  if (!owner?.ports?.some((p) => p.id === portId)) return
-  withActivePage('Port gelöscht', (page) => ({
-    ...(page.connections?.length ? detachConnectionEndpoints(page, (e) => e.objectId === objectId && e.portId === portId) : page),
-    diagramBlocks: (page.diagramBlocks ?? []).map((b) => b.id === objectId ? { ...b, ports: b.ports?.filter((p) => p.id !== portId) } : b),
+  const ids = new Set((owner?.ports ?? []).filter((p) => portIds.includes(p.id)).map((p) => p.id))
+  if (!ids.size) return
+  withActivePage(ids.size > 1 ? `${ids.size} Ports gelöscht` : 'Port gelöscht', (page) => ({
+    ...(page.connections?.length ? detachConnectionEndpoints(page, (e) => e.kind === 'port' && e.objectId === objectId && ids.has(e.portId)) : page),
+    diagramBlocks: (page.diagramBlocks ?? []).map((b) => b.id === objectId ? { ...b, ports: b.ports?.filter((p) => !ids.has(p.id)) } : b),
   }))
+}
+
+export function movePorts(objectId: string, portIds: readonly string[], draggedId: string, anchor: Pick<CadPort, 'edge' | 't'>) {
+  const page = activePage()
+  if (!page) return
+  const before = page.diagramBlocks?.find((o) => o.id === objectId)?.ports
+  const after = movePortsOnPage(page, objectId, portIds, draggedId, anchor).diagramBlocks?.find((o) => o.id === objectId)?.ports
+  if (!before || JSON.stringify(before) === JSON.stringify(after)) return
+  const label = portIds.length > 1 && portIds.includes(draggedId) ? 'Ports verschoben' : 'Port verschoben'
+  withActivePage(label, (p) => movePortsOnPage(p, objectId, portIds, draggedId, anchor))
 }
 
 export function addRectangle(a: Point, b: Point) {
@@ -149,5 +174,27 @@ export function updateShape(id: string, patch: Partial<Shape>, label = 'Grafik g
   withActivePage(label, (p) => {
     const s = pageShapes(p)
     return { ...p, rectangles: apply(s.rectangles), ellipses: apply(s.ellipses), images: apply(s.images), diagramBlocks: apply(s.diagramBlocks) }
+  })
+}
+
+export type WiringStylePatch = { stroke?: string; strokeWidth?: number; lineStyle?: LineStyle }
+
+/** Applies shared stroke properties to every selected shape, free line and connection in one undo step. */
+export function updateWiringStyles(ids: readonly string[], patch: WiringStylePatch) {
+  const set = new Set(ids)
+  const shapePatch = { ...(patch.stroke !== undefined && { stroke: patch.stroke }), ...(patch.strokeWidth !== undefined && { strokeWidth: patch.strokeWidth }), ...(patch.lineStyle && { lineStyle: patch.lineStyle }) }
+  const linePatch = { ...(patch.stroke !== undefined && { stroke: patch.stroke }), ...(patch.strokeWidth !== undefined && { strokeWidth: patch.strokeWidth }), ...(patch.lineStyle && { style: patch.lineStyle }) }
+  const applyShape = <T extends { id: string }>(items: T[]) => items.map((o) => (set.has(o.id) && !('src' in o) ? { ...o, ...shapePatch } : o))
+  const applyLine = <T extends { id: string }>(items: T[]) => items.map((o) => (set.has(o.id) ? { ...o, ...linePatch } : o))
+  withActivePage(ids.length > 1 ? `${ids.length} Objekte geändert` : 'Objekt geändert', (p) => {
+    const s = pageShapes(p)
+    return {
+      ...p,
+      rectangles: applyShape(s.rectangles),
+      ellipses: applyShape(s.ellipses),
+      diagramBlocks: applyShape(s.diagramBlocks),
+      lines: applyLine(p.lines),
+      connections: p.connections && applyLine(p.connections),
+    }
   })
 }

@@ -1,7 +1,8 @@
 import { pageConnections, type CadConnection, type CadConnectionEndpoint, type CadPage, type Point, type Rect } from '@/types/cad'
 import { pointOnSegment, pointsBounds } from '@/features/drawing/geometry'
 import { portOwnerBounds, portWorldPosition, wiringPortAnchors } from './ports'
-import { orthogonalRoute, routeConnection } from './connectionRouting'
+import { moveConnectionSegment, orthogonalRoute, routeConnection } from './connectionRouting'
+import { resolveShapeAnchor, shapeEndpointAt } from './shapeBinding'
 
 function boundPort(page: CadPage, endpoint: CadConnectionEndpoint) {
   if (page.kind !== 'wiring' || endpoint.kind !== 'port') return null
@@ -13,6 +14,7 @@ function boundPort(page: CadPage, endpoint: CadConnectionEndpoint) {
 export function resolveConnectionEndpoint(page: CadPage, endpoint: CadConnectionEndpoint): Point | null {
   if (page.kind !== 'wiring') return null
   if (endpoint.kind === 'point') return { ...endpoint.point }
+  if (endpoint.kind === 'shape') return resolveShapeAnchor(page, endpoint.objectId, endpoint.anchor)?.point ?? null
   const bound = boundPort(page, endpoint)
   return bound ? portWorldPosition(portOwnerBounds(bound.owner), bound.port) : null
 }
@@ -21,10 +23,28 @@ export function resolveConnectionPolyline(page: CadPage, connection: CadConnecti
   if (page.kind !== 'wiring') return []
   const a = resolveConnectionEndpoint(page, connection.start)
   const b = resolveConnectionEndpoint(page, connection.end)
-  if (a && b) return routeConnection(a, b, boundPort(page, connection.start)?.port.edge, boundPort(page, connection.end)?.port.edge, connection.routePoints)
+  if (a && b) {
+    const geometry = (endpoint: CadConnectionEndpoint) => {
+      if (endpoint.kind === 'shape') return resolveShapeAnchor(page, endpoint.objectId, endpoint.anchor)
+      const port = boundPort(page, endpoint)
+      return port ? { bounds: portOwnerBounds(port.owner), edge: port.port.edge } : null
+    }
+    const start = geometry(connection.start), end = geometry(connection.end)
+    const owners = [start, end].flatMap((bound) => bound ? [bound.bounds] : [])
+    return routeConnection(a, b, start?.edge, end?.edge, connection.routePoints, owners)
+  }
   // Unresolved references remain references. Only known points can form a warning route.
   const known = [...(a ? [a] : []), ...(connection.routePoints ?? []), ...(b ? [b] : [])]
   return known.reduce<Point[]>((result, p) => result.length ? [...result, ...orthogonalRoute(result.at(-1)!, p).slice(1)] : [{ ...p }], [])
+}
+
+export function moveBoundConnectionSegment(page: CadPage, connection: CadConnection, index: number, at: Point): CadConnection {
+  const original = resolveConnectionPolyline(page, connection)
+  const points = moveConnectionSegment(original, index, at, connection.start.kind !== 'point', connection.end.kind !== 'point')
+  if (JSON.stringify(points) === JSON.stringify(original)) return connection
+  const next = { ...connection, routePoints: points.slice(1, -1) }
+  // Reject impossible owner-crossing edits instead of silently jumping to an automatic route.
+  return JSON.stringify(resolveConnectionPolyline(page, next)) === JSON.stringify(points) ? next : connection
 }
 
 export function connectionBounds(page: CadPage, connection: CadConnection): Rect | null {
@@ -62,15 +82,17 @@ export function connectionEndpointAt(page: CadPage, raw: Point, fallback: Point,
       if (next <= distance) { best = anchor; distance = next }
     }
     if (best) return { kind: 'port', objectId: best.objectId, portId: best.portId }
+    const shape = shapeEndpointAt(page, raw, tolerance)
+    if (shape) return shape
   }
   return { kind: 'point', point: { ...fallback } }
 }
 
 /** Called before deletion, inside the same document/history transaction. */
-export function detachConnectionEndpoints(page: CadPage, removed: (endpoint: Extract<CadConnectionEndpoint, { kind: 'port' }>) => boolean): CadPage {
+export function detachConnectionEndpoints(page: CadPage, removed: (endpoint: Exclude<CadConnectionEndpoint, { kind: 'point' }>) => boolean): CadPage {
   if (page.kind !== 'wiring' || !page.connections?.length) return page
   const detach = (endpoint: CadConnectionEndpoint): CadConnectionEndpoint => {
-    if (endpoint.kind !== 'port' || !removed(endpoint)) return endpoint
+    if (endpoint.kind === 'point' || !removed(endpoint)) return endpoint
     const point = resolveConnectionEndpoint(page, endpoint)
     return point ? { kind: 'point', point } : endpoint
   }
@@ -79,6 +101,10 @@ export function detachConnectionEndpoints(page: CadPage, removed: (endpoint: Ext
 
 export function endpointDescription(page: CadPage, endpoint: CadConnectionEndpoint): string {
   if (endpoint.kind === 'point') return `Freier Punkt (${endpoint.point.x / 10} / ${endpoint.point.y / 10} mm)`
+  if (endpoint.kind === 'shape') {
+    const bound = resolveShapeAnchor(page, endpoint.objectId, endpoint.anchor)
+    return bound ? `Objektkante: ${bound.owner.type === 'diagramBlock' ? bound.owner.title : bound.owner.label || bound.owner.id}` : `Nicht auflösbar: ${endpoint.objectId}`
+  }
   const bound = boundPort(page, endpoint)
   return bound ? `${bound.owner.title} / ${bound.port.label || bound.port.id}` : `Nicht auflösbar: ${endpoint.objectId} / ${endpoint.portId}`
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ColorPicker } from '@/components/ui/ColorPicker'
+import { LiveNumberInput } from '@/components/ui/LiveNumberInput'
+import { beginPropertyEdit, endPropertyEdit } from '@/stores/documentStore'
 import { Field, Input, Select } from '@/components/ui/primitives'
 import type { CadDiagramBlock, CadEllipse, CadImage, CadLine, CadRectangle, LineStyle } from '@/types/cad'
 import { updateConnection, updateLine, updateShape } from '../actions'
@@ -15,28 +17,19 @@ const TYPE_LABELS: Record<Shape['type'], string> = { diagramBlock: 'Baustein', r
 const STYLE_LABELS: Record<LineStyle, string> = { solid: 'Durchgezogen', dashed: 'Gestrichelt', dashdot: 'Strichpunkt' }
 const DEFAULT_INK = '#111827'
 
-function NumberInput({ id, value, onCommit, min, max, step }: { id: string; value: number; onCommit: (v: number) => void; min?: number; max?: number; step?: number }) {
-  const [draft, setDraft] = useState(String(Math.round(value * 10) / 10))
-  useEffect(() => setDraft(String(Math.round(value * 10) / 10)), [value])
-  const commit = () => {
-    const n = Number(draft)
-    if (Number.isFinite(n) && n !== value) onCommit(n)
-  }
+function NumberInput({ onCommit, ...rest }: { id: string; value: number; onCommit: (v: number) => void; min?: number; max?: number; step?: number }) {
+  return <LiveNumberInput {...rest} onChange={onCommit} />
+}
+
+/** Colour swatch whose dialog previews live and records a single undo step on apply. */
+export function LiveColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <Input
-      id={id}
-      type="number"
-      mono
-      min={min}
-      max={max}
-      step={step}
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.nativeEvent.isComposing || e.keyCode === 229) return
-        if (e.key === 'Enter') commit()
-      }}
+    <ColorPicker
+      label={label}
+      value={value}
+      onPreview={(c) => { beginPropertyEdit(); onChange(c) }}
+      onCancel={() => endPropertyEdit(false)}
+      onChange={(c) => { beginPropertyEdit(); onChange(c); endPropertyEdit(true) }}
     />
   )
 }
@@ -71,7 +64,7 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
   return (
     <div className="flex items-center justify-between gap-2 text-[12px]">
       <span className="text-muted">{label}</span>
-      <ColorPicker label={label} value={value} onChange={onChange} />
+      <LiveColorPicker label={label} value={value} onChange={onChange} />
     </div>
   )
 }
@@ -121,7 +114,7 @@ export function WiringProperties({ obj }: { obj: Shape }) {
                   <input type="checkbox" checked={obj.fill === 'none'} onChange={(e) => set({ fill: e.target.checked ? 'none' : '#ffffff' })} />
                   Keine
                 </label>
-                {obj.fill !== 'none' && <ColorPicker label="Füllfarbe" value={obj.fill} onChange={(fill) => set({ fill })} />}
+                {obj.fill !== 'none' && <LiveColorPicker label="Füllfarbe" value={obj.fill} onChange={(fill) => set({ fill })} />}
               </div>
             </div>
           </div>
