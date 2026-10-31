@@ -27,25 +27,16 @@ export function gridDotOpacity(grid: number, scale: number): number {
   return Math.max(0.35, Math.min(1, spacingPx / GRID_MIN_SPACING_PX))
 }
 
-const SUBDIVISIONS = [1, 2, 4, 5, 10, 20, 25, 50, 100]
-
 /**
- * Effective grid step in world units for the current scale. The on-screen dot
- * spacing stays at the configured grid as it appears at 100 % zoom: zooming in
- * subdivides the grid (integer divisors, so steps stay whole 0.1 mm units),
- * zooming out coarsens it by powers of two. Visible dots and grid snapping both
- * use this step, so every snap point is a visible dot and the grid never scales.
+ * Effective grid step in world units (0.1 mm) for the current scale. The
+ * configured grid is a screen distance, like in the symbol editor: "5 mm" means
+ * 5 mm visible on screen at every zoom level. Rounded to whole world units so
+ * snapped coordinates stay integral. Visible grid and grid snapping both use
+ * this step, so every snap point lies on the visible grid.
  */
 export function visibleGridStep(grid: number, scale: number = BASE_SCALE): number {
   if (!(grid > 0) || !(scale > 0)) return grid
-  const zoom = scale / BASE_SCALE
-  if (zoom < 1) return grid * 2 ** Math.round(Math.log2(1 / zoom))
-  let best = 1
-  for (const f of SUBDIVISIONS) {
-    if (grid % f !== 0) continue
-    if (Math.abs(Math.log2(f / zoom)) < Math.abs(Math.log2(best / zoom))) best = f
-  }
-  return grid / best
+  return Math.max(1, Math.round((grid * BASE_SCALE) / scale))
 }
 
 /** World coordinates of the visible dots inside `[from, to]` along one axis. */
