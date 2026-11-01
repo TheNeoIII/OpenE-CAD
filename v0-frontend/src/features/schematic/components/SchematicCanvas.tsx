@@ -21,7 +21,6 @@ import { extendRailEnd, relocateWireEnd } from '../actions'
 import { addLine, addSymbol, addText, addWire, moveJunction, moveObjects, moveWireSegment, relocateJunction, resizeRails, updateObject } from '../actions'
 import { detachJunction, junctionHost, movePage, moveSegmentPage, railEndLimits, relocateJunctionPage, routeModeAfter, routeModeForSnap } from '../models/wireEdit'
 import { CanvasScrollbars } from '@/features/drawing/components/CanvasScrollbars'
-import { visibleGridStep } from '@/features/drawing/grid'
 import { symbolLabelPosition, terminalLabelGroups } from '../models/labels'
 import { conductorLabelPlacements, conductorLabelRef } from '../models/conductorLabels'
 import { normalizeRect, objectBounds, pageObjects, rectContains, routeOrthogonal, samePoint, simplifyPolyline, snapPoint, symbolBounds, symbolPins, TEXT_LINE } from '../models/geometry'
@@ -195,9 +194,7 @@ function CanvasInner({ page }: { page: CadPage }) {
         const sel = useSelectionStore.getState()
         if (!sel.ids.length) return
         swallow()
-        const vs = useViewportStore.getState()
-        const pageView = vs.byPage[useDocumentStore.getState().activePageId ?? '']
-        const step = e.shiftKey ? 10 : visibleGridStep(useSettingsStore.getState().gridSize, pageView ? scaleOf(pageView) : undefined)
+        const step = e.shiftKey ? 10 : useSettingsStore.getState().gridSize
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
         const seg = sel.segment
@@ -262,7 +259,7 @@ function CanvasInner({ page }: { page: CadPage }) {
   if (!view) return <div ref={ref} className="relative flex-1 overflow-hidden bg-[var(--sheet-desk)]" />
 
   const s = scaleOf(view)
-  const gridStep = visibleGridStep(settings.gridSize, s)
+  const gridStep = settings.gridSize
   const local = (e: { clientX: number; clientY: number }) => {
     const r = ref.current!.getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top }
@@ -625,7 +622,7 @@ export function SheetDrawing({ page, selected = new Set<string>(), issues = new 
   }, [page.wires, page.symbols, resolve])
  return <>
           <g style={{ filter: 'drop-shadow(0 2px 10px rgb(0 0 0 / 0.18))' }}>
-            <SheetFrame page={page} project={project} pageIndex={doc ? pageSequence(doc, page.id) : 1} pageCount={doc?.pages.length ?? 1} grid={visibleGridStep(settings.gridSize, s)} scale={s} showGrid={!clean && settings.showGrid} guides={!clean && settings.guides} />
+            <SheetFrame page={page} project={project} pageIndex={doc ? pageSequence(doc, page.id) : 1} pageCount={doc?.pages.length ?? 1} grid={settings.gridSize} scale={s} showGrid={!clean && settings.showGrid} guides={!clean && settings.guides} />
           {doc && <SheetReport page={page} doc={doc} project={project} />}
           </g>
 

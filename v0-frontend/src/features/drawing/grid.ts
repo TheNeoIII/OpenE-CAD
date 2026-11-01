@@ -1,5 +1,4 @@
 import type { Point } from '@/types/cad'
-import { BASE_SCALE } from './viewport'
 
 /**
  * World origin of the grid. Both the visible dots and grid snapping
@@ -25,18 +24,6 @@ export function gridDotRadius(scale: number, grid = Infinity): number {
 export function gridDotOpacity(grid: number, scale: number): number {
   const spacingPx = grid * scale
   return Math.max(0.35, Math.min(1, spacingPx / GRID_MIN_SPACING_PX))
-}
-
-/**
- * Effective grid step in world units (0.1 mm) for the current scale. The
- * configured grid is a screen distance, like in the symbol editor: "5 mm" means
- * 5 mm visible on screen at every zoom level. Rounded to whole world units so
- * snapped coordinates stay integral. Visible grid and grid snapping both use
- * this step, so every snap point lies on the visible grid.
- */
-export function visibleGridStep(grid: number, scale: number = BASE_SCALE): number {
-  if (!(grid > 0) || !(scale > 0)) return grid
-  return Math.max(1, Math.round((grid * BASE_SCALE) / scale))
 }
 
 /** World coordinates of the visible dots inside `[from, to]` along one axis. */

@@ -122,15 +122,14 @@ for (const kind of ['port', 'endpoint', 'grid', 'free', 'alt']) {
 }
 
 const BASE_SCALE = 96 / 25.4 / 10
-for (const zoom of [0.2, 0.5, 0.75, 1, 2]) {
+for (const zoom of [0.2, 0.5, 0.75, 1, 1.5, 2, 4]) {
   for (const lattice of [25, 50, 100]) {
     test(`grid ${lattice} at ${zoom * 100}% has screen-constant dots and world-stable snaps`, () => {
       const scale = viewport.scaleOf({ zoom, panX: 0, panY: 0 })
       assert.equal(scale, zoom * BASE_SCALE)
       assert.ok(Math.abs(grid.gridDotRadius(scale) * scale - grid.GRID_DOT_PX) < 1e-12)
-      const step = grid.visibleGridStep(lattice, scale)
+      const step = lattice
       assert.ok(Number.isInteger(step) && step >= 1)
-      assert.equal(step, Math.round(lattice / zoom))
       assert.ok(grid.gridDotRadius(scale, step) * scale <= grid.GRID_DOT_PX + 1e-12)
       assert.ok(grid.gridDotRadius(scale, step) * scale <= step * scale / 4 + 1e-12)
       const opacity = grid.gridDotOpacity(step, scale)
@@ -147,18 +146,30 @@ for (const zoom of [0.2, 0.5, 0.75, 1, 2]) {
   }
 }
 
-test('grid keeps its on-screen spacing over zoom and snaps only to visible dots', () => {
-  const screenAt100 = 50 * BASE_SCALE
-  for (const zoom of [0.08, 0.2, 0.5, 1, 2, 4, 8]) {
-    const scale = viewport.scaleOf({ zoom, panX: 0, panY: 0 })
-    const step = grid.visibleGridStep(50, scale)
-    assert.ok(Math.abs(step * scale - screenAt100) <= (scale / 2) + 1e-9, `zoom ${zoom}: ${step * scale}px`)
-    const snapped = snap.resolveGraphicSnap({ x: step * 0.4, y: step * 1.4 }, { scale, grid: step, gridSnap: true }).point
-    assert.deepEqual(snapped, { x: 0, y: step })
+test('fixed model lattice survives zoom, pan, cross-zoom creation and port placement', () => {
+  for (const zoom of [0.2, 0.5, 0.75, 1, 1.5, 2, 4]) for (const pan of [{ x: 0, y: 0 }, { x: -731, y: 891 }, { x: 2048, y: -1500 }]) {
+    const view = { zoom, panX: pan.x, panY: pan.y }
+    const scale = viewport.scaleOf(view)
+    const world = { x: 104, y: 147 }
+    const screen = viewport.worldToScreen(view, world)
+    const restored = viewport.screenToWorld(view, screen.x, screen.y)
+    const point = snap.resolveGraphicSnap(restored, { scale, grid: 50, gridSnap: true }).point
+    assert.deepEqual(point, { x: 100, y: 150 })
+    const h = actionHarness({ ...page(), rectangles: [] })
+    h.actions.addRectangle(point, { x: 500, y: 500 })
+    assert.equal(h.store.document.pages[0].rectangles[0].x, 100)
+    const startB = snap.resolveGraphicSnap({ x: 503, y: 102 }, { scale, grid: 50, gridSnap: true }).point
+    h.actions.addRectangle(startB, { x: 700, y: 300 })
+    assert.equal(h.store.document.pages[0].rectangles[1].x, 500)
+    const box = { x: 100, y: 100, w: 400, h: 400 }
+    for (const raw of [{ x: 247, y: 100 }, { x: 247, y: 500 }, { x: 100, y: 247 }, { x: 500, y: 247 }]) {
+      const anchor = ports.nearestPortAnchor(box, raw, 50)
+      assert.ok(anchor.point.x % 50 === 0 && anchor.point.y % 50 === 0)
+      assert.deepEqual(ports.portWorldPosition(box, anchor), anchor.point)
+      const free = ports.nearestPortAnchor(box, raw)
+      assert.ok(free.point.x === 247 || free.point.y === 247)
+    }
   }
-  assert.equal(grid.visibleGridStep(50, viewport.scaleOf({ zoom: 8, panX: 0, panY: 0 })), 6)
-  assert.equal(grid.visibleGridStep(50, viewport.scaleOf({ zoom: 3, panX: 0, panY: 0 })), 17)
-  assert.equal(grid.visibleGridStep(50, viewport.scaleOf({ zoom: 0.25, panX: 0, panY: 0 })), 200)
   assert.deepEqual(grid.gridLinePositions(-10, 110, 50, 10), [10, 60, 110])
 })
 
@@ -185,7 +196,9 @@ test('port labels and inline anchors agree for all edges and placements', () => 
 function actionHarness(p) {
   let commits = 0
   const store = { activePageId: p.id, document: { pages: [p] }, commit: (_label, update) => { commits++; store.document = update(store.document) } }
+  let nextId = 0
   const actions = load('features/wiring/actions', {
+    '@/utils/format': { uid: () => `test-${++nextId}` },
     '@/stores/documentStore': { useDocumentStore: { getState: () => store } },
     '@/stores/selectionStore': { useSelectionStore: { getState: () => ({ set() {} }) } },
     '@/types/cad': cad, '@/features/drawing/geometry': geometry,
