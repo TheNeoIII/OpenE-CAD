@@ -130,16 +130,20 @@ function SizeChoice({ value, onPick, label }: { value: number; onPick: (units: n
   )
 }
 
-function GridControl() {
+export interface GridSettingsMenuProps {
+  gridSize: number
+  snapGridSize: number
+  follows: boolean
+  onGridSize: (units: number) => void
+  onSnapGridSize: (units: number) => void
+  onFollowsChange: (follow: boolean) => void
+}
+
+/** Chevron + popover for display/snap grid spacing; shared by page editors and the symbol editor. */
+export function GridSettingsMenu({ gridSize, snapGridSize, follows, onGridSize, onSnapGridSize, onFollowsChange }: GridSettingsMenuProps) {
   const [open, setOpen] = useState(false)
-  const showGrid = useSettingsStore((s) => s.showGrid)
-  const gridSize = useSettingsStore((s) => s.gridSize)
-  const snapGridSize = useSettingsStore((s) => s.snapGridSize)
-  const follows = useSettingsStore((s) => s.snapFollowsGrid)
-  const { setGridSize, setSnapGridSize, setSnapFollowsGrid } = useSettingsStore.getState()
   return (
-    <div className="relative flex items-center">
-      <IconButton icon={Grid3x3} label={tooltip('view.grid')} active={showGrid} onClick={() => runCommand('view.grid')} />
+    <>
       <button
         type="button"
         aria-label="Rastereinstellungen"
@@ -152,19 +156,48 @@ function GridControl() {
       </button>
       <Popover open={open} onClose={() => setOpen(false)} label="Rastereinstellungen" className="w-56">
         <div className="flex flex-col gap-3">
-          <SizeChoice label="Rasterabstand" value={gridSize} onPick={setGridSize} />
+          <SizeChoice label="Rasterabstand" value={gridSize} onPick={onGridSize} />
           <label className="flex items-center gap-2 text-[11px] text-fg-2">
-            <input type="checkbox" checked={follows} onChange={(e) => setSnapFollowsGrid(e.target.checked)} />
+            <input type="checkbox" checked={follows} onChange={(e) => onFollowsChange(e.target.checked)} />
             Fangraster wie Anzeigeraster
           </label>
-          {!follows && <SizeChoice label="Fangabstand" value={snapGridSize} onPick={setSnapGridSize} />}
+          {!follows && <SizeChoice label="Fangabstand" value={snapGridSize} onPick={onSnapGridSize} />}
         </div>
       </Popover>
+    </>
+  )
+}
+
+function GridControl() {
+  const showGrid = useSettingsStore((s) => s.showGrid)
+  const gridSize = useSettingsStore((s) => s.gridSize)
+  const snapGridSize = useSettingsStore((s) => s.snapGridSize)
+  const follows = useSettingsStore((s) => s.snapFollowsGrid)
+  const { setGridSize, setSnapGridSize, setSnapFollowsGrid } = useSettingsStore.getState()
+  return (
+    <div className="relative flex items-center">
+      <IconButton icon={Grid3x3} label={tooltip('view.grid')} active={showGrid} onClick={() => runCommand('view.grid')} />
+      <GridSettingsMenu
+        gridSize={gridSize}
+        snapGridSize={snapGridSize}
+        follows={follows}
+        onGridSize={setGridSize}
+        onSnapGridSize={setSnapGridSize}
+        onFollowsChange={setSnapFollowsGrid}
+      />
     </div>
   )
 }
 
-function ZoomControl({ zoom }: { zoom: number | undefined }) {
+export interface ZoomFieldProps {
+  zoom: number | undefined
+  onZoom: (zoom: number) => void
+  presets: readonly number[]
+  fits: { label: string; run: () => void }[]
+}
+
+/** Clickable zoom percentage with exact entry, presets and fit actions; shared by all editors. */
+export function ZoomField({ zoom, onZoom, presets, fits }: ZoomFieldProps) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [error, setError] = useState(false)
@@ -174,7 +207,7 @@ function ZoomControl({ zoom }: { zoom: number | undefined }) {
     setError(false)
   }
   const apply = (value: number) => {
-    setZoom(value)
+    onZoom(value)
     close()
   }
   const commit = () => {
@@ -227,7 +260,7 @@ function ZoomControl({ zoom }: { zoom: number | undefined }) {
           </label>
           {error && <div className="text-[11px] text-error">Zahl zwischen 8 und 800 eingeben</div>}
           <div className="grid grid-cols-3 gap-1">
-            {ZOOM_PRESETS.map((z) => (
+            {presets.map((z) => (
               <button
                 key={z}
                 type="button"
@@ -239,18 +272,22 @@ function ZoomControl({ zoom }: { zoom: number | undefined }) {
             ))}
           </div>
           <div className="flex flex-col border-t border-line pt-1">
-            <button type="button" onClick={() => { fitPage(); close() }} className="h-6 rounded px-1 text-left text-fg-2 hover:bg-hover">
-              Seite einpassen
-            </button>
-            <button type="button" onClick={() => { fitWidth(); close() }} className="h-6 rounded px-1 text-left text-fg-2 hover:bg-hover">
-              Seitenbreite
-            </button>
+            {fits.map((fit) => (
+              <button key={fit.label} type="button" onClick={() => { fit.run(); close() }} className="h-6 rounded px-1 text-left text-fg-2 hover:bg-hover">
+                {fit.label}
+              </button>
+            ))}
           </div>
         </div>
       </Popover>
     </div>
   )
 }
+
+const PAGE_FITS = [
+  { label: 'Seite einpassen', run: fitPage },
+  { label: 'Seitenbreite', run: fitWidth },
+]
 
 /** Grid/snap/wheel toggles and zoom controls shared by every page editor toolbar. */
 export function ViewControls() {
@@ -270,7 +307,7 @@ export function ViewControls() {
       />
       <Sep />
       <IconButton icon={ZoomOut} label={tooltip('view.zoomOut')} onClick={() => runCommand('view.zoomOut')} />
-      <ZoomControl zoom={zoom} />
+      <ZoomField zoom={zoom} onZoom={setZoom} presets={ZOOM_PRESETS} fits={PAGE_FITS} />
       <IconButton icon={ZoomIn} label={tooltip('view.zoomIn')} onClick={() => runCommand('view.zoomIn')} />
       <IconButton icon={Maximize} label={tooltip('view.fitPage')} onClick={() => runCommand('view.fitPage')} />
     </>

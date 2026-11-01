@@ -1,5 +1,14 @@
-import { Circle, Crosshair, FlipHorizontal2, FlipVertical2, Group, Minus, MousePointer2, MoveRight, RotateCcw, RotateCw, Square, Trash2, Triangle, Type, Ungroup } from 'lucide-react'
+import { Circle, Crosshair, FlipHorizontal2, FlipVertical2, Grid3x3, Group, Magnet, Maximize, Minus, MousePointer2, MoveRight, Redo2, RotateCcw, RotateCw, Ruler, Square, Trash2, Triangle, Type, Undo2, Ungroup, ZoomIn, ZoomOut } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { GridSettingsMenu, ZoomField } from '@/features/drawing/components/ViewControls'
+import { gridDotOpacity, gridDotRadius } from '@/features/drawing/grid'
+import { BASE_SCALE } from '@/features/drawing/viewport'
+import { useSettingsStore } from '@/stores/settingsStore'
+import { useUiStore } from '@/stores/uiStore'
+import { isNonTextControl, isTypingTarget } from '@/utils/format'
+import { formatMm } from '@/utils/units'
+import { useSymbolEditorSettings } from './symbolEditorSettings'
+import { SYMBOL_ZOOM_PRESETS, fitSymbol, resolveSymbolView, saveSymbolView, visibleWorldRect, zoomViewAt, type SymbolView, type ViewSize } from './symbolViewport'
 import { ConductorColorSelect } from './ConductorColorSelect'
 import { SelectionAppearance } from './SelectionAppearance'
 import { IconButton } from '@/components/ui/primitives'
@@ -22,17 +31,16 @@ import {
 } from '@/features/schematic/models/shapeTransform'
 import type { CadConnectionPoint, CustomSymbolDef, SymbolShape } from '@/types/cad'
 import { cn } from '@/utils/cn'
-import { parseMmInput } from '@/utils/units'
-import { symbolGridStep } from './symbolGrid'
+import { snapSymbolValue } from './symbolGrid'
 import { NumField, TextField, fieldCls } from './fields'
 
-const viewSessions = new Map<string, { zoom: number; left: number; top: number; vw: number; vh: number }>()
-const sessionExtents = new Map<string, number>()
 let copiedGeometry: Geometry | null = null
-let gridMmSetting = 5
 const GRID = 50
-const VIEW = 300
-const GRID_DOT_PX = 1.6
+/** Screen-constant UI helper sizes (px); converted to world units with 1 / scale. */
+const HANDLE_PX = 5
+const ROTATE_OFFSET_PX = 24
+const PIN_PX = 5
+const ZOOM_STEP = 1.25
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 type Tool = 'select' | 'line' | 'arrow' | 'rect' | 'circle' | 'triangle' | 'text' | 'pin'
@@ -121,13 +129,7 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
     svgRef.current?.focus()
   }
   const [tool, setTool] = useState<Tool>('select')
-  const [grid, setGrid] = useState(true)
-  const [guides, setGuides] = useState(true)
-  const [snapping, setSnapping] = useState(true)
-  const [zoom, setZoom] = useState(() => viewSessions.get(sessionKey)?.zoom ?? 1)
-  const zoomAnchor = useRef<{ x: number; y: number } | null>(null)
-  const zoomRef = useRef(zoom)
-  zoomRef.current = zoom
+  const { showGrid: grid, snap: snapping, guides, gridSize, snapGridSize, snapFollowsGrid, toggle, setGridSize, setSnapGridSize, setSnapFollowsGrid } = useSymbolEditorSettings()
   const [sel, setSel] = useState<Selection>(EMPTY)
   const [draft, setDraft] = useState<Geometry | null>(null)
   const [preview, setPreview] = useState<SymbolShape | null>(null)
@@ -135,69 +137,75 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
   const [rotateBy, setRotateBy] = useState('90')
   const drag = useRef<Drag | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const panRef = useRef<{ id: number; x: number; y: number; left: number; top: number } | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const hostRef = useRef<HTMLDivElement>(null)
+  const panRef = useRef<{ id: number; x: number; y: number; view: SymbolView } | null>(null)
   const [panning, setPanning] = useState(false)
-  const [viewport, setViewport] = useState(() => {
-    const saved = viewSessions.get(sessionKey)
-    return saved ? { width: saved.vw, height: saved.vh } : { width: 600, height: 400 }
-  })
-  const [gridMm, setGridMm] = useState(gridMmSetting)
-  const [editingGrid, setEditingGrid] = useState(false)
-  const previousSize = useRef({ width: 0, height: 0, id: sym.id })
-  const canvasWidth = viewport.width * zoom * 4
-  const canvasHeight = viewport.height * zoom * 4
+  const [size, setSize] = useState<ViewSize | null>(null)
+  const [view, setView] = useState<SymbolView | null>(null)
+  const viewRef = useRef(view)
+  const sessionKeyRef = useRef(sessionKey)
+  sessionKeyRef.current = sessionKey
+  const resolvedFor = useRef<string | null>(null)
+  // Only touches refs, the state setter and the module session map, so stale closures stay correct.
+  const commitView = (next: SymbolView) => {
+    viewRef.current = next
+    setView(next)
+    saveSymbolView(sessionKeyRef.current, next)
+  }
 
   useLayoutEffect(() => {
-    const node = scrollRef.current
+    const node = hostRef.current
     if (!node) return
-    // A hidden tab reports a zero size; keeping the last real size preserves the scroll position.
-    const observer = new ResizeObserver(() => {
+    // A hidden tab reports a zero size; keeping the last real size keeps the camera stable.
+    const measure = () => {
       if (!node.clientWidth || !node.clientHeight) return
-      setViewport((v) => (v.width === node.clientWidth && v.height === node.clientHeight ? v : { width: node.clientWidth, height: node.clientHeight }))
-    })
+      setSize((s) => (s && s.w === node.clientWidth && s.h === node.clientHeight ? s : { w: node.clientWidth, h: node.clientHeight }))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
 
   useLayoutEffect(() => {
-    const node = scrollRef.current
-    if (!node) return
-    const previous = previousSize.current
-    const reset = previous.id !== sym.id || !previous.width
-    const anchor = zoomAnchor.current ?? { x: viewport.width / 2, y: viewport.height / 2 }
-    const saved = viewSessions.get(sessionKey)
-    node.scrollLeft = reset && saved ? saved.left : (reset ? 0.5 : (node.scrollLeft + anchor.x) / previous.width) * canvasWidth - anchor.x
-    node.scrollTop = reset && saved ? saved.top : (reset ? 0.5 : (node.scrollTop + anchor.y) / previous.height) * canvasHeight - anchor.y
-    zoomAnchor.current = null
-    viewSessions.set(sessionKey, { zoom, left: node.scrollLeft, top: node.scrollTop, vw: viewport.width, vh: viewport.height })
-    previousSize.current = { width: canvasWidth, height: canvasHeight, id: sym.id }
-  }, [canvasWidth, canvasHeight, viewport.width, viewport.height, sym.id])
+    if (!size || resolvedFor.current === sessionKey) return
+    resolvedFor.current = sessionKey
+    commitView(resolveSymbolView(sessionKey, shapesBounds(sym.shapes, sym.pins), size))
+  }, [size, sessionKey])
+
   const shapes = draft?.shapes ?? sym.shapes
   const pins = draft?.pins ?? sym.pins
-  const [extent] = useState(() => {
-    const bounds = shapesBounds(sym.shapes, sym.pins)
-    const value = sessionExtents.get(sessionKey) ?? Math.max(VIEW, -bounds.x + 40, bounds.x + bounds.w + 40, -bounds.y + 40, bounds.y + bounds.h + 40)
-    sessionExtents.set(sessionKey, value)
-    return value
-  })
-  const hs = 1 / zoom
+  const scale = (view?.zoom ?? 1) * BASE_SCALE
+  const hs = 1 / scale
+
+  const fitToSymbol = () => {
+    if (size) commitView(fitSymbol(shapesBounds(sym.shapes, sym.pins), size))
+  }
+  const zoomTo = (zoom: number, anchor?: Pt) => {
+    const current = viewRef.current
+    if (current && size) commitView(zoomViewAt(current, zoom, anchor ?? { x: size.w / 2, y: size.h / 2 }))
+  }
 
   useEffect(() => setSel(EMPTY), [sym.id])
   useEffect(() => {
-    const svg = svgRef.current
-    if (!svg) return
+    const host = hostRef.current
+    if (!host) return
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      if (drag.current) return
-      const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? svg.clientHeight : 1)
-      const rect = scrollRef.current!.getBoundingClientRect()
-      zoomAnchor.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-      setZoom((current) => Math.min(6, Math.max(0.25, current * Math.exp(-delta * 0.0015))))
+      const current = viewRef.current
+      if (drag.current || !current) return
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? host.clientHeight : 1
+      const rect = host.getBoundingClientRect()
+      const zoomGesture = (e.ctrlKey || e.metaKey) !== (useSettingsStore.getState().wheelMode === 'zoom')
+      if (zoomGesture) return commitView(zoomViewAt(current, current.zoom * Math.exp(-e.deltaY * unit * 0.0015), { x: e.clientX - rect.left, y: e.clientY - rect.top }))
+      const dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX
+      const dy = e.shiftKey && !e.deltaX ? 0 : e.deltaY
+      commitView({ ...current, panX: current.panX - dx * unit, panY: current.panY - dy * unit })
     }
-    svg.addEventListener('wheel', wheel, { passive: false })
-    return () => svg.removeEventListener('wheel', wheel)
+    host.addEventListener('wheel', wheel, { passive: false })
+    return () => host.removeEventListener('wheel', wheel)
   }, [])
 
   const rawPoint = (e: React.PointerEvent): Pt => {
@@ -205,21 +213,12 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m)
     return { x: p.x, y: p.y }
   }
-  const unitsPerPx = extent * 2 / (Math.max(1, Math.min(viewport.width, viewport.height)) * zoom)
-  const gridStep = symbolGridStep(gridMm)
-  const commitGridMm = (value: string) => {
-    const mm = parseMmInput(value)
-    if (mm !== null && mm >= 0.5 && mm <= 50) {
-      gridMmSetting = mm
-      setGridMm(mm)
-    }
-    setEditingGrid(false)
-  }
-  const snap = (value: number) => Math.round(value / gridStep) * gridStep
+  const snap = (value: number) => snapSymbolValue(value, snapGridSize)
 
+  // Alt temporarily disables snapping, like in the page editors.
   const toLocal = (e: React.PointerEvent): Pt => {
     const p = rawPoint(e)
-    return snapping ? { x: snap(p.x), y: snap(p.y) } : p
+    return snapping && !e.altKey ? { x: snap(p.x), y: snap(p.y) } : p
   }
 
   const geometry: Geometry = { shapes: sym.shapes, pins: sym.pins }
@@ -319,17 +318,18 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
     if (e.button !== 0) return
     svgRef.current?.focus()
     const p = toLocal(e)
+    // With a drawing tool active a hit on an existing contour selects/moves it instead of creating a new element.
+    if (hit) {
+      const next = pickHit(hit, e.shiftKey || (tool === 'select' && (e.ctrlKey || e.metaKey)))
+      setSel(next)
+      if (!isEmpty(next)) {
+        startDrag(e, { mode: 'move', start: p, base: geometry })
+        setDraft(geometry)
+      }
+      return
+    }
     if (tool === 'select') {
       const toggle = e.shiftKey || e.ctrlKey || e.metaKey
-      if (hit) {
-        const next = pickHit(hit, toggle)
-        setSel(next)
-        if (!isEmpty(next)) {
-          startDrag(e, { mode: 'move', start: p, base: geometry })
-          setDraft(geometry)
-        }
-        return
-      }
       if (!toggle) setSel(EMPTY)
       startDrag(e, { mode: 'box', start: rawPoint(e), additive: toggle })
       return
@@ -487,15 +487,70 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
     { id: 'pin', label: 'Anschlusspunkt', icon: Crosshair },
   ]
 
-  const handleR = 9 * hs
-  const showHandles = tool === 'select' && selBox && !(drag.current?.mode === 'move')
+  const handleR = HANDLE_PX * hs
+  const showHandles = selBox && !drag.current
   const lineHandles = singleLive?.t === 'line'
   const boxCenter = selBox ? { x: selBox.x + selBox.w / 2, y: selBox.y + selBox.h / 2 } : null
-  const rotateHandle = selBox ? { x: selBox.x + selBox.w / 2, y: selBox.y - 40 * hs } : null
+  const rotateHandle = selBox ? { x: selBox.x + selBox.w / 2, y: selBox.y - ROTATE_OFFSET_PX * hs } : null
+  const visible = view && size ? visibleWorldRect(view, size) : null
+
+  /** Symbol editor shortcuts; returns true when the key was consumed. */
+  const handleKey = (e: KeyboardEvent): boolean => {
+    const mod = e.ctrlKey || e.metaKey
+    const key = e.key.toLowerCase()
+    const hasSel = !isEmpty(sel)
+    if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) return redo(), true
+    if (mod && key === 'z') return undo(), true
+    if (mod && key === 'c' && hasSel) return copy(), true
+    if (mod && key === 'v' && copiedGeometry) return paste(), true
+    if (mod && key === 'a') return setSel({ shapes: sym.shapes.map((_, i) => i), pins: sym.pins.map((_, i) => i) }), true
+    if (mod && key === 'g') return (e.shiftKey ? ungroupSelection() : groupSelection()), true
+    if (mod || e.altKey) return false
+    if (hasSel && e.key.startsWith('Arrow')) {
+      const step = e.shiftKey ? Math.max(1, snapGridSize / 10) : snapGridSize
+      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+      transformSelection('Auswahl verschoben', (s) => translateShape(s, dx, dy), (p) => ({ ...p, x: p.x + dx, y: p.y + dy }))
+      return true
+    }
+    if (hasSel && (e.key === 'Delete' || e.key === 'Backspace')) return removeSelected(), true
+    if (hasSel && key === 'r') return rotateSelection(e.shiftKey ? -90 : 90), true
+    if (e.key === 'Escape') {
+      // Staged: cancel the running operation, then clear the selection, then leave the drawing tool.
+      if (drag.current || draft || preview || marquee) cancelDrag()
+      else if (menu) setMenu(null)
+      else if (hasSel) setSel(EMPTY)
+      else if (tool !== 'select') setTool('select')
+      else return false
+      return true
+    }
+    return false
+  }
+  const handleKeyRef = useRef(handleKey)
+  handleKeyRef.current = handleKey
+
+  // Window capture so shortcuts work after toolbar clicks (focus on a button or body), not only with the SVG focused.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const root = rootRef.current
+      if (!root || !root.getClientRects().length || e.isComposing || e.keyCode === 229) return
+      const ui = useUiStore.getState()
+      if (ui.dialog || ui.paletteOpen) return
+      const target = e.target instanceof Element ? e.target : null
+      const free = !target || target === document.body || target === document.documentElement
+      if (!free && !root.contains(target)) return
+      if (isTypingTarget(target) && !((e.ctrlKey || e.metaKey) && isNonTextControl(target))) return
+      if (!handleKeyRef.current(e)) return
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
   const scalable = selBox && (selBox.w > 0 || selBox.h > 0) && !lineHandles && !(selPins.length && !selShapes.length)
 
   return (
-    <div className="flex min-h-80 flex-1 gap-3" onPointerDown={() => setMenu(null)}>
+    <div ref={rootRef} className="flex min-h-80 flex-1 gap-3" onPointerDown={() => setMenu(null)}>
       {menu && <div role="menu" aria-label="Symbolaktionen" className="fixed z-50 flex flex-col rounded border border-line bg-panel p-2 shadow-lg" style={{ left: menu.x, top: menu.y }} onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') setMenu(null) }}>
         <button role="menuitem" disabled={isEmpty(sel)} onClick={copy}>Kopieren (Strg+C)</button>
         <button role="menuitem" disabled={!copiedGeometry} onClick={paste}>Einfügen (Strg+V)</button>
@@ -513,68 +568,50 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
           <IconButton icon={FlipHorizontal2} label="Horizontal spiegeln" size="sm" disabled={isEmpty(sel)} onClick={() => mirrorSelection('x')} />
           <IconButton icon={FlipVertical2} label="Vertikal spiegeln" size="sm" disabled={isEmpty(sel)} onClick={() => mirrorSelection('y')} />
           <IconButton icon={Trash2} label="Auswahl löschen (Entf)" size="sm" disabled={isEmpty(sel)} onClick={removeSelected} />
-          <button type="button" disabled={!past.length} onClick={undo} className="text-xs disabled:opacity-40">Rückgängig</button>
-          <button type="button" disabled={!future.length} onClick={redo} className="text-xs disabled:opacity-40">Wiederholen</button>
-          <span className="ml-auto flex items-center gap-1 text-[11px] text-muted">
-          {editingGrid ? (
-            <label className="flex items-center gap-1">
-              Raster
-              <input
-                autoFocus
-                aria-label="Rasterabstand in mm"
-                type="number"
-                min={0.5}
-                max={50}
-                step={0.5}
-                defaultValue={gridMm}
-                className="w-14 rounded border border-border bg-panel-2 px-1 py-0.5 text-[11px] text-fg"
-                onBlur={(e) => commitGridMm(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  e.stopPropagation()
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) commitGridMm(e.currentTarget.value)
-                  if (e.key === 'Escape') setEditingGrid(false)
-                }}
-              />
-              mm
-            </label>
-          ) : (
-            <button type="button" className="rounded px-1 hover:bg-panel-2 hover:text-fg" title="Rasterabstand ändern" onClick={() => setEditingGrid(true)}>
-              Raster {String(gridMm).replace('.', ',')} mm
-            </button>
-          )}
-          · Anschlüsse: {sym.pins.length}
-        </span>
+          <span className="mx-1 h-4 w-px bg-line" />
+          <IconButton icon={Undo2} label="Rückgängig (Strg+Z)" size="sm" disabled={!past.length} onClick={undo} />
+          <IconButton icon={Redo2} label="Wiederholen (Strg+Y / Strg+Umschalt+Z)" size="sm" disabled={!future.length} onClick={redo} />
+          <span className="ml-auto text-[11px] text-muted">Anschlüsse: {sym.pins.length}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-3 border-b border-line px-2 py-1 text-[11px]">
-          <label><input type="checkbox" checked={grid} onChange={(e) => setGrid(e.target.checked)} /> Raster</label>
-          <label><input type="checkbox" checked={guides} onChange={(e) => setGuides(e.target.checked)} /> Hilfslinien</label>
-          <label><input type="checkbox" checked={snapping} onChange={(e) => setSnapping(e.target.checked)} /> Rasterfang</label>
-          <label className="flex items-center gap-2">Zoom <input aria-label="Symbolzoom" type="range" min="0.25" max="6" step="0.25" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} /> {Math.round(zoom * 100)}%</label>
-          <button type="button" onClick={() => setZoom(1)}>Einpassen</button>
+        <div role="toolbar" aria-label="Ansicht" className="flex flex-wrap items-center gap-1 border-b border-line bg-panel px-2 py-1">
+          <div className="flex items-center">
+            <IconButton icon={Grid3x3} label="Raster anzeigen" active={grid} size="sm" onClick={() => toggle('showGrid')} />
+            <GridSettingsMenu
+              gridSize={gridSize}
+              snapGridSize={snapGridSize}
+              follows={snapFollowsGrid}
+              onGridSize={setGridSize}
+              onSnapGridSize={setSnapGridSize}
+              onFollowsChange={setSnapFollowsGrid}
+            />
+          </div>
+          <IconButton icon={Magnet} label="Rasterfang (Alt gedrückt = frei)" active={snapping} size="sm" onClick={() => toggle('snap')} />
+          <IconButton icon={Ruler} label="Hilfslinien durch den Ursprung" active={guides} size="sm" onClick={() => toggle('guides')} />
+          <span className="px-1 font-mono text-[11px] text-muted tabular-nums">
+            Raster {formatMm(gridSize)}{snapFollowsGrid ? '' : ` · Fang ${formatMm(snapGridSize)}`}
+          </span>
+          <span className="mx-1 h-4 w-px bg-line" />
+          <IconButton icon={ZoomOut} label="Verkleinern" size="sm" disabled={!view} onClick={() => view && zoomTo(view.zoom / ZOOM_STEP)} />
+          <ZoomField zoom={view?.zoom} onZoom={(z) => zoomTo(z)} presets={SYMBOL_ZOOM_PRESETS} fits={[{ label: 'Symbol einpassen', run: fitToSymbol }]} />
+          <IconButton icon={ZoomIn} label="Vergrößern" size="sm" disabled={!view} onClick={() => view && zoomTo(view.zoom * ZOOM_STEP)} />
+          <IconButton icon={Maximize} label="Symbol einpassen" size="sm" disabled={!size} onClick={fitToSymbol} />
         </div>
-        <div ref={scrollRef} onScroll={(e) => {
-          const node = e.currentTarget
-          if (!node.clientWidth || !node.clientHeight) return
-          viewSessions.set(sessionKey, { zoom: zoomRef.current, left: node.scrollLeft, top: node.scrollTop, vw: viewport.width, vh: viewport.height })
-        }}
+        <div ref={hostRef}
           onMouseDownCapture={(e) => { if (e.button === 1) e.preventDefault() }}
           onAuxClick={(e) => { if (e.button === 1) e.preventDefault() }}
           onPointerDownCapture={(e) => {
-            if (e.button !== 1) return
+            if (e.button !== 1 || !viewRef.current) return
             e.preventDefault()
             e.stopPropagation()
-            const node = e.currentTarget
-            try { node.setPointerCapture(e.pointerId) } catch { /* pointer already released */ }
-            panRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY, left: node.scrollLeft, top: node.scrollTop }
+            try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* pointer already released */ }
+            panRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY, view: viewRef.current }
             setPanning(true)
           }}
           onPointerMoveCapture={(e) => {
             const pan = panRef.current
             if (!pan || pan.id !== e.pointerId) return
             e.stopPropagation()
-            const node = e.currentTarget
-            node.scrollLeft = pan.left - (e.clientX - pan.x)
-            node.scrollTop = pan.top - (e.clientY - pan.y)
+            commitView({ ...pan.view, panX: pan.view.panX + e.clientX - pan.x, panY: pan.view.panY + e.clientY - pan.y })
           }}
           onPointerUpCapture={(e) => {
             if (panRef.current?.id !== e.pointerId) return
@@ -587,70 +624,30 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
             panRef.current = null
             setPanning(false)
           }}
-          role="region" aria-label="Zeichenfläche scrollen" className={cn(panning && '[&_*]:!cursor-grabbing cursor-grabbing', 'min-h-0 flex-1 overflow-scroll overscroll-contain [scrollbar-gutter:stable] [scrollbar-width:auto] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted [&::-webkit-scrollbar-track]:bg-panel [&::-webkit-scrollbar-corner]:bg-panel')}>
+          role="region" aria-label="Symbolansicht (Mausrad, mittlere Maustaste)" className={cn(panning && '[&_*]:!cursor-grabbing cursor-grabbing', 'relative min-h-0 flex-1 overflow-hidden overscroll-contain')}>
+        {view && size && visible && (
         <svg
           ref={svgRef}
           tabIndex={0}
           aria-label="Symbolzeichenfläche"
-          viewBox={`${-extent * 4} ${-extent * 4} ${extent * 8} ${extent * 8}`}
-          style={{ width: canvasWidth, height: canvasHeight }}
-          className={cn('block max-w-none touch-none text-fg outline-none', tool === 'select' ? 'cursor-default' : 'cursor-crosshair')}
+          viewBox={`${visible.x} ${visible.y} ${visible.w} ${visible.h}`}
+          className={cn('absolute inset-0 block size-full touch-none text-fg outline-none', tool === 'select' ? 'cursor-default' : 'cursor-crosshair')}
           onPointerDown={(e) => onDown(e)}
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={cancelDrag}
           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu({ x: Math.min(e.clientX, window.innerWidth - 190), y: Math.min(e.clientY, window.innerHeight - 90) }) }}
-          onKeyDown={(e) => {
-            if (e.nativeEvent.isComposing || e.keyCode === 229) return
-            const mod = e.ctrlKey || e.metaKey
-            const key = e.key.toLowerCase()
-            if ((mod && ['c', 'v', 'z', 'y'].includes(key)) || e.key.startsWith('Arrow')) {
-              e.preventDefault()
-              e.stopPropagation()
-              if (mod && key === 'c') copy()
-              else if (mod && key === 'v') paste()
-              else if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) redo()
-              else if (mod && key === 'z') undo()
-              else {
-                const step = e.shiftKey ? gridStep / 10 : gridStep
-                const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
-                const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
-                transformSelection('Auswahl verschoben', (s) => translateShape(s, dx, dy), (p) => ({ ...p, x: p.x + dx, y: p.y + dy }))
-              }
-              return
-            }
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-              e.preventDefault()
-              e.stopPropagation()
-              removeSelected()
-            } else if (mod && e.key.toLowerCase() === 'g') {
-              e.preventDefault()
-              e.stopPropagation()
-              if (e.shiftKey) ungroupSelection()
-              else groupSelection()
-            } else if (mod && e.key.toLowerCase() === 'a') {
-              e.preventDefault()
-              e.stopPropagation()
-              setSel({ shapes: sym.shapes.map((_, i) => i), pins: sym.pins.map((_, i) => i) })
-            } else if (!mod && e.key.toLowerCase() === 'r' && !isEmpty(sel)) {
-              e.preventDefault()
-              e.stopPropagation()
-              rotateSelection(e.shiftKey ? -90 : 90)
-            } else if (e.key === 'Escape') {
-              e.stopPropagation()
-              cancelDrag()
-              setSel(EMPTY)
-              setTool('select')
-            }
-          }}
         >
           <defs>
-            <pattern id="sym-grid" width={gridStep} height={gridStep} patternUnits="userSpaceOnUse" x={0} y={0}>
-              <circle cx={0} cy={0} r={GRID_DOT_PX * unitsPerPx} className="fill-muted/40" />
+            <pattern id="sym-grid" width={gridSize} height={gridSize} patternUnits="userSpaceOnUse" x={0} y={0}>
+              <circle cx={0} cy={0} r={gridDotRadius(scale, gridSize)} className="fill-muted" opacity={gridDotOpacity(gridSize, scale) * 0.5} />
+              <circle cx={gridSize} cy={0} r={gridDotRadius(scale, gridSize)} className="fill-muted" opacity={gridDotOpacity(gridSize, scale) * 0.5} />
+              <circle cx={0} cy={gridSize} r={gridDotRadius(scale, gridSize)} className="fill-muted" opacity={gridDotOpacity(gridSize, scale) * 0.5} />
+              <circle cx={gridSize} cy={gridSize} r={gridDotRadius(scale, gridSize)} className="fill-muted" opacity={gridDotOpacity(gridSize, scale) * 0.5} />
             </pattern>
           </defs>
-          {grid && <rect x={-extent * 20} y={-extent * 20} width={extent * 40} height={extent * 40} fill="url(#sym-grid)" />}
-          {guides && <path d={`M${-extent / Math.min(1, zoom)} 0 H${extent / Math.min(1, zoom)} M0 ${-extent / Math.min(1, zoom)} V${extent / Math.min(1, zoom)}`} className="stroke-muted/30" strokeWidth={1.5 / zoom} strokeDasharray="6 6" />}
+          {grid && <rect x={visible.x} y={visible.y} width={visible.w} height={visible.h} fill="url(#sym-grid)" pointerEvents="none" />}
+          {guides && <path d={`M${visible.x} 0 H${visible.x + visible.w} M0 ${visible.y} V${visible.y + visible.h}`} className="stroke-muted/40" strokeWidth={hs} strokeDasharray={`${6 * hs} ${6 * hs}`} pointerEvents="none" />}
           <g fill="none" stroke="currentColor" strokeWidth={7} strokeLinecap="round" strokeLinejoin="round">
             {shapes.map((s, i) => {
               const selected = sel.shapes.includes(i)
@@ -658,16 +655,16 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
                 <g
                   key={i}
                   data-shape-index={i}
-                  className={cn(selected && 'text-accent', tool === 'select' && 'cursor-move')}
+                  className={cn(selected && 'text-accent', 'cursor-move')}
                   onPointerDown={(e) => {
-                    if (tool !== 'select') return
+                    if (e.button !== 0) return
                     e.stopPropagation()
                     onDown(e, { type: 'shape', index: e.altKey ? cycleHit(e, i) : i })
                   }}
                 >
                   <ShapeList shapes={[s]} />
                   <g stroke="transparent" fill="none">
-                    <ShapeList shapes={[s]} hitArea hitWidth={HIT_PX / zoom} />
+                    <ShapeList shapes={[s]} hitArea hitWidth={HIT_PX * hs} />
                   </g>
                 </g>
               )
@@ -683,14 +680,14 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
             return (
               <g
                 key={i}
-                className={cn(tool === 'select' && 'cursor-move')}
+                className="cursor-move"
                 onPointerDown={(e) => {
-                  if (tool !== 'select') return
+                  if (e.button !== 0) return
                   e.stopPropagation()
                   onDown(e, { type: 'pin', index: i })
                 }}
               >
-                <circle cx={p.x} cy={p.y} r={(selected ? 13 : 10) / zoom} className={selected ? 'fill-accent' : 'fill-warn'} />
+                <circle cx={p.x} cy={p.y} r={(selected ? PIN_PX + 1.5 : PIN_PX) * hs} className={selected ? 'fill-accent' : 'fill-warn'} />
                 <text x={p.x + 16} y={p.y - 12} fontSize={26} className="fill-muted" fontFamily="ui-monospace, monospace">
                   {p.id}
                 </text>
@@ -775,6 +772,7 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
             <rect x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} className="fill-accent/10 stroke-accent" strokeWidth={1.5 * hs} strokeDasharray={`${6 * hs} ${4 * hs}`} pointerEvents="none" />
           )}
         </svg>
+        )}
         </div>
       </div>
 
