@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { DEFAULT_FAVORITES } from '@/features/schematic/models/symbolLibrary'
+import { DEFAULT_GRID_UNITS, migrateGridSettings, normalizeGridUnits } from '@/features/drawing/gridSettings'
 
 export type ThemeMode = 'light' | 'dark' | 'dark-canvas'
 
@@ -8,7 +9,14 @@ export interface SettingsState {
   theme: ThemeMode
   showGrid: boolean
   snap: boolean
-  gridSize: 25 | 50 | 100
+  /** Visible grid spacing in world units (1 mm = 10). */
+  gridSize: number
+  /** Snap spacing in world units; equals gridSize while snapFollowsGrid is set. */
+  snapGridSize: number
+  snapFollowsGrid: boolean
+  setGridSize: (units: number) => void
+  setSnapGridSize: (units: number) => void
+  setSnapFollowsGrid: (follow: boolean) => void
   guides: boolean
   mono: boolean
   autosave: boolean
@@ -22,7 +30,7 @@ export interface SettingsState {
   /** Symbol variant keys (`kind:poles`); the first six appear in the schematic toolbar. */
   favoriteSymbols: string[]
   toggleFavorite: (key: string) => void
-  set: <K extends keyof Omit<SettingsState, 'set' | 'toggle' | 'addEditor' | 'removeEditor' | 'toggleFavorite'>>(key: K, value: SettingsState[K]) => void
+  set: <K extends keyof Omit<SettingsState, 'set' | 'toggle' | 'addEditor' | 'removeEditor' | 'toggleFavorite' | 'setGridSize' | 'setSnapGridSize' | 'setSnapFollowsGrid' | 'gridSize' | 'snapGridSize' | 'snapFollowsGrid'>>(key: K, value: SettingsState[K]) => void
   toggle: (key: 'showGrid' | 'snap' | 'guides' | 'mono' | 'autosave' | 'confirmDelete' | 'quickStart') => void
   addEditor: (name: string) => boolean
   removeEditor: (name: string) => void
@@ -34,7 +42,19 @@ export const useSettingsStore = create<SettingsState>()(
       theme: 'dark',
       showGrid: true,
       snap: true,
-      gridSize: 50,
+      gridSize: DEFAULT_GRID_UNITS,
+      snapGridSize: DEFAULT_GRID_UNITS,
+      snapFollowsGrid: true,
+      setGridSize: (units) => {
+        const gridSize = normalizeGridUnits(units)
+        if (gridSize === null) return
+        set((s) => ({ gridSize, snapGridSize: s.snapFollowsGrid ? gridSize : s.snapGridSize }))
+      },
+      setSnapGridSize: (units) => {
+        const snapGridSize = normalizeGridUnits(units)
+        if (snapGridSize !== null) set({ snapGridSize, snapFollowsGrid: false })
+      },
+      setSnapFollowsGrid: (follow) => set((s) => ({ snapFollowsGrid: follow, snapGridSize: follow ? s.gridSize : s.snapGridSize })),
       guides: false,
       mono: false,
       autosave: false,
@@ -60,7 +80,18 @@ export const useSettingsStore = create<SettingsState>()(
           return { editors, defaultEditor: s.defaultEditor === name ? (editors[0] ?? '') : s.defaultEditor }
         }),
     }),
-    { name: 'openecad.settings', version: 1 },
+    {
+      name: 'openecad.settings',
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Record<string, unknown>
+        return (version < 2 ? { ...state, ...migrateGridSettings(state) } : state) as unknown as SettingsState
+      },
+      merge: (persisted, current) => {
+        const state = (persisted ?? {}) as Record<string, unknown>
+        return { ...current, ...state, ...migrateGridSettings(state) }
+      },
+    },
   ),
 )
 

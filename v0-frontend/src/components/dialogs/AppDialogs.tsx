@@ -5,6 +5,8 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button, Checkbox, Field, Input, Kbd, Segmented } from '@/components/ui/primitives'
 import { useSettingsStore, type ThemeMode } from '@/stores/settingsStore'
 import { useUiStore } from '@/stores/uiStore'
+import { GRID_PRESETS } from '@/features/drawing/gridSettings'
+import { formatMm } from '@/utils/units'
 
 const close = () => useUiStore.getState().closeDialog()
 
@@ -37,13 +39,9 @@ export function SettingsDialog() {
             <span className="text-[12px] text-fg-2">Rasterweite</span>
             <Segmented
               label="Rasterweite"
-              value={String(s.gridSize) as '25' | '50' | '100'}
-              onChange={(v) => s.set('gridSize', Number(v) as 25 | 50 | 100)}
-              options={[
-                { value: '25', label: '2,5 mm' },
-                { value: '50', label: '5 mm' },
-                { value: '100', label: '10 mm' },
-              ]}
+              value={String(s.gridSize)}
+              onChange={(v) => s.setGridSize(Number(v))}
+              options={[...new Set([...GRID_PRESETS, s.gridSize])].sort((a, b) => a - b).map((units) => ({ value: String(units), label: formatMm(units) }))}
             />
           </div>
           <Checkbox checked={s.showGrid} onChange={() => s.toggle('showGrid')} label="Raster anzeigen" />

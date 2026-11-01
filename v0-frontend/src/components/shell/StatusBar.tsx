@@ -14,6 +14,7 @@ import { useCursorStore, useViewportStore } from '@/stores/viewportStore'
 import { UNITS_PER_MM } from '@/types/cad'
 import { cn } from '@/utils/cn'
 import { fmtTime } from '@/utils/format'
+import { formatMm } from '@/utils/units'
 
 const mm = (v: number) => (v / UNITS_PER_MM).toFixed(1).replace('.', ',')
 
@@ -76,6 +77,7 @@ function SchematicStatus() {
   const sel = useSelectionStore((s) => s.ids.length)
   const selLabel = useSelectionLabel()
   const grid = useSettingsStore((s) => s.gridSize)
+  const snapGrid = useSettingsStore((s) => s.snapGridSize)
   const showGrid = useSettingsStore((s) => s.showGrid)
   const snap = useSettingsStore((s) => s.snap)
   return (
@@ -87,7 +89,7 @@ function SchematicStatus() {
         {zoom ? `${Math.round(zoom * 100)} %` : '—'}
       </Item>
       <Item onClick={() => runCommand('view.grid')} title="Raster (G)" className={cn(!showGrid && 'line-through opacity-60')}>
-          Raster {String(grid / UNITS_PER_MM).replace('.', ',')} mm
+        Raster {formatMm(grid)}{snapGrid !== grid && ` · Fang ${formatMm(snapGrid)}`}
       </Item>
       <Item onClick={() => runCommand('view.snap')} title="Fangen (Shift+S)" className={cn(snap ? 'text-fg-2' : 'opacity-60')}>
         Fangen {snap ? 'ein' : 'aus'}

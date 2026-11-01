@@ -22,6 +22,8 @@ import {
 } from '@/features/schematic/models/shapeTransform'
 import type { CadConnectionPoint, CustomSymbolDef, SymbolShape } from '@/types/cad'
 import { cn } from '@/utils/cn'
+import { parseMmInput } from '@/utils/units'
+import { symbolGridStep } from './symbolGrid'
 import { NumField, TextField, fieldCls } from './fields'
 
 const viewSessions = new Map<string, { zoom: number; left: number; top: number; vw: number; vh: number }>()
@@ -30,7 +32,6 @@ let copiedGeometry: Geometry | null = null
 let gridMmSetting = 5
 const GRID = 50
 const VIEW = 300
-const MM_PX = 96 / 25.4
 const GRID_DOT_PX = 1.6
 const uid = () => Math.random().toString(36).slice(2, 10)
 
@@ -205,10 +206,10 @@ export function ShapeCanvas({ sym, onPatch: applyPatch, sessionKey }: { sym: Cus
     return { x: p.x, y: p.y }
   }
   const unitsPerPx = extent * 2 / (Math.max(1, Math.min(viewport.width, viewport.height)) * zoom)
-  const gridStep = gridMm * MM_PX * unitsPerPx
+  const gridStep = symbolGridStep(gridMm)
   const commitGridMm = (value: string) => {
-    const mm = Number(value.replace(',', '.'))
-    if (Number.isFinite(mm) && mm >= 0.5 && mm <= 50) {
+    const mm = parseMmInput(value)
+    if (mm !== null && mm >= 0.5 && mm <= 50) {
       gridMmSetting = mm
       setGridMm(mm)
     }
