@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import type { CadPage } from '@/types/cad'
 import { pageRect } from '@/features/drawing/viewportActions'
-import { GRID_ORIGIN, gridDotOpacity, gridDotRadius, visibleGridStep } from '@/features/drawing/grid'
+import { GRID_ORIGIN, gridDotOpacity, gridDotRadius } from '@/features/drawing/grid'
 
 /** Outer border inset in world units (0.1 mm). */
 export const WIRING_FRAME_MARGIN = 100
@@ -16,7 +16,7 @@ export const WIRING_FRAME_MARGIN = 100
 export const WiringSheetFrame = memo(function WiringSheetFrame({ page, grid, showGrid, s = 1 }: { page: Pick<CadPage, 'id' | 'format' | 'customSize'>; grid: number; showGrid: boolean; s?: number }) {
   const { w, h } = pageRect(page)
   const m = Math.min(WIRING_FRAME_MARGIN, w / 10, h / 10)
-  const step = visibleGridStep(grid, s)
+  const step = grid
   const patternId = `wiring-grid-${page.id}-${step}`
   return (
     <g pointerEvents="none">

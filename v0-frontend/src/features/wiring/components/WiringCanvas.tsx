@@ -14,7 +14,6 @@ import { normalizeRect, polylinePath, rectContains, unionRects } from '@/feature
 import { HANDLE_CURSORS, handlePoint, isResizeHandle, RESIZE_HANDLES, resizeRect, sameRect, type ResizeHandle } from '@/features/drawing/resize'
 import { resolveConstrainedLinePoint, resolveGraphicSnap, type GraphicSnap } from '@/features/drawing/snap'
 import { scaleOf, screenToWorld } from '@/features/drawing/viewport'
-import { visibleGridStep } from '@/features/drawing/grid'
 import { pageRect, panBy } from '@/features/drawing/viewportActions'
 import { useViewportHost } from '@/features/drawing/useViewportHost'
 import { CanvasScrollbars } from '@/features/drawing/components/CanvasScrollbars'
@@ -26,6 +25,7 @@ import { WiringDrawing } from './WiringDrawing'
 import { WiringInlineEditor } from './WiringInlineEditor'
 import type { InlineEditTarget } from '../models/inlineEdit'
 import { escapeAction, toolMatchesType, toolPointerIntent } from '../models/interaction'
+import { CYCLE_TOLERANCE_PX, cycleWiringHit, wiringHitStack, type HitCycle } from '../models/hitTesting'
 
 import { usePortSelectionStore } from '../models/portSelection'
 import { usePortManagerStore } from '../models/portManager'
@@ -70,6 +70,8 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   const [gesture, renderGesture] = useState<Gesture | null>(null)
   const gestureRef = useRef<Gesture | null>(null)
   const pointerId = useRef<number | null>(null)
+  const hitCycle = useRef<HitCycle | null>(null)
+  useEffect(() => { hitCycle.current = null }, [rawTool, page.id, view?.panX, view?.panY, view?.zoom])
   const setGesture = (next: Gesture | null) => {
     gestureRef.current = next
     renderGesture(next)
@@ -174,7 +176,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
   const s = scaleOf(view)
   const unit = 1 / s
-  const gridStep = visibleGridStep(gridSize, s)
+  const gridStep = gridSize
   const toWorld = (e: { clientX: number; clientY: number }) => {
     const r = ref.current!.getBoundingClientRect()
     return screenToWorld(view, e.clientX - r.left, e.clientY - r.top)
@@ -275,7 +277,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     const drafting = (tool === 'line' && t.wireDraft.length > 0) || (tool === 'connection' && !!connectionDraftRef.current)
     const selType = sel.ids.length === 1 ? typeOf(sel.ids[0]) : undefined
     // Handles of a selected compatible object stay usable while its drawing tool is active.
-    const handlesLive = tool === 'select' || (!forceCreate && !drafting && toolMatchesType(tool, selType))
+    const handlesLive = tool === 'select' || (!drafting && toolMatchesType(tool, selType))
     if (handlesLive) {
       const connection = sel.ids.length === 1 ? page.connections?.find((c) => c.id === sel.ids[0]) : undefined
       const endpoint = (e.target as Element).closest?.('[data-connection-end]')?.getAttribute('data-connection-end')
@@ -298,9 +300,22 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       }
     }
 
-    const id = hitId(e.target)
+    const stack = wiringHitStack(page, w, s)
+    const context = JSON.stringify([page.id, tool, view.panX, view.panY, view.zoom])
+    const next = tool === 'select' && !e.shiftKey && !forceCreate
+      ? cycleWiringHit(hitCycle.current, stack, { x: e.clientX, y: e.clientY }, context)
+      : null
+    hitCycle.current = next?.cycle ?? null
+    const hit = tool === 'select' ? next?.hit ?? stack[0] : stack.find((candidate) => candidate.kind !== 'interior' && toolMatchesType(tool, candidate.type))
+    const id = hit?.id
     if (tool !== 'select') {
-      const intent = toolPointerIntent({ tool, hitType: id ? typeOf(id) : undefined, forceCreate, drafting })
+      // Ports have their own actions; a shape tool must never create through one.
+      if (!drafting && portId && hitOwner && (tool === 'rect' || tool === 'ellipse' || tool === 'block')) {
+        sel.set([hitOwner.id])
+        return setGesture(null)
+      }
+      const intent = toolPointerIntent({ tool, hitType: hit?.type, hitKind: hit?.kind, forceCreate, drafting })
+      if (intent === 'edit' && id) { sel.set([id]); return setGesture(null) }
       if (intent === 'select' && id) {
         if (e.shiftKey) { sel.toggle(id); return setGesture(null) }
         const ids = sel.ids.includes(id) ? sel.ids : [id]
@@ -340,6 +355,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   }
 
   const onPointerMove = (e: RPointerEvent) => {
+    if (hitCycle.current && Math.hypot(e.clientX - hitCycle.current.screen.x, e.clientY - hitCycle.current.screen.y) > CYCLE_TOLERANCE_PX) hitCycle.current = null
     if (pointerId.current !== null && pointerId.current !== e.pointerId) return
     const gesture = gestureRef.current
     const w = toWorld(e)
@@ -407,11 +423,12 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
       const ports = usePortSelectionStore.getState()
       movePorts(gesture.objectId, ports.objectId === gesture.objectId ? ports.portIds : [], gesture.portId, gesture.anchor)
     }
-    if (gesture?.kind === 'shapeCreate') (gesture.shape === 'diagramBlock' ? addDiagramBlock : gesture.shape === 'rectangle' ? addRectangle : addEllipse)(gesture.start, gesture.end)
+    if (gesture?.kind === 'shapeCreate') (gesture.shape === 'diagramBlock' ? addDiagramBlock : gesture.shape === 'rectangle' ? addRectangle : addEllipse)(gesture.start, resolvePoint(toWorld(e), e).point)
     if (gesture?.kind === 'drag' && (gesture.dx || gesture.dy)) moveWiringObjects(gesture.ids, gesture.dx, gesture.dy)
     if (gesture?.kind === 'resize' && !sameRect(gesture.rect, gesture.start)) resizeShape(gesture.id, gesture.rect)
     if (gesture?.kind === 'vertex' && (gesture.point.x !== gesture.start.x || gesture.point.y !== gesture.start.y)) moveLineVertex(gesture.lineId, gesture.index, gesture.point)
     if (gesture?.kind === 'marquee') {
+      hitCycle.current = null
       const r = normalizeRect(gesture.a, gesture.b)
       if (r.w * s > 3 || r.h * s > 3) {
         const crossing = gesture.b.x < gesture.a.x
@@ -470,7 +487,8 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
     const t = useToolStore.getState()
     if (t.tool === 'line' && t.wireDraft.length) return finishLine()
     if (gestureRef.current?.kind === 'shapeCreate') return setGesture(null)
-    const id = hitId(e.target)
+    const id = wiringHitStack(page, toWorld(e), s)[0]?.id
+    hitCycle.current = null
     const sel = useSelectionStore.getState()
     if (id && !sel.ids.includes(id)) sel.set([id])
     useUiStore.getState().openContextMenu(e.clientX, e.clientY, GRAPHIC_CONTEXT_MENU)

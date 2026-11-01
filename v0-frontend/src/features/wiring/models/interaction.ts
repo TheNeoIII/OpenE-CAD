@@ -1,6 +1,6 @@
 import type { CadTool } from '@/stores/toolStore'
 
-/** Object type a drawing tool creates. Clicking an existing object of that type selects it instead. */
+/** Object type a drawing tool creates; only edit hits intercept creation. */
 export const TOOL_OBJECT_TYPE: Partial<Record<CadTool, string>> = {
   connection: 'connection',
   rect: 'rectangle',
@@ -12,14 +12,11 @@ export const TOOL_OBJECT_TYPE: Partial<Record<CadTool, string>> = {
 
 export const toolMatchesType = (tool: CadTool, type: string | undefined) => !!type && TOOL_OBJECT_TYPE[tool] === type
 
-/**
- * Pointer-down decision of a drawing tool.
- * - same object type under cursor → select/move it (no new object)
- * - Ctrl/Cmd held → always create (draw over an existing object)
- * - a running line draft keeps adding points
- */
-export function toolPointerIntent(o: { tool: CadTool; hitType?: string; forceCreate?: boolean; drafting?: boolean }): 'select' | 'create' {
-  if (o.forceCreate || o.drafting) return 'create'
+/** Explicit handles/ports are safe edit targets even with ForceCreate. */
+export function toolPointerIntent(o: { tool: CadTool; hitType?: string; hitKind?: 'interior' | 'boundary' | 'stroke' | 'label' | 'port' | 'handle'; forceCreate?: boolean; drafting?: boolean }): 'select' | 'create' | 'edit' {
+  if (o.drafting) return 'create'
+  if (o.hitKind === 'handle' || o.hitKind === 'port') return 'edit'
+  if (o.forceCreate || o.hitKind === 'interior') return 'create'
   return toolMatchesType(o.tool, o.hitType) ? 'select' : 'create'
 }
 

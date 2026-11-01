@@ -52,7 +52,9 @@ Prefer small, targeted changes over broad rewrites or refactors.
 - Snapping must affect the committed geometry, not only the visual snap indicator.
 - The visual snap indicator and the actual committed point must always agree.
 - Hard graphic anchors (port/endpoint) must never be displaced by angle constraints. Displaced soft snaps must not retain misleading snap metadata.
-- Visible grid dots may thin at low zoom; the snap lattice remains world-stable at gridSize.
+- Grid and snapping are defined in world coordinates and never change with viewport zoom or pan. Render every gridSize point; only dot radius/opacity adapt.
+- Drawing-tool interior hits must not prevent creating nested graphics; explicit borders/handles remain editable.
+- Overlapping graphical objects must remain individually selectable through geometric hit stacks and repeated-click cycling.
 - Wiring CadLine stays purely graphical: snapping to a port creates no semantic connection or binding.
 - Rectangle creation must commit the snapped release/end point when snapping is active, not the raw pointer position.
 - Line/wire creation must preserve its existing click-based workflow and snapping behaviour.
