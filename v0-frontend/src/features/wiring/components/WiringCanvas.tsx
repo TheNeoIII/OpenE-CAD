@@ -65,7 +65,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
   const selection = useSelectionStore((s) => s.ids)
   const rawTool = useToolStore((s) => s.tool)
   const draft = useToolStore((s) => s.wireDraft)
-  const gridSize = useSettingsStore((s) => s.gridSize)
+  const snapGridSize = useSettingsStore((s) => s.snapGridSize)
   const gridSnap = useSettingsStore((s) => s.snap)
   const [gesture, renderGesture] = useState<Gesture | null>(null)
   const gestureRef = useRef<Gesture | null>(null)
@@ -152,7 +152,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
         const ids = useSelectionStore.getState().ids
         if (!ids.length) return
         swallow()
-        const step = e.shiftKey ? 10 : useSettingsStore.getState().gridSize
+        const step = e.shiftKey ? 10 : useSettingsStore.getState().snapGridSize
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
         moveWiringObjects(ids, dx, dy)
@@ -176,7 +176,7 @@ function WiringCanvasInner({ page }: { page: CadPage }) {
 
   const s = scaleOf(view)
   const unit = 1 / s
-  const gridStep = gridSize
+  const gridStep = snapGridSize
   const toWorld = (e: { clientX: number; clientY: number }) => {
     const r = ref.current!.getBoundingClientRect()
     return screenToWorld(view, e.clientX - r.left, e.clientY - r.top)

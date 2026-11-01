@@ -194,7 +194,7 @@ function CanvasInner({ page }: { page: CadPage }) {
         const sel = useSelectionStore.getState()
         if (!sel.ids.length) return
         swallow()
-        const step = e.shiftKey ? 10 : useSettingsStore.getState().gridSize
+        const step = e.shiftKey ? 10 : useSettingsStore.getState().snapGridSize
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
         const seg = sel.segment
@@ -259,7 +259,7 @@ function CanvasInner({ page }: { page: CadPage }) {
   if (!view) return <div ref={ref} className="relative flex-1 overflow-hidden bg-[var(--sheet-desk)]" />
 
   const s = scaleOf(view)
-  const gridStep = settings.gridSize
+  const gridStep = settings.snapGridSize
   const local = (e: { clientX: number; clientY: number }) => {
     const r = ref.current!.getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top }
