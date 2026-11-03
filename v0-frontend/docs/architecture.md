@@ -44,7 +44,7 @@
 - `src/components/shell/` – MenuBar, CommandPalette, StatusBar, ProjectTabs, Overlays.
 - `src/components/dialogs/` – dialogs; `SchematicDialogs.tsx` holds schematic ones (e.g. cross-reference).
 - `src/components/ui/` – local primitives (Dialog, MenuList, primitives). No shadcn.
-- `src/backend/` – `OpenEcadBackend` interface with capabilities and optional account boundary; `HttpOpenEcadBackend` always in production (same-origin `/api`, credentials/CSRF/error handling). `MockOpenEcadBackend` only in development, sample CAD data in `mock/`; set `VITE_OPENECAD_BACKEND=http` to develop against Rust. `TauriOpenEcadBackend` retained but never imported by the web entrypoint.
+- `src/backend/` – `OpenEcadBackend` interface with capabilities and optional account boundary; `HttpOpenEcadBackend` always in production (same-origin `/api`, credentials/CSRF/error handling). `MockOpenEcadBackend` only in development, sample CAD data in `mock/`; set `VITE_OPENECAD_BACKEND=http` to develop against Rust. Production builds with `VITE_OPENECAD_DEMO=true` (and without `VITE_OPENECAD_BACKEND=http`) ship the mock as a public demo: preview entry plus Mock Admin/User switch, sample data only, nothing persisted, no real accounts. `TauriOpenEcadBackend` retained but never imported by the web entrypoint.
 - `src/utils/` – page naming/organization (`pages.ts`, `pageOrganization.ts`, `docPages.ts`), `format.ts`, `cn.ts`.
 
 ## State management

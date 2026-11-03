@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import useSWR from 'swr'
-import { backend } from '@/backend'
+import { backend, demoMode, mockIdentitiesEnabled } from '@/backend'
 import { Badge } from '@/components/ui/primitives'
 import { AccountMenu } from './AccountMenu'
 import { AdminArea, type AdminTab } from './admin/AdminArea'
@@ -25,12 +25,12 @@ export function AccountBoundary({ children }: { children: ReactNode }) {
     window.addEventListener('openecad:session-expired', expire)
     return () => window.removeEventListener('openecad:session-expired', expire)
   }, [])
-  const development = import.meta.env.DEV && !backend.capabilities.authentication
+  const development = mockIdentitiesEnabled && !backend.capabilities.authentication
   const setUser = useAccountStore((s) => s.setUser)
   const user = useAccountStore((s) => s.user)
   useEffect(() => {
     if (session?.user) setUser(session.user)
-    else if (preview && import.meta.env.DEV && backend.dev) setUser(backend.dev.current())
+    else if (preview && mockIdentitiesEnabled && backend.dev) setUser(backend.dev.current())
     else setUser(null)
   }, [session, preview, setUser])
   if (isLoading) return <main className="flex min-h-dvh items-center justify-center bg-app text-fg" role="status">Session wird geprüft …</main>
@@ -48,7 +48,7 @@ export function AccountBoundary({ children }: { children: ReactNode }) {
   }
   return <div className="flex h-dvh flex-col bg-app text-fg">
     <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-panel px-3 py-1 text-xs">
-      <div className="flex items-center gap-2"><span>{user?.displayName ?? 'Entwicklungsvorschau (nicht angemeldet)'}</span>{user?.roles.map((role) => <Badge key={role}>{role}</Badge>)}{development && <Badge tone="warn">Development-only · nicht angemeldet</Badge>}{development && <DevIdentitySwitch />}</div>
+      <div className="flex items-center gap-2"><span>{user?.displayName ?? 'Entwicklungsvorschau (nicht angemeldet)'}</span>{user?.roles.map((role) => <Badge key={role}>{role}</Badge>)}{development && <Badge tone="warn">{demoMode ? 'Demo · Beispieldaten, nichts wird gespeichert' : 'Development-only · nicht angemeldet'}</Badge>}{development && <DevIdentitySwitch />}</div>
       <AccountMenu onSecurity={() => setSecurity(true)} onImport={() => setImportOpen(true)} onAdmin={setAdminTab} onLogout={() => void logout()} logoutLabel={development ? 'Vorschau verlassen' : 'Abmelden'} busy={busy} />
       {error && <p role="alert" className="w-full text-error">{error}</p>}
     </header>

@@ -1,12 +1,12 @@
-import { backend } from '@/backend'
+import { backend, mockIdentitiesEnabled } from '@/backend'
 import { useAccountStore } from '@/stores/accountStore'
 
-/** Development-only: lets v0/dev previews render as Mock Admin or Mock User. Not authentication. */
+/** Dev/demo-only: lets previews render as Mock Admin or Mock User. Not authentication. */
 export function DevIdentitySwitch() {
   const user = useAccountStore((s) => s.user)
   const setUser = useAccountStore((s) => s.setUser)
   const dev = backend.dev
-  if (!import.meta.env.DEV || !dev) return null
+  if (!mockIdentitiesEnabled || !dev) return null
   return (
     <label className="flex items-center gap-1.5 rounded border border-dashed border-warn/60 px-1.5 py-0.5 text-warn">
       <span>Mock-Identität</span>
